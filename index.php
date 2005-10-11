@@ -107,29 +107,13 @@ include($docsys_root_path . 'readdb.' . $phpEx);
 
 // Load the HTML QuickForm class
 
-include($docsys_root_path . 'HTML/QuickForm.php');
+include('HTML/QuickForm.php');
 
 // HTML header and main menu
 
 require("../header.tpl");
 
 echo <<<ENDHTML
-<style type="text/css">
-<!--
-#main th   { font-weight: bold; background-color: #D3DCE3}
-#main h1   { text-align: center; background-color: rgb(255, 102, 0); }
-#main h2   { text-align: center; background-color: rgb(255, 204, 51); }
-#main h3   { text-align: left; background-color: rgb(255, 204, 102); }
-#main A:link        { text-decoration: none; color: #0000FF }
-#main A:visited     { text-decoration: none; color: #0000FF }
-#main A:hover       { text-decoration: underline; color: #FF0000 }
-#main A:link.nav    { color: #000000 }
-#main A:visited.nav { color: #000000 }
-#main A:hover.nav   { color: #FF0000 }
-#main .nav          { color: #000000 }
-//-->
-</style>
-
 <h1>File Format Browser</h1>
 
 <p align="center">
