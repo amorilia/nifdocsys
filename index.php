@@ -64,13 +64,12 @@
  *  - security enhancements
  */
 
-define('DEBUG', true);
-
 define('IN_PHPBB', true);
+
 $phpbb_root_path = '../forum/';
+$docsys_root_path = './';
 include($phpbb_root_path . 'extension.inc');
 include($phpbb_root_path . 'common.'.$phpEx);
-$docsys_root_path = './';
 include($docsys_root_path . 'common.'.$phpEx);
 
 //
@@ -159,7 +158,7 @@ if ( $mode === "list" and $table === "block" ) {
 	echo "<td>yes</td>\n";
       else
 	echo "<td>no</td>\n";
-      echo "<td>" . htmlify( $block_description[$b_id] ) . "</td>\n";
+      echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
       if ( $docsys_admin ) {
 	echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
 	echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
@@ -202,7 +201,7 @@ if ( $mode === "list" and $table === "block" ) {
       if ( $block_category[$b_id] !== 2 ) continue;
       echo '<tr bgcolor="' . $bgcol . '">' . "\n";
       echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
-      echo "<td>" . htmlify( $block_description[$b_id] ) . "</td>\n";
+      echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
       if ( $docsys_admin ) {
 	echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
 	echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
@@ -246,7 +245,7 @@ END;
       if ( $block_category[$b_id] !== 3 ) continue;
       echo '<tr bgcolor="' . $bgcol . '">' . "\n";
       echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
-      echo "<td>" . htmlify( $block_description[$b_id] ) . "</td>\n";
+      echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
       if ( $block_parent_id[$b_id] !== null )
 	echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $block_parent_id[$b_id] . '"><b>' . htmlify( $block_parent_name[$b_id] ) . "</b></a></td>\n";
       else
@@ -278,7 +277,7 @@ if ( $mode === "list" and $table === "attr" ) {
     echo "<h2>" . htmlify( $block_name[$req_block_id] ) . ' ::  <a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $block_parent_id[$req_block_id] . '">' . htmlify( $block_parent_name[$req_block_id]). "</a></h2>\n";
   else
     echo "<h2>" . htmlify( $block_name[$req_block_id] ) . ' ::  <a href="index.php?mode=list&amp;table=block&amp;view=hier">(None)</a></h2>' . "\n";
-  echo "<p>" . htmlify( $block_description[$req_block_id] ) . "</p>\n";
+  echo "<p>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$req_block_id] ) ) . "</p>\n";
 
   // Block derived classes.
 
@@ -382,12 +381,12 @@ if ( $mode === "edit" and $table === "block" ) {
   
   // Now we can do the edit type form.
 
-  $form = new HTML_QuickForm('edit', 'get');
+  $form = new HTML_QuickForm('edit', 'post');
   $form->addElement('hidden', 'mode', 'action'); // bug? ... why does this not work? workaround in code: check for action parameter
   $form->addElement('hidden', 'table', 'block');
   $form->addElement('hidden', 'block_category', $b_category);
   $form->addElement('text', 'block_name', 'Name:', array('size' => 50, 'maxlength' => 64 ));
-  $form->addElement('textarea', 'block_description', 'Description:', array('rows' => 3, 'cols' => 50, 'maxlength' => 256 ));
+  $form->addElement('textarea', 'block_description', 'Description:', array('rows' => 3, 'cols' => 50 ));
   if ( $b_category === 3 )
     $form->addElement('select', 'block_parent_id', 'Parent:', $parent_id_table );
   else
@@ -403,7 +402,7 @@ if ( $mode === "edit" and $table === "block" ) {
   $form->addRule('block_name', 'Name too long', 'maxlength', 64, 'client');
   //$form->addRule('block_name', 'Invalid characters in name', 'regex', REGEX_NAME, 'client'); // bug in html_quickform
   $form->addRule('block_description', 'Please enter a description', 'required', null, 'client');
-  $form->addRule('block_description', 'Description too long', 'maxlength', 256, 'client');
+  $form->addRule('block_description', 'Description too long (max 2048 characters)', 'maxlength', 2048, 'client');
   //$form->addRule('block_description', 'Invalid characters in description', 'regex', REGEX_DESC, 'client'); // bug in html_quickform
   $form->setDefaults( array( 'block_name' => $b_name,
 			     'block_description' => $b_description,
@@ -526,7 +525,7 @@ if ( $mode === "edit" and $table === "attr" ) {
 
   // Now do the edit attribute form.
 
-  $form = new HTML_QuickForm('edit', 'get');
+  $form = new HTML_QuickForm('edit', 'post');
   $form->addElement('hidden', 'mode', 'action'); // BUG!!! aaargh... why does this not work? workaround in code: check for action parameter
   $form->addElement('hidden', 'table', 'attr');
   $form->addElement('hidden', 'attr_parent_id', $req_block_id);
@@ -561,7 +560,7 @@ if ( $mode === "edit" and $table === "attr" ) {
   $form->addRule('attr_name', 'Name too long', 'maxlength', 64, 'client');
   //$form->addRule('attr_name', 'Invalid characters in name', 'regex', REGEX_NAME, 'client'); // bug in html_quickform
   $form->addRule('attr_description', 'Please enter a description', 'required', null, 'client');
-  $form->addRule('attr_description', 'Description too long', 'maxlength', 256, 'client');
+  $form->addRule('attr_description', 'Description too long (max 256 characters)', 'maxlength', 256, 'client');
   //$form->addRule('attr_description', 'Invalid characters in description', 'regex', REGEX_DESC, 'client'); // bug in html_quickform
   $form->addRule('attr_cond_val', 'Please enter a conditional value', 'numerical', null, 'client');
   $form->addRule('attr_arr1_num', 'Leave empty, or enter a numerical value for the 1st array index', 'numerical', null, 'client');
@@ -609,7 +608,7 @@ function display_children( $b_category, $b_parent_id ) {
 	echo '<a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a> | ";
       else
 	echo '<b>' . htmlify( $block_name[$b_id] ) . "</b> | ";
-      echo htmlify( $block_description[$b_id] ); 
+      echo ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ); 
       if ( $docsys_admin ) {
 	echo " | ";
 	echo '<a href="index.php?mode=edit&amp;table=block&amp;block_id=' .$b_id . '">Edit</a>' . " | ";
