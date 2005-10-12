@@ -137,90 +137,86 @@ if ( $mode === "list" and $table === "block" ) {
   
   // Display basic types
   
-  if ( $docsys_admin )
+  if ( $docsys_admin ) {
     echo '<h2>Basic types (<a href="index.php?mode=edit&amp;table=block&amp;block_category=0">New Count</a>, <a href="index.php?mode=edit&amp;table=block&amp;block_category=1">New Non-Count</a>)</h2>' . "\n";
-  else
-    echo "<h2>Basic types</h2>\n";
-  
-  if ( $view === "alpha" ) {
-    echo "<table>\n";
-    echo "<tr>\n";
-    echo "<th>Name</th>\n";
-    echo "<th>Count</th>\n";
-    echo "<th>Description</th>\n";
-    if ( $docsys_admin ) echo '<th colspan="2">Admin</th>' . "\n";
-    echo "</tr>\n";
-
-    $bgcol = 'reg0';
-    foreach ( $block_ids as $b_id ) {
-      if ( $block_category[$b_id] >= 2 ) continue;
-      echo '<tr class="' . $bgcol . '">' . "\n";
-      echo "<td><b>" . htmlify( $block_name[$b_id] ) . "</b></td>\n";
-      if ( $block_category[$b_id] === 0 )
-	echo "<td>yes</td>\n";
-      else
-	echo "<td>no</td>\n";
-      echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
-      if ( $docsys_admin ) {
-	echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
-	echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
-      };
+    
+    if ( $view === "alpha" ) {
+      echo "<table>\n";
+      echo "<tr>\n";
+      echo "<th>Name</th>\n";
+      echo "<th>Count</th>\n";
+      echo "<th>Description</th>\n";
+      if ( $docsys_admin ) echo '<th colspan="2">Admin</th>' . "\n";
       echo "</tr>\n";
-      if ($bgcol === 'reg0') {
-	$bgcol = 'reg1';
-      } else {
-	$bgcol = 'reg0';
+      
+      $bgcol = 'reg0';
+      foreach ( $block_ids as $b_id ) {
+	if ( $block_category[$b_id] >= 2 ) continue;
+	echo '<tr class="' . $bgcol . '">' . "\n";
+	echo "<td><b>" . htmlify( $block_name[$b_id] ) . "</b></td>\n";
+	if ( $block_category[$b_id] === 0 )
+	  echo "<td>yes</td>\n";
+	else
+	  echo "<td>no</td>\n";
+	echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
+	if ( $docsys_admin ) {
+	  echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
+	  echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
+	};
+	echo "</tr>\n";
+	if ($bgcol === 'reg0') {
+	  $bgcol = 'reg1';
+	} else {
+	  $bgcol = 'reg0';
+	};
       };
+      echo "</table>\n";
+    } else if ( $view === "hier" ) {
+      echo "<ul>\n<li>\nCount:\n";
+      display_children( 0, null );
+      echo "</li>\n<li>\nNon-Count:\n";
+      display_children( 1, null );
+      echo "</li>\n</ul>\n";
     };
-    echo "</table>\n";
-  } else if ( $view === "hier" ) {
-    echo "<ul>\n<li>\nCount:\n";
-    display_children( 0, null );
-    echo "</li>\n<li>\nNon-Count:\n";
-    display_children( 1, null );
-    echo "</li>\n</ul>\n";
   };
 
   // Display compound types
   
-  if ( $docsys_admin )
+  if ( $docsys_admin ) {
     echo '<h2>Compound types (<a href="index.php?mode=edit&amp;table=block&amp;block_category=2">New</a>)</h2>' . "\n";
-  else
-    echo "<h2>Compound types</h2>\n";
-  
-  if ( $view === "alpha" ) {
-
-    // Now build type table.
     
-    echo "<table>\n";
-    echo "<tr>\n";
-    echo "<th>Name</th>\n";
-    echo "<th>Description</th>\n";
-    if ( $docsys_admin ) echo '<th colspan="2">Admin</th>' . "\n";
-    echo "</tr>\n";
-    $bgcol = 'reg0';
-    foreach ( $block_ids as $b_id ) {
-      if ( $block_category[$b_id] !== 2 ) continue;
-      echo '<tr class="' . $bgcol . '">' . "\n";
-      echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
-      echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
-      if ( $docsys_admin ) {
-	echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
-	echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
-      };
+    if ( $view === "alpha" ) {
+      
+      // Now build type table.
+      
+      echo "<table>\n";
+      echo "<tr>\n";
+      echo "<th>Name</th>\n";
+      echo "<th>Description</th>\n";
+      if ( $docsys_admin ) echo '<th colspan="2">Admin</th>' . "\n";
       echo "</tr>\n";
-      if ($bgcol === 'reg0') {
-	$bgcol = 'reg1';
-      } else {
-	$bgcol = 'reg0';
+      $bgcol = 'reg0';
+      foreach ( $block_ids as $b_id ) {
+	if ( $block_category[$b_id] !== 2 ) continue;
+	echo '<tr class="' . $bgcol . '">' . "\n";
+	echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
+	echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
+	if ( $docsys_admin ) {
+	  echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
+	  echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
+	};
+	echo "</tr>\n";
+	if ($bgcol === 'reg0') {
+	  $bgcol = 'reg1';
+	} else {
+	  $bgcol = 'reg0';
+	};
       };
+      echo "</table>\n";
+    } else if ( $view === "hier" ) {
+      // Parse the hierarchy.
+      display_children( 2, null );
     };
-    echo <<<END
-</table>
-END;
-  } else if ( $view === "hier" ) {
-    // Parse the hierarchy.
-    display_children( 2, null );
   };
 
   // Display block types
@@ -263,9 +259,7 @@ END;
 	$bgcol = 'reg0';
       };
     };
-    echo <<<END
-</table>
-END;
+    echo "</table>\n";
   } else if ( $view === "hier" ) {
     // Parse the hierarchy.
     display_children( 3, null );
@@ -311,35 +305,38 @@ if ( $mode === "list" and $table === "attr" ) {
     if ( $is_attribute_of ) echo "</ul>\n";
   };
 
+  
   // Block attributes.
-
-  if ( $docsys_admin ) {
-    echo '<h3>Attributes (<a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '">New Regular</a>';
-    // Present option to create external attribute, if we have none.
-    if ( $block_category[$req_block_id] === 2 ) // only compound types can have have external attributes
-      if ( ( ! $block_attributes[$req_block_id] ) or $attr_precedence[$block_attributes[$req_block_id][0]] !== -1 ) // must have no external attributes yet
-	echo ', <a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '&amp;attr_precedence=-1">New External</a>';
-    echo ") </h3>\n";
-  } else
-    echo "<h3>Attributes</h3>\n";
-
-  // Build attribute table.
-  echo "<table>\n";
-  echo "<tr>\n";
-  echo "<th>Name</th>\n";
-  echo "<th>Type</th>\n";
-  echo "<th>Arg</th>\n";
-  echo "<th>Arr1</th>\n";
-  echo "<th>Arr2</th>\n";
-  echo "<th>Cond</th>\n";
-  echo "<th>Val</th>\n";
-  echo "<th>Description</th>\n";
-  if ( $docsys_admin ) echo '<th colspan="3">Admin</th>' . "\n";
-  echo "</tr>\n";
-
-  display_attributes( $req_block_id, true, 0 );
-
-  echo "</table>\n";
+  if ( $block_category[$req_block_id] >= 2 ) {
+    
+    if ( $docsys_admin ) {
+      echo '<h3>Attributes (<a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '">New Regular</a>';
+      // Present option to create external attribute, if we have none.
+      if ( $block_category[$req_block_id] === 2 ) // only compound types can have have external attributes
+	if ( ( ! $block_attributes[$req_block_id] ) or $attr_precedence[$block_attributes[$req_block_id][0]] !== -1 ) // must have no external attributes yet
+	  echo ', <a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '&amp;attr_precedence=-1">New External</a>';
+      echo ") </h3>\n";
+    } else
+      echo "<h3>Attributes</h3>\n";
+    
+    // Build attribute table.
+    echo "<table>\n";
+    echo "<tr>\n";
+    echo "<th>Name</th>\n";
+    echo "<th>Type</th>\n";
+    echo "<th>Arg</th>\n";
+    echo "<th>Arr1</th>\n";
+    echo "<th>Arr2</th>\n";
+    echo "<th>Cond</th>\n";
+    echo "<th>Val</th>\n";
+    echo "<th>Description</th>\n";
+    if ( $docsys_admin ) echo '<th colspan="3">Admin</th>' . "\n";
+    echo "</tr>\n";
+    
+    display_attributes( $req_block_id, true, 0 );
+    
+    echo "</table>\n";
+  };
 };
 
 /*
@@ -644,10 +641,10 @@ function display_attributes( $b_id, $active, $count ) {
 
     echo '<tr class="' . $bgcol . '">' . "\n";
     echo "<td><i>" . htmlify( $attr_name[$a_id] ) . "</i></td>\n";
-    if ( $block_category[ $attr_type_id[$a_id] ] >= 2 )
-      echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $attr_type_id[$a_id] . '"><b>' . htmlify( $attr_type_name[$a_id] ) . "</b></a></td>\n";
-    else
-      echo '<td><b>' . htmlify( $attr_type_name[$a_id] ) . "</b></td>\n";
+    //if ( $block_category[ $attr_type_id[$a_id] ] >= 2 )
+    echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $attr_type_id[$a_id] . '"><b>' . htmlify( $attr_type_name[$a_id] ) . "</b></a></td>\n";
+    //else
+    //echo '<td><b>' . htmlify( $attr_type_name[$a_id] ) . "</b></td>\n";
     if ( $attr_arg_id[$a_id] !== null )
       echo "<td><i>" . htmlify( $attr_arg_name[$a_id] ) . "</i></td>\n";
     else

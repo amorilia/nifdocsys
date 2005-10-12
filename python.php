@@ -17,7 +17,22 @@ include($docsys_root_path . 'sortdb.' . $phpEx);
 
 require("../header.tpl");
 
-echo "<pre>\n";
+echo <<<ENDHTML
+<h1>File Format Browser - Python</h1>
+
+<p align="center">
+<a href="index.php?mode=list&amp;table=block&amp;view=hier">Hierarchical</a>
+|
+<a href="index.php?mode=list&amp;table=block&amp;view=alpha">Alphabetical</a>
+|
+<a href="cstyle.php">C-Style</a>
+|
+<a href="python.php">Python</a>
+</p>
+
+<pre>
+
+ENDHTML;
 
 /**
  *  python file header, and definition of low-level classes
@@ -128,7 +143,7 @@ function python_code( $txt )
 // result always ends with a newline
 function python_comment( $txt )
 {
-  return python_code ( "# " . ereg_replace( "\n", "\n# ", wordwrap( $txt ) ) );
+  return "<span class=\"comment\">" . python_code ( "# " . ereg_replace( "\n", "\n# ", htmlify( wordwrap( $txt ) ) ) ) . "</span>";
 }
 
 // this returns self.$objectname if it's a class variable, $objectname
@@ -430,7 +445,7 @@ function htmlify( $txt )
 foreach ( $block_ids_sort as $block_id ) {
   if ( $block_category[$block_id] < 2 ) continue;
   // description
-  echo htmlify( python_comment( "\n" . $block_description[$block_id] . "\n" ) );
+  echo python_comment( "\n" . $block_description[$block_id] . "\n" );
   // class header
   if ( $block_parent_id[$block_id] )
     echo htmlify( python_code ( "class $block_cname[$block_id]($block_parent_cname[$block_id]):" ) );
@@ -444,7 +459,7 @@ foreach ( $block_ids_sort as $block_id ) {
   if ( $block_attributes[$block_id] ) {
     // in python, members are defined in the constructor
     // so that's what we start with
-    echo htmlify( python_comment ( "constructor" ) );
+    echo python_comment ( "constructor" );
     if ( $attr_precedence[$block_attributes[$block_id][0]] == -1 )
       echo htmlify( python_code ( "def __init__(self, init_arg):" ) );
     else
@@ -459,7 +474,7 @@ foreach ( $block_ids_sort as $block_id ) {
     // here we iterate over all rows
     foreach ( $block_attributes[$block_id] as $attr_id ) {
       if ( $attr_description[$attr_id] )
-	echo htmlify( python_comment( $attr_description[$attr_id] ) );
+	echo python_comment( $attr_description[$attr_id] );
       if ( $attr_precedence[$attr_id] == -1 )
 	echo htmlify( python_code( "self.$attr_cname[$attr_id] = init_arg" ) );
       else
@@ -474,9 +489,9 @@ foreach ( $block_ids_sort as $block_id ) {
 
     // read from file
     if ( $block_is_abstract[$block_id] )
-      echo htmlify( python_comment ( "read from file" ) );
+      echo python_comment ( "read from file" );
     else
-      echo htmlify( python_comment ( "read from file, excluding type string" ) );
+      echo python_comment ( "read from file, excluding type string" );
     echo htmlify( python_code ( "def read(self, file):" ) );
     $indent++;
     // call base class reader
@@ -497,9 +512,9 @@ foreach ( $block_ids_sort as $block_id ) {
     
     // write to file
     if ( $block_is_abstract[$block_id] )
-      echo htmlify( python_comment ( "write to file" ) );
+      echo python_comment ( "write to file" );
     else
-      echo htmlify( python_comment ( "write to file, including type string" ) );
+      echo python_comment ( "write to file, including type string" );
     echo htmlify( python_code ( "def write(self, file):" ) );
     $indent++;
     // non-abstract blocks (which have no children), first write a block_type string variable
@@ -522,7 +537,7 @@ foreach ( $block_ids_sort as $block_id ) {
     echo "\n\n\n";
     
     // dump to screen
-    echo htmlify( python_comment ( "dump to screen" ) );
+    echo python_comment ( "dump to screen" );
     echo htmlify( python_code ( "def __str__(self):" ) );
     $indent++;
     // non-abstract blocks (which have no children), dump their block_type string variable
