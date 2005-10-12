@@ -17,28 +17,7 @@ include($docsys_root_path . 'sortdb.' . $phpEx);
 
 require("../header.tpl");
 
-echo <<<ENDHTML
-<style type="text/css">
-<!--
-#main th   { font-weight: bold; background-color: #D3DCE3}
-#main h1   { text-align: center; background-color: rgb(255, 102, 0); }
-#main h2   { text-align: center; background-color: rgb(255, 204, 51); }
-#main h3   { text-align: left; background-color: rgb(255, 204, 102); }
-#main A:link        { text-decoration: none; color: #0000FF }
-#main A:visited     { text-decoration: none; color: #0000FF }
-#main A:hover       { text-decoration: underline; color: #FF0000 }
-#main A:link.nav    { color: #000000 }
-#main A:visited.nav { color: #000000 }
-#main A:hover.nav   { color: #FF0000 }
-#main .nav          { color: #000000 }
-//-->
-</style>
-
-<h1>File Format Browser - Python</h1>
-
-<pre>
-
-ENDHTML;
+echo "<pre>\n";
 
 /**
  *  python file header, and definition of low-level classes
@@ -149,7 +128,7 @@ function python_code( $txt )
 // result always ends with a newline
 function python_comment( $txt )
 {
-  return python_code ( "# " . ereg_replace( "\n", "\n# ", $txt ) );
+  return python_code ( "# " . ereg_replace( "\n", "\n# ", wordwrap( $txt ) ) );
 }
 
 // this returns self.$objectname if it's a class variable, $objectname
@@ -596,7 +575,8 @@ class mystring(string):
 class NiHeader:
     # constructor
     def __init__(self):
-        # Morrowind files read: "NetImmerse File Format, Version 4.0.0.2" (followed by a line feed (0x0A) which we however do not store)
+        # Morrowind files read: "NetImmerse File Format, Version 4.0.0.2"
+        # (followed by a line feed (0x0A) which we however do not store)
         self.headerstr = "NetImmerse File Format, Version 4.0.0.2"
         # Morrowind files say: 0x04000002
         self.version = 0x04000002
@@ -774,7 +754,7 @@ echo htmlify( <<<END
     # writing all the data
     def write(self, file):
         if (self.header.nblocks != len(self.blocks)):
-            raise NIFError("Invalid NIF object: number of blocks as specified in the header does not correspond to the actual number of blocks.")
+            raise NIFError("Invalid NIF object: wrong number of blocks specified in header.")
         self.header.write(file)
         for block in self.blocks:
             block.write(file)

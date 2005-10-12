@@ -62,6 +62,8 @@
  *  - separated mysql part, code runs now much faster
  *  - authentication (using phpbb cookie)
  *  - security enhancements
+ * 0.6 (Amorilia, Oct 11, 2005):
+ *  - added support for long block descriptions with line breaks
  */
 
 define('IN_PHPBB', true);
@@ -149,10 +151,10 @@ if ( $mode === "list" and $table === "block" ) {
     if ( $docsys_admin ) echo '<th colspan="2">Admin</th>' . "\n";
     echo "</tr>\n";
 
-    $bgcol = '#CCCCCC';
+    $bgcol = 'reg0';
     foreach ( $block_ids as $b_id ) {
       if ( $block_category[$b_id] >= 2 ) continue;
-      echo '<tr bgcolor="' . $bgcol . '">' . "\n";
+      echo '<tr class="' . $bgcol . '">' . "\n";
       echo "<td><b>" . htmlify( $block_name[$b_id] ) . "</b></td>\n";
       if ( $block_category[$b_id] === 0 )
 	echo "<td>yes</td>\n";
@@ -164,10 +166,10 @@ if ( $mode === "list" and $table === "block" ) {
 	echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
       };
       echo "</tr>\n";
-      if ($bgcol === '#CCCCCC') {
-	$bgcol = '#DDDDDD';
+      if ($bgcol === 'reg0') {
+	$bgcol = 'reg1';
       } else {
-	$bgcol = '#CCCCCC';
+	$bgcol = 'reg0';
       };
     };
     echo "</table>\n";
@@ -196,10 +198,10 @@ if ( $mode === "list" and $table === "block" ) {
     echo "<th>Description</th>\n";
     if ( $docsys_admin ) echo '<th colspan="2">Admin</th>' . "\n";
     echo "</tr>\n";
-    $bgcol = '#CCCCCC';
+    $bgcol = 'reg0';
     foreach ( $block_ids as $b_id ) {
       if ( $block_category[$b_id] !== 2 ) continue;
-      echo '<tr bgcolor="' . $bgcol . '">' . "\n";
+      echo '<tr class="' . $bgcol . '">' . "\n";
       echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
       echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
       if ( $docsys_admin ) {
@@ -207,10 +209,10 @@ if ( $mode === "list" and $table === "block" ) {
 	echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
       };
       echo "</tr>\n";
-      if ($bgcol === '#CCCCCC') {
-	$bgcol = '#DDDDDD';
+      if ($bgcol === 'reg0') {
+	$bgcol = 'reg1';
       } else {
-	$bgcol = '#CCCCCC';
+	$bgcol = 'reg0';
       };
     };
     echo <<<END
@@ -240,10 +242,10 @@ END;
     if ( $docsys_admin ) echo '<th colspan="2">Admin</th>' . "\n";
     echo "</tr>\n";
 
-    $bgcol = '#CCCCCC';
+    $bgcol = 'reg0';
     foreach ( $block_ids as $b_id ) {
       if ( $block_category[$b_id] !== 3 ) continue;
-      echo '<tr bgcolor="' . $bgcol . '">' . "\n";
+      echo '<tr class="' . $bgcol . '">' . "\n";
       echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
       echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
       if ( $block_parent_id[$b_id] !== null )
@@ -255,10 +257,10 @@ END;
 	echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
       };
       echo "</tr>\n";
-      if ($bgcol === '#CCCCCC') {
-	$bgcol = '#DDDDDD';
+      if ($bgcol === 'reg0') {
+	$bgcol = 'reg1';
       } else {
-	$bgcol = '#CCCCCC';
+	$bgcol = 'reg0';
       };
     };
     echo <<<END
@@ -496,14 +498,6 @@ if ( $mode === "edit" and $table === "attr" ) {
       unset( $type_table[$key] );
   };
   
-  /*** DEBUG
-  foreach ( $type_table as $key => $value )
-    echo htmlify( "\$type_table[" . $key ) . "]=" . htmlify( $value ) . "<br />";
-  foreach ( $type_arg_table as $key => $value )
-    foreach ( $value as $key2 => $value2 )
-      echo htmlify( "\$type_arg_table[" . $key ) . "][" . htmlify( $key2 ) . "]=" . htmlify( $value2 ) . "<br />";
-  ***/
-
   // Construct map: attr_id => name, for all count attributes.
 
   if ( $a_arr1_id !== null )
@@ -605,15 +599,14 @@ function display_children( $b_category, $b_parent_id ) {
     foreach ( $list as $b_id ) {
       echo "<li>\n";
       if ( $b_category >= 2 )
-	echo '<a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a> | ";
+	echo '<a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a>";
       else
-	echo '<b>' . htmlify( $block_name[$b_id] ) . "</b> | ";
-      echo ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ); 
-      if ( $docsys_admin ) {
-	echo " | ";
-	echo '<a href="index.php?mode=edit&amp;table=block&amp;block_id=' .$b_id . '">Edit</a>' . " | ";
-	echo '<a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a>' . "\n";
-      };
+	echo '<b>' . htmlify( $block_name[$b_id] ) . "</b>";
+      if ( $docsys_admin )
+	echo "\n | " . '<a href="index.php?mode=edit&amp;table=block&amp;block_id=' .$b_id . '">Edit</a>';
+      echo "\n | " . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ); 
+      if ( $docsys_admin )
+	echo "\n | " . '<a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a>';
       display_children( $b_category, $b_id );
       echo "</li>\n";
     };
@@ -638,18 +631,18 @@ function display_attributes( $b_id, $active, $count ) {
   foreach ( $block_attributes[$b_id] as $a_id ) {
     if ( $active ) {
       if ( ($count & 1) === 0 )
-	$bgcol = '#CCCCCC';
+	$bgcol = 'reg0';
       else
-	$bgcol = '#DDDDDD';
+	$bgcol = 'reg1';
     } else {
       if ( ($count & 1) === 0 )
-	$bgcol = '#CCAAAA';
+	$bgcol = 'inact0';
       else
-	$bgcol = '#DDBBBB';
+	$bgcol = 'inact1';
     };
-    if ( $attr_precedence[$a_id] === -1 ) $bgcol = '#AADDAA'; # light up the external attribute in greenish
+    if ( $attr_precedence[$a_id] === -1 ) $bgcol = 'extrnl'; # light up the external attribute in greenish
 
-    echo '<tr bgcolor="' . $bgcol . '">' . "\n";
+    echo '<tr class="' . $bgcol . '">' . "\n";
     echo "<td><i>" . htmlify( $attr_name[$a_id] ) . "</i></td>\n";
     if ( $block_category[ $attr_type_id[$a_id] ] >= 2 )
       echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $attr_type_id[$a_id] . '"><b>' . htmlify( $attr_type_name[$a_id] ) . "</b></a></td>\n";

@@ -18,26 +18,8 @@ include($docsys_root_path . 'sortdb.' . $phpEx);
 
 require("../header.tpl");
 
-echo <<<ENDHTML
-<style type="text/css">
-<!--
-#main th   { font-weight: bold; background-color: #D3DCE3}
-#main h1   { text-align: center; background-color: rgb(255, 102, 0); }
-#main h2   { text-align: center; background-color: rgb(255, 204, 51); }
-#main h3   { text-align: left; background-color: rgb(255, 204, 102); }
-#main A:link        { text-decoration: none; color: #0000FF }
-#main A:visited     { text-decoration: none; color: #0000FF }
-#main A:hover       { text-decoration: underline; color: #FF0000 }
-#main A:link.nav    { color: #000000 }
-#main A:visited.nav { color: #000000 }
-#main A:hover.nav   { color: #FF0000 }
-#main .nav          { color: #000000 }
-//-->
-</style>
 
-<h1>File Format Browser - C-Style</h1>
-
-ENDHTML;
+echo "<h1>File Format Browser - C-Style</h1>\n";
 
 /**
  *  functions for formatting and htmlifying strings
@@ -89,7 +71,13 @@ function txtvariable($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $c
   }
   $tmpvar = str_pad( $tmpvar, 36 );
   $tmp = $tmptype . " " . $tmpvar;
-  if ( $comment ) $tmp .= " - $comment";
+  if ( $comment ) {
+    // wrap comment
+    $spaces = str_pad( '', 56 - 2 * $indent );
+    $wrapcomment = wordwrap( $comment, 64 );
+    $wrapcomment = ereg_replace( "\n", "\n$spaces", $wrapcomment);
+    $tmp .= " - $wrapcomment";
+  };
   $result .= txtcode( $tmp );
 
   // restore indentation
@@ -121,7 +109,7 @@ echo "<pre>\n";
 
 foreach ( $block_ids_sort as $b_id ) {
   if ( $block_category[$b_id] >= 2 ) continue;
-  echo txtvariable( null, $block_name[$b_id], null, null, null, null, null, $block_description[$b_id] );
+  echo txtvariable( null, $block_name[$b_id], null, null, null, null, null, ereg_replace( "\n", "<br />\n", $block_description[$b_id] ) );
 };
 
 echo "</pre>\n";
@@ -175,7 +163,7 @@ function display_blocks( $b_category ) {
     else
       echo htmlclass ( "$block_cname[$b_id]" );
     echo "<p>\n";
-    echo htmlify( $block_description[$b_id] . "\n" );
+    echo ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] . "\n" ) );
     echo "</p>\n";
     if ( $block_attributes[$b_id] ) {
       echo "<pre>\n";
