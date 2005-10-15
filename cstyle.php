@@ -58,17 +58,21 @@ function txtcode( $txt )
   return $result;
 }
 
-function txtvariable($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $comment)
+function txtvariable($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $condtype, $comment)
 {
   global $indent;
   $result = "";
 
   // conditional: if statement
   if ( $condvar ) {
-    if ( $condval !== null )
-      $result .= txtcode( "if ($condvar == $condval): " );
-    else
+    if ( $condval === null )
       $result .= txtcode( "if ($condvar != 0): " );
+    else {
+      if ( ( $condtype === null ) or ( $condtype === 0 ) )
+        $result .= txtcode( "if ($condvar == $condval): " );
+      else
+        $result .= txtcode( "if ($condvar != $condval): " );
+    };
     $indent++;
   }
 
@@ -112,9 +116,9 @@ function htmlify( $txt )
 
 echo "<h2>File header</h2>\n";
 echo "<pre>\n";
-echo txtvariable("headerstr", "char", null, 40, null, null, null, "\"NetImmerse File Format, Version 4.0.0.2\\n\"");
-echo txtvariable("version", "int", null, null, null, null, null, "0x04000002" );
-echo txtvariable("num_blocks", "int", null, null, null, null, null, "number of file blocks" );
+echo txtvariable("headerstr", "char", null, 40, null, null, null, null, "\"NetImmerse File Format, Version 4.0.0.2\\n\"");
+echo txtvariable("version", "int", null, null, null, null, null, null, "0x04000002" );
+echo txtvariable("num_blocks", "int", null, null, null, null, null, null, "number of file blocks" );
 
 echo "</pre>\n";
 echo "<p>The header is immediately followed by a sequence of <code>num_blocks</code> file blocks. The file ends with the file footer.</p>\n";
@@ -123,8 +127,8 @@ echo "<p>The header is immediately followed by a sequence of <code>num_blocks</c
 
 echo "<h2>File footer</h2>\n";
 echo "<pre>\n";
-echo txtvariable("unknown1", "int", null, null, null, null, null, "Always 1.");
-echo txtvariable("unknown2", "int", null, null, null, null, null, "Always 0.");
+echo txtvariable("unknown1", "int", null, null, null, null, null, null, "Always 1.");
+echo txtvariable("unknown2", "int", null, null, null, null, null, null, "Always 0.");
 echo "</pre>\n";
 
 
@@ -141,7 +145,7 @@ echo "<pre>\n";
 
 foreach ( $block_ids_sort as $b_id ) {
   if ( $block_category[$b_id] >= 2 ) continue;
-  echo txtvariable( null, $block_name[$b_id], null, null, null, null, null, ereg_replace( "\n", "<br />\n", $block_description[$b_id] ) );
+  echo txtvariable( null, $block_name[$b_id], null, null, null, null, null, null, ereg_replace( "\n", "<br />\n", $block_description[$b_id] ) );
 };
 
 echo "</pre>\n";
@@ -159,7 +163,7 @@ display_blocks( 2 );
 
 function display_blocks( $b_category ) {
   global $block_ids_sort;
-  global $block_attributes, $block_category, $block_description, $block_cname, $block_parent_cname, $attr_cname, $attr_description, $block_parent_id, $attr_type_cname, $attr_arg_cname, $attr_arr1_cname, $attr_arr2_cname, $attr_cond_cname, $attr_cond_val;
+  global $block_attributes, $block_category, $block_description, $block_cname, $block_parent_cname, $attr_cname, $attr_description, $block_parent_id, $attr_type_cname, $attr_arg_cname, $attr_arr1_cname, $attr_arr2_cname, $attr_cond_cname, $attr_cond_val, $attr_cond_type;
 
   foreach ( $block_ids_sort as $b_id ) {
     if ( $block_category[$b_id] !== $b_category ) continue;
@@ -180,6 +184,7 @@ function display_blocks( $b_category ) {
 			  $attr_arr2_cname[$a_id],
 			  $attr_cond_cname[$a_id],
 			  $attr_cond_val[$a_id],
+                          $attr_cond_type[$a_id],
 			  $attr_description[$a_id] );
       echo "</pre>\n";
     };
@@ -189,3 +194,4 @@ function display_blocks( $b_category ) {
 require("../footer.tpl");
 
 ?>
+

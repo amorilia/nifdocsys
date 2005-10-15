@@ -40,8 +40,8 @@ ENDHTML;
 
 echo htmlify( <<<ENDHTML
 # --------------------------------------------------------------------------
-# nif.py: a python interface for reading, writing, and printing
-#         NetImmerse files (.nif & .kf)
+# nif4.py: a python interface for reading, writing, and printing
+#          NetImmerse 4.0.0.2 files (.nif & .kf)
 # --------------------------------------------------------------------------
 # ***** BEGIN BSD LICENSE BLOCK *****
 #
@@ -143,7 +143,7 @@ function python_code( $txt )
 // result always ends with a newline
 function python_comment( $txt )
 {
-  return "<span class=\"comment\">" . python_code ( "# " . ereg_replace( "\n", "\n# ", htmlify( wordwrap( $txt ) ) ) ) . "</span>";
+  return python_code ( "# " . ereg_replace( "\n", "\n# ", htmlify( wordwrap( $txt ) ) ) );
 }
 
 // this returns self.$objectname if it's a class variable, $objectname
@@ -206,7 +206,7 @@ function python_code_init($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
       return python_code( "self.$var = [ [ None ] * $sizevarbis ] * $sizevar\nfor count in range($sizevar):\n\tfor count2 in range($sizevarbis):\n\t\tself.${var}[count][count2] = $result" );
 }
 
-function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval)
+function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $condtype)
 {
   global $indent;
   $result = "";
@@ -230,10 +230,14 @@ function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
 
   // conditional: if statement
   if ( $condvar ) {
-    if ( $condval != "")
-      $result .= python_code( "if ($condvar == $condval):" );
-    else
+    if ( $condval === null )
       $result .= python_code( "if ($condvar != 0):" );
+    else {
+      if ( ( $condtype === null ) or ( $condtype === 0 ) )
+        $result .= python_code( "if ($condvar == $condval):" );
+      else
+        $result .= python_code( "if ($condvar != $condval):" );
+    };
     $indent++;
   }
 
@@ -288,7 +292,7 @@ function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   return $result;
 }
 
-function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval)
+function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $condtype)
 {
   global $indent;
   $result = "";
@@ -305,10 +309,14 @@ function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarb
 
   // conditional: if statement
   if ( $condvar ) {
-    if ( $condval)
-      $result .= python_code( "if ($condvar == $condval):" );
-    else
+    if ( $condval === null )
       $result .= python_code( "if ($condvar != 0):" );
+    else {
+      if ( ( $condtype === null ) or ( $condtype === 0 ) )
+        $result .= python_code( "if ($condvar == $condval):" );
+      else
+        $result .= python_code( "if ($condvar != $condval):" );
+    };
     $indent++;
   }
 
@@ -362,7 +370,7 @@ function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarb
   return $result;
 }
 
-function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval)
+function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $condtype)
 {
   global $indent;
   $result = "";
@@ -374,10 +382,14 @@ function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
 
   // conditional: if statement
   if ( $condvar ) {
-    if ( $condval)
-      $result .= python_code( "if ($condvar == $condval):" );
-    else
+    if ( $condval === null )
       $result .= python_code( "if ($condvar != 0):" );
+    else {
+      if ( ( $condtype === null ) or ( $condtype === 0 ) )
+        $result .= python_code( "if ($condvar == $condval):" );
+      else
+        $result .= python_code( "if ($condvar != $condval):" );
+    };
     $indent++;
   }
 
@@ -506,7 +518,8 @@ foreach ( $block_ids_sort as $block_id ) {
 					$attr_arr1_cname[$attr_id],
 					$attr_arr2_cname[$attr_id],
 					$attr_cond_cname[$attr_id],
-					$attr_cond_val[$attr_id] ) );
+					$attr_cond_val[$attr_id],
+                                        $attr_cond_type[$attr_id] ) );
     $indent--;
     echo "\n\n\n";
     
@@ -532,7 +545,8 @@ foreach ( $block_ids_sort as $block_id ) {
 					 $attr_arr1_cname[$attr_id],
 					 $attr_arr2_cname[$attr_id],
 					 $attr_cond_cname[$attr_id],
-					 $attr_cond_val[$attr_id] ) );
+					 $attr_cond_val[$attr_id],
+                                         $attr_cond_type[$attr_id] ) );
     $indent--;
     echo "\n\n\n";
     
@@ -556,7 +570,8 @@ foreach ( $block_ids_sort as $block_id ) {
 					$attr_arr1_cname[$attr_id],
 					$attr_arr2_cname[$attr_id],
 					$attr_cond_cname[$attr_id],
-					$attr_cond_val[$attr_id] ) );
+					$attr_cond_val[$attr_id],
+					$attr_cond_type[$attr_id] ) );
     echo htmlify( python_code ( "return s" ) );
     $indent--;
     echo "\n\n\n";

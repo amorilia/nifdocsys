@@ -64,6 +64,8 @@
  *  - security enhancements
  * 0.6 (Amorilia, Oct 11, 2005):
  *  - added support for long block descriptions with line breaks
+ * 0.7 (Amorilia, Oct 15, 2005):
+ *  - added column to check for inequality in conditional attributes
  */
 
 define('IN_PHPBB', true);
@@ -287,7 +289,7 @@ if ( $mode === "list" and $table === "attr" ) {
 
   // Attribute of...
 
-  if ( $block_category[$req_block_id] === 2 ) {
+  if ( $block_category[$req_block_id] !== 3 ) {
     $is_attribute_of = false;
     foreach ( $block_ids as $b_id ) {
       foreach ( $block_attributes[$b_id] as $a_id ) {
@@ -328,7 +330,6 @@ if ( $mode === "list" and $table === "attr" ) {
     echo "<th>Arr1</th>\n";
     echo "<th>Arr2</th>\n";
     echo "<th>Cond</th>\n";
-    echo "<th>Val</th>\n";
     echo "<th>Description</th>\n";
     if ( $docsys_admin ) echo '<th colspan="3">Admin</th>' . "\n";
     echo "</tr>\n";
@@ -432,6 +433,7 @@ if ( $mode === "edit" and $table === "attr" ) {
     $a_arr2_num = $attr_arr2_num[$req_attr_id];
     $a_cond_id = $attr_cond_id[$req_attr_id];
     $a_cond_val = $attr_cond_val[$req_attr_id];
+    $a_cond_type = $attr_cond_type[$req_attr_id];
   } else {
     echo "<h2>Create " . $req_block_name . " attribute</h2>";
     $a_name = '';
@@ -455,6 +457,7 @@ if ( $mode === "edit" and $table === "attr" ) {
     $a_arr2_num = null;
     $a_cond_id = null;
     $a_cond_val = null;
+    $a_cond_type = null;
   };
 
   // Construct map: block_id => name. Make sure that attr_type_id
@@ -516,7 +519,7 @@ if ( $mode === "edit" and $table === "attr" ) {
 
   // Now do the edit attribute form.
 
-  $form = new HTML_QuickForm('edit', 'post');
+  $form = new HTML_QuickForm('edit', 'get');
   $form->addElement('hidden', 'mode', 'action'); // BUG!!! aaargh... why does this not work? workaround in code: check for action parameter
   $form->addElement('hidden', 'table', 'attr');
   $form->addElement('hidden', 'attr_parent_id', $req_block_id);
@@ -529,8 +532,9 @@ if ( $mode === "edit" and $table === "attr" ) {
     $form->addElement('hidden', 'attr_arr2_id', 'NULL' );
     $form->addElement('hidden', 'attr_arr1_num', 'NULL' );
     $form->addElement('hidden', 'attr_arr2_num', 'NULL' );
-    $form->addElement('hidden', 'attr_cond_id', 'NULL' );
-    $form->addElement('hidden', 'attr_cond_val', 'NULL');
+    $form->addElement('hidden', 'attr_cond_id', 'NULL'  );
+    $form->addElement('hidden', 'attr_cond_val', 'NULL' );
+    $form->addElement('hidden', 'attr_cond_type', 'NULL' );
   } else {
     $form->addElement('select', 'attr_arr1_id', 'Array Index:', $attr_arr1_table );
     $form->addElement('text', 'attr_arr1_num', '' );
@@ -538,6 +542,7 @@ if ( $mode === "edit" and $table === "attr" ) {
     $form->addElement('text', 'attr_arr2_num', '' );
     $form->addElement('select', 'attr_cond_id', 'Conditional On:', $attr_cond_table );
     $form->addElement('text', 'attr_cond_val', 'Conditional Value:');
+    $form->addElement('advcheckbox', 'attr_cond_type', 'Negate:', null, null, array( 0, 1 ) );
   };
   $form->addElement('textarea', 'attr_description', 'Description:', array('rows' => 3, 'cols' => 50 ));
   if ( $req_attr_id ) {
@@ -560,7 +565,8 @@ if ( $mode === "edit" and $table === "attr" ) {
 			     'attr_description' => $a_description,
 			     'attr_cond_val' => $a_cond_val,
 			     'attr_arr1_num' => $a_arr1_num,
-			     'attr_arr2_num' => $a_arr2_num ) );
+			     'attr_arr2_num' => $a_arr2_num, 
+                             'attr_cond_type' => $a_cond_type ) );
   $form->display();
 };
 
@@ -614,7 +620,7 @@ function display_children( $b_category, $b_parent_id ) {
 // Display parent's attributes, as part of a table.
 
 function display_attributes( $b_id, $active, $count ) {
-  global $block_attributes, $block_category, $attr_name, $attr_description, $block_parent_id, $attr_type_id, $attr_type_name, $attr_arg_id, $attr_arg_name, $attr_arr1_id, $attr_arr1_name, $attr_arr1_num, $attr_arr2_id, $attr_arr2_name, $attr_arr2_num, $attr_cond_id, $attr_cond_name, $attr_cond_val, $attr_precedence;
+  global $block_attributes, $block_category, $attr_name, $attr_description, $block_parent_id, $attr_type_id, $attr_type_name, $attr_arg_id, $attr_arg_name, $attr_arr1_id, $attr_arr1_name, $attr_arr1_num, $attr_arr2_id, $attr_arr2_name, $attr_arr2_num, $attr_cond_id, $attr_cond_name, $attr_cond_val, $attr_precedence, $attr_cond_type;
   global $req_block_id;
   global $docsys_admin;
   
@@ -661,14 +667,20 @@ function display_attributes( $b_id, $active, $count ) {
       echo "<td>" . $attr_arr2_num[$a_id] . "</td>\n";
     else
       echo '<td></td>' . "\n";
-    if ( $attr_cond_id[$a_id] )
-      echo "<td><i>" . htmlify( $attr_cond_name[$a_id] ) . "</i></td>\n";
-    else
-      echo '<td></td>' . "\n";
-    if ( $attr_cond_val[$a_id] !== null )
-      echo "<td>" . $attr_cond_val[$a_id] . "</td>\n";
-    else
-      echo '<td></td>' . "\n";
+    $cond_expr = '';
+    if ( $attr_cond_id[$a_id] ) {
+      $cond_expr .= "<i>" . htmlify( $attr_cond_name[$a_id] ) . "</i>";
+      if ( $attr_cond_val[$a_id] === null )
+        $cond_expr .= " != 0";
+      else {
+        if ( ( $attr_cond_type[$a_id] === null ) or ( $attr_cond_type[$a_id] === 0 ) )
+          $cond_expr .= "&nbsp;==&nbsp;";
+        else
+          $cond_expr .= "&nbsp;!=&nbsp;";
+        $cond_expr .= $attr_cond_val[$a_id];
+      };
+    };
+    echo '<td>' . $cond_expr . '</td>' . "\n";
     echo "<td>" . nl2br( htmlify( $attr_description[$a_id] ) ) . "</td>\n";
 
     if ( $docsys_admin ) {
