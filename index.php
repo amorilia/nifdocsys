@@ -158,7 +158,7 @@ if ( $mode === "list" and $table === "block" ) {
 	  echo "<td>yes</td>\n";
 	else
 	  echo "<td>no</td>\n";
-	echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
+	echo "<td>" . nl2br( htmlify( $block_description[$b_id] ) ) . "</td>\n";
 	if ( $docsys_admin ) {
 	  echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
 	  echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
@@ -200,7 +200,7 @@ if ( $mode === "list" and $table === "block" ) {
 	if ( $block_category[$b_id] !== 2 ) continue;
 	echo '<tr class="' . $bgcol . '">' . "\n";
 	echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
-	echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
+	echo "<td>" . nl2br( htmlify( $block_description[$b_id] ) ) . "</td>\n";
 	if ( $docsys_admin ) {
 	  echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
 	  echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
@@ -243,7 +243,7 @@ if ( $mode === "list" and $table === "block" ) {
       if ( $block_category[$b_id] !== 3 ) continue;
       echo '<tr class="' . $bgcol . '">' . "\n";
       echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
-      echo "<td>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ) . "</td>\n";
+      echo "<td>" . nl2br( htmlify( $block_description[$b_id] ) ) . "</td>\n";
       if ( $block_parent_id[$b_id] !== null )
 	echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $block_parent_id[$b_id] . '"><b>' . htmlify( $block_parent_name[$b_id] ) . "</b></a></td>\n";
       else
@@ -273,7 +273,7 @@ if ( $mode === "list" and $table === "attr" ) {
     echo "<h2>" . htmlify( $block_name[$req_block_id] ) . ' ::  <a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $block_parent_id[$req_block_id] . '">' . htmlify( $block_parent_name[$req_block_id]). "</a></h2>\n";
   else
     echo "<h2>" . htmlify( $block_name[$req_block_id] ) . ' ::  <a href="index.php?mode=list&amp;table=block&amp;view=hier">(None)</a></h2>' . "\n";
-  echo "<p>" . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$req_block_id] ) ) . "</p>\n";
+  echo "<p>" . nl2br( htmlify( $block_description[$req_block_id] ) ) . "</p>\n";
 
   // Block derived classes.
 
@@ -601,7 +601,7 @@ function display_children( $b_category, $b_parent_id ) {
 	echo '<b>' . htmlify( $block_name[$b_id] ) . "</b>";
       if ( $docsys_admin )
 	echo "\n | " . '<a href="index.php?mode=edit&amp;table=block&amp;block_id=' .$b_id . '">Edit</a>';
-      echo "\n | " . ereg_replace( "\n", "<br />\n", htmlify( $block_description[$b_id] ) ); 
+      echo "\n | " . nl2br( htmlify( $block_description[$b_id] ) ); 
       if ( $docsys_admin )
 	echo "\n | " . '<a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a>';
       display_children( $b_category, $b_id );
@@ -669,7 +669,7 @@ function display_attributes( $b_id, $active, $count ) {
       echo "<td>" . $attr_cond_val[$a_id] . "</td>\n";
     else
       echo '<td></td>' . "\n";
-    echo "<td>" . htmlify( $attr_description[$a_id] ) . "</td>\n";
+    echo "<td>" . nl2br( htmlify( $attr_description[$a_id] ) ) . "</td>\n";
 
     if ( $docsys_admin ) {
       if ( $active ) {
