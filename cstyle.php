@@ -163,7 +163,7 @@ display_blocks( 2 );
 
 function display_blocks( $b_category ) {
   global $block_ids_sort;
-  global $block_attributes, $block_category, $block_description, $block_cname, $block_parent_cname, $attr_cname, $attr_description, $block_parent_id, $attr_type_cname, $attr_arg_cname, $attr_arr1_cname, $attr_arr2_cname, $attr_cond_cname, $attr_cond_val, $attr_cond_type;
+  global $block_attributes, $block_category, $block_description, $block_cname, $block_parent_cname, $attr_cname, $attr_description, $block_parent_id, $attr_type_cname, $attr_arg_cname, $attr_arr1_cname, $attr_arr2_cname, $attr_cond_cname, $attr_cond_val, $attr_cond_type, $attr_precedence;
 
   foreach ( $block_ids_sort as $b_id ) {
     if ( $block_category[$b_id] !== $b_category ) continue;
@@ -177,15 +177,16 @@ function display_blocks( $b_category ) {
     if ( $block_attributes[$b_id] ) {
       echo "<pre>\n";
       foreach ( $block_attributes[$b_id] as $a_id )
-	echo txtvariable( $attr_cname[$a_id],
-			  $attr_type_cname[$a_id],
-			  $attr_arg_cname[$a_id],
-			  $attr_arr1_cname[$a_id],
-			  $attr_arr2_cname[$a_id],
-			  $attr_cond_cname[$a_id],
-			  $attr_cond_val[$a_id],
-                          $attr_cond_type[$a_id],
-			  $attr_description[$a_id] );
+        if ( $attr_precedence[$a_id] >= 0 )
+          echo txtvariable( $attr_cname[$a_id],
+                            $attr_type_cname[$a_id],
+                            $attr_arg_cname[$a_id],
+                            $attr_arr1_cname[$a_id],
+                            $attr_arr2_cname[$a_id],
+                            $attr_cond_cname[$a_id],
+                            $attr_cond_val[$a_id],
+                            $attr_cond_type[$a_id],
+                            $attr_description[$a_id] );
       echo "</pre>\n";
     };
   };

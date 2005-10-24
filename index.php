@@ -519,7 +519,7 @@ if ( $mode === "edit" and $table === "attr" ) {
 
   // Now do the edit attribute form.
 
-  $form = new HTML_QuickForm('edit', 'get');
+  $form = new HTML_QuickForm('edit', 'post');
   $form->addElement('hidden', 'mode', 'action'); // BUG!!! aaargh... why does this not work? workaround in code: check for action parameter
   $form->addElement('hidden', 'table', 'attr');
   $form->addElement('hidden', 'attr_parent_id', $req_block_id);

@@ -244,7 +244,7 @@ function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   // first handle the case of a string
   if ( ( $some_type == "char" ) and ( $sizevar ) and ( ! $sizevarbis ) ) {
     $result .= python_code( "if ($sizevar > MAX_STRLEN): raise NIFError('string unreasonably long (size %i)'%$sizevar)" );
-    $result .= python_code( "self.$var = struct.unpack('<%us'%$sizevar, file.read($sizevar))" );
+    $result .= python_code( "self.$var, = struct.unpack('<%us'%$sizevar, file.read($sizevar))" );
   } else {
     
     // other cases
@@ -322,7 +322,7 @@ function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarb
 
   // first handle the case of a string
   if ( ( $some_type == "char" ) and ( $sizevar ) and ( ! $sizevarbis ) )
-    $result .= python_code( "file.write(struct.pack('<I%us'%$sizevar, $sizevar, self.$var))" );
+    $result .= python_code( "file.write(struct.pack('<%us'%$sizevar, self.$var))" );
   else {
     
     // other cases
@@ -467,118 +467,112 @@ foreach ( $block_ids_sort as $block_id ) {
   // increase indentation level
   $indent++;
   
-  // is it just a copy of another class?
-  if ( $block_attributes[$block_id] ) {
-    // in python, members are defined in the constructor
-    // so that's what we start with
-    echo python_comment ( "constructor" );
-    if ( $attr_precedence[$block_attributes[$block_id][0]] == -1 )
-      echo htmlify( python_code ( "def __init__(self, init_arg):" ) );
+  // in python, members are defined in the constructor
+  // so that's what we start with
+  echo python_comment ( "constructor" );
+  if ( $attr_precedence[$block_attributes[$block_id][0]] == -1 )
+    echo htmlify( python_code ( "def __init__(self, init_arg):" ) );
+  else
+    echo htmlify( python_code ( "def __init__(self):" ) );
+  $indent++;
+  // non-abstract blocks (which have no children), declare a block_type string variable
+  if ( ! $block_is_abstract[$block_id] )
+    echo htmlify( python_code ( "self.block_type = mystring(\"$block_cname[$block_id]\")" ) );
+  // call base class constructor (which btw. should not have an initialization argument!)
+  if ( $block_parent_id[$block_id] )
+    echo htmlify( python_code ( "$block_parent_cname[$block_id].__init__(self)" ) );
+  // here we iterate over all rows
+  foreach ( $block_attributes[$block_id] as $attr_id ) {
+    if ( $attr_description[$attr_id] )
+      echo python_comment( $attr_description[$attr_id] );
+    if ( $attr_precedence[$attr_id] == -1 )
+      echo htmlify( python_code( "self.$attr_cname[$attr_id] = init_arg" ) );
     else
-      echo htmlify( python_code ( "def __init__(self):" ) );
-    $indent++;
-    // non-abstract blocks (which have no children), declare a block_type string variable
-    if ( ! $block_is_abstract[$block_id] )
-      echo htmlify( python_code ( "self.block_type = mystring(\"$block_cname[$block_id]\")" ) );
-    // call base class constructor (which btw. should not have an initialization argument!)
-    if ( $block_parent_id[$block_id] )
-      echo htmlify( python_code ( "$block_parent_cname[$block_id].__init__(self)" ) );
-    // here we iterate over all rows
-    foreach ( $block_attributes[$block_id] as $attr_id ) {
-      if ( $attr_description[$attr_id] )
-	echo python_comment( $attr_description[$attr_id] );
-      if ( $attr_precedence[$attr_id] == -1 )
-	echo htmlify( python_code( "self.$attr_cname[$attr_id] = init_arg" ) );
-      else
-	echo htmlify( python_code_init( $attr_cname[$attr_id],
-					$attr_type_cname[$attr_id],
-					$attr_arg_cname[$attr_id],
-					$attr_arr1_cname[$attr_id],
-					$attr_arr2_cname[$attr_id] ) );
-    }
-    $indent--;
-    echo "\n\n\n";
-
-    // read from file
-    if ( $block_is_abstract[$block_id] )
-      echo python_comment ( "read from file" );
-    else
-      echo python_comment ( "read from file, excluding type string" );
-    echo htmlify( python_code ( "def read(self, file):" ) );
-    $indent++;
-    // call base class reader
-    if ( $block_parent_id[$block_id] )
-      echo htmlify( python_code ( "$block_parent_cname[$block_id].read(self, file)" ) );
-    // again, iterate over all rows
-    foreach ( $block_attributes[$block_id] as $attr_id )
-      if ( $attr_precedence[$attr_id] != -1 )
-	echo htmlify( python_code_read( $attr_cname[$attr_id],
-					$attr_type_cname[$attr_id],
-					$attr_arg_cname[$attr_id],
-					$attr_arr1_cname[$attr_id],
-					$attr_arr2_cname[$attr_id],
-					$attr_cond_cname[$attr_id],
-					$attr_cond_val[$attr_id],
-                                        $attr_cond_type[$attr_id] ) );
-    $indent--;
-    echo "\n\n\n";
-    
-    // write to file
-    if ( $block_is_abstract[$block_id] )
-      echo python_comment ( "write to file" );
-    else
-      echo python_comment ( "write to file, including type string" );
-    echo htmlify( python_code ( "def write(self, file):" ) );
-    $indent++;
-    // non-abstract blocks (which have no children), first write a block_type string variable
-    if ( ! $block_is_abstract[$block_id] )
-      echo htmlify( python_code ( "self.block_type.write()" ) );
-    // call base class writer
-    if ( $block_parent_id[$block_id] )
-      echo htmlify( python_code ( "$block_parent_cname[$block_id].write(self, file)" ) );
-    // again, iterate over all rows
-    foreach ( $block_attributes[$block_id] as $attr_id )
-      if ( $attr_precedence[$attr_id] != -1 )
-	echo htmlify( python_code_write( $attr_cname[$attr_id],
-					 $attr_type_cname[$attr_id],
-					 $attr_arg_cname[$attr_id],
-					 $attr_arr1_cname[$attr_id],
-					 $attr_arr2_cname[$attr_id],
-					 $attr_cond_cname[$attr_id],
-					 $attr_cond_val[$attr_id],
-                                         $attr_cond_type[$attr_id] ) );
-    $indent--;
-    echo "\n\n\n";
-    
-    // dump to screen
-    echo python_comment ( "dump to screen" );
-    echo htmlify( python_code ( "def __str__(self):" ) );
-    $indent++;
-    // non-abstract blocks (which have no children), dump their block_type string variable
-    echo htmlify( python_code ( "s = ''" ) );
-    if ( ! $block_is_abstract[$block_id] )
-      echo htmlify( python_code ( "s += str(self.block_type)" ) );
-    // call base class dumper
-    if ( $block_parent_id[$block_id] )
-      echo htmlify( python_code ( "s += $block_parent_cname[$block_id].__str__(self)" ) );
-    // again, iterate over all rows
-    foreach ( $block_attributes[$block_id] as $attr_id )
-      if ( $attr_precedence[$attr_id] != -1 )
-	echo htmlify( python_code_dump( $attr_cname[$attr_id],
-					$attr_type_cname[$attr_id],
-					$attr_arg_cname[$attr_id],
-					$attr_arr1_cname[$attr_id],
-					$attr_arr2_cname[$attr_id],
-					$attr_cond_cname[$attr_id],
-					$attr_cond_val[$attr_id],
-					$attr_cond_type[$attr_id] ) );
-    echo htmlify( python_code ( "return s" ) );
-    $indent--;
-    echo "\n\n\n";
-  } else {
-    echo htmlify( python_code( "pass" ) ); // it's a copy of another class
-    echo "\n\n\n";
-  };
+      echo htmlify( python_code_init( $attr_cname[$attr_id],
+				      $attr_type_cname[$attr_id],
+				      $attr_arg_cname[$attr_id],
+				      $attr_arr1_cname[$attr_id],
+				      $attr_arr2_cname[$attr_id] ) );
+  }
+  $indent--;
+  echo "\n\n\n";
+  
+  // read from file
+  if ( $block_is_abstract[$block_id] )
+    echo python_comment ( "read from file" );
+  else
+    echo python_comment ( "read from file, excluding type string" );
+  echo htmlify( python_code ( "def read(self, file):" ) );
+  $indent++;
+  // call base class reader
+  if ( $block_parent_id[$block_id] )
+    echo htmlify( python_code ( "$block_parent_cname[$block_id].read(self, file)" ) );
+  // again, iterate over all rows
+  foreach ( $block_attributes[$block_id] as $attr_id )
+    if ( $attr_precedence[$attr_id] != -1 )
+      echo htmlify( python_code_read( $attr_cname[$attr_id],
+				      $attr_type_cname[$attr_id],
+				      $attr_arg_cname[$attr_id],
+				      $attr_arr1_cname[$attr_id],
+				      $attr_arr2_cname[$attr_id],
+				      $attr_cond_cname[$attr_id],
+				      $attr_cond_val[$attr_id],
+				      $attr_cond_type[$attr_id] ) );
+  $indent--;
+  echo "\n\n\n";
+  
+  // write to file
+  if ( $block_is_abstract[$block_id] )
+    echo python_comment ( "write to file" );
+  else
+    echo python_comment ( "write to file, including type string" );
+  echo htmlify( python_code ( "def write(self, file):" ) );
+  $indent++;
+  // non-abstract blocks (which have no children), first write a block_type string variable
+  if ( ! $block_is_abstract[$block_id] )
+    echo htmlify( python_code ( "self.block_type.write(file)" ) );
+  // call base class writer
+  if ( $block_parent_id[$block_id] )
+    echo htmlify( python_code ( "$block_parent_cname[$block_id].write(self, file)" ) );
+  // again, iterate over all rows
+  foreach ( $block_attributes[$block_id] as $attr_id )
+    if ( $attr_precedence[$attr_id] != -1 )
+      echo htmlify( python_code_write( $attr_cname[$attr_id],
+				       $attr_type_cname[$attr_id],
+				       $attr_arg_cname[$attr_id],
+				       $attr_arr1_cname[$attr_id],
+				       $attr_arr2_cname[$attr_id],
+				       $attr_cond_cname[$attr_id],
+				       $attr_cond_val[$attr_id],
+				       $attr_cond_type[$attr_id] ) );
+  $indent--;
+  echo "\n\n\n";
+  
+  // dump to screen
+  echo python_comment ( "dump to screen" );
+  echo htmlify( python_code ( "def __str__(self):" ) );
+  $indent++;
+  // non-abstract blocks (which have no children), dump their block_type string variable
+  echo htmlify( python_code ( "s = ''" ) );
+  if ( ! $block_is_abstract[$block_id] )
+    echo htmlify( python_code ( "s += str(self.block_type)" ) );
+  // call base class dumper
+  if ( $block_parent_id[$block_id] )
+    echo htmlify( python_code ( "s += $block_parent_cname[$block_id].__str__(self)" ) );
+  // again, iterate over all rows
+  foreach ( $block_attributes[$block_id] as $attr_id )
+    if ( $attr_precedence[$attr_id] != -1 )
+      echo htmlify( python_code_dump( $attr_cname[$attr_id],
+				      $attr_type_cname[$attr_id],
+				      $attr_arg_cname[$attr_id],
+				      $attr_arr1_cname[$attr_id],
+				      $attr_arr2_cname[$attr_id],
+				      $attr_cond_cname[$attr_id],
+				      $attr_cond_val[$attr_id],
+				      $attr_cond_type[$attr_id] ) );
+  echo htmlify( python_code ( "return s" ) );
+  $indent--;
+  echo "\n\n\n";
   
   // return one level
   $indent--;
@@ -710,7 +704,7 @@ class NIF:
             # each block starts with a string, describing the type of the block,
 
             # so first we read this string
-            block_id_str = mystring()
+            block_id_str = mystring('')
 	    try:
                 block_pos = file.tell()
                 block_id_str.read(file)
@@ -770,7 +764,7 @@ echo htmlify( <<<END
         # read the footer
         block_pos = file.tell()
 	try:
-           self.footer.read(file)
+            self.footer.read(file)
         except:
             # we failed to read the footer: hex dump
 	    try: 
@@ -794,13 +788,13 @@ echo htmlify( <<<END
 
     # dump all the data
     def __str__(self):
-        s = str(header) + '\\n'
+        s = str(self.header) + '\\n'
         count = 0
         for block in self.blocks:
             s += "\\n%i\\n"%count
 	    s += str(block);
             count += 1
-	s += str(footer)
+	s += str(self.footer)
         return s
 
 
