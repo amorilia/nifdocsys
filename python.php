@@ -21,9 +21,9 @@ echo <<<ENDHTML
 <h1>File Format Browser - Python</h1>
 
 <p align="center">
-<a href="index.php?mode=list&amp;table=block&amp;view=hier">Hierarchical</a>
+<a href="index.php?mode=list&amp;table=block&amp;view=hier&amp;version=NULL">Hierarchical</a>
 |
-<a href="index.php?mode=list&amp;table=block&amp;view=alpha">Alphabetical</a>
+<a href="index.php?mode=list&amp;table=block&amp;view=alpha&amp;version=NULL">Alphabetical</a>
 |
 <a href="cstyle.php">C-Style</a>
 |
@@ -40,8 +40,8 @@ ENDHTML;
 
 echo htmlify( <<<ENDHTML
 # --------------------------------------------------------------------------
-# nif4.py: a python interface for reading, writing, and printing
-#          NetImmerse 4.0.0.2 files (.nif & .kf)
+# nifx.py: a python interface for reading, writing, and printing
+#          NetImmerse and Gamebryo files (.nif & .kf)
 # --------------------------------------------------------------------------
 # ***** BEGIN BSD LICENSE BLOCK *****
 #
@@ -97,7 +97,7 @@ MAX_ARRAYDUMPSIZE = 8 # we shall not dump arrays that have more elements than th
 
 MAX_STRLEN = 256 # reading/writing strings longer than this number will raise an exception
 
-MAX_ARRAYSIZE = 1048576 # reading/writing arrays that have more elements than this number will raise an exception
+MAX_ARRAYSIZE = 8388608 # reading/writing arrays that have more elements than this number will raise an exception
 
 MAX_HEXDUMP = 128 # number of bytes that should be dumped if something goes wrong (set to 0 to turn off hex dumping)
 
@@ -166,7 +166,7 @@ function python_resolve( $objectname )
   return $objectname;
 }
 
-function python_code_init($var, $some_type, $some_type_arg, $sizevar, $sizevarbis)
+function python_code_init($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn)
 {
   $some_type_arg = python_resolve($some_type_arg);
   $sizevar = python_resolve($sizevar);
@@ -195,18 +195,22 @@ function python_code_init($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   else
     // standard constructor
     if ($some_type_arg)
-	$result = "$some_type($some_type_arg)";
+	$result = "$some_type(self.version, $some_type_arg)";
     else
-      $result = "$some_type()";
+      $result = "$some_type(self.version)";
   if ( ! $sizevar ) return python_code( "self.$var = " . $result );
   else
     if ( ! $sizevarbis )
       return python_code( "self.$var = [ None ] * $sizevar\nfor count in range($sizevar): self.${var}[count] = $result" );
-    else
-      return python_code( "self.$var = [ [ None ] * $sizevarbis ] * $sizevar\nfor count in range($sizevar):\n\tfor count2 in range($sizevarbis):\n\t\tself.${var}[count][count2] = $result" );
+    else {
+      if ( ! $sizevarbisdyn )
+        return python_code( "self.$var = [ None ] * $sizevar\nfor count in range($sizevar):\n\tself.${var}[count] = [ None ] * $sizevarbis\n\tfor count2 in range($sizevarbis):\n\t\tself.${var}[count][count2] = $result" );
+      else
+        return python_code( "self.$var = [ None ] * $sizevar\nfor count in range($sizevar):\n\tself.${var}[count] = [ None ] * ${sizevarbis}[count]\n\tfor count2 in range(${sizevarbis}[count]):\n\t\tself.${var}[count][count2] = $result" );
+    };
 }
 
-function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $condtype)
+function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn, $condvar, $condval, $condtype, $ver_from, $ver_to)
 {
   global $indent;
   $result = "";
@@ -215,18 +219,31 @@ function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   $sizevarbis = python_resolve($sizevarbis);
   $condvar = python_resolve($condvar);
 
+  // check version
+  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) {
+    $version_str = '';
+    if ( $ver_from !== null ) $version_str .= "(self.version >= 0x" . dechex($ver_from) . ") and ";
+    if ( $ver_to !== null ) $version_str .= "(self.version <= 0x" . dechex($ver_to) . ") and ";
+    if ( $ver_from === $ver_to ) $version_str = "(self.version == 0x" . dechex($ver_from) . ") and ";
+    $version_str = substr($version_str, 0, -5); // remove trailing " and "
+    $result .= python_code( "if $version_str: " );
+    $indent++;
+  };
+
   // array size check
   if ( $sizevar ) {
     $result .= python_code( "if ($sizevar > MAX_ARRAYSIZE): raise NIFError('array size unreasonably large (size %i)'%$sizevar)" );
-    if ( $sizevarbis )
-      $result .= python_code( "if ($sizevarbis > MAX_ARRAYSIZE): raise NIFError('array size unreasonably large (size %i)'%$sizevarbis)" );
-  }
+    if ( $sizevarbis ) {
+      if ( ! $sizevarbisdyn )
+        $result .= python_code( "if ($sizevarbis > MAX_ARRAYSIZE): raise NIFError('array size unreasonably large (size %i)'%$sizevarbis)" );
+    };
+  };
 
   // initialise the variable, if required
   if ( ( $sizevar ) or ( $condvar ) or
        ( ( $some_type != "byte" ) and ( $some_type != "short" ) and ( $some_type != "int" ) and ( $some_type != "char" ) and
 	 ( $some_type != "flags" ) and ( $some_type != "index" ) and ( $some_type != "float" ) ) )
-    $result .= python_code_init( $var, $some_type, $some_type_arg, $sizevar, $sizevarbis );
+    $result .= python_code_init( $var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn );
 
   // conditional: if statement
   if ( $condvar ) {
@@ -256,7 +273,12 @@ function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
       $var .= "[count]"; // this is now the variable that we shall read
       // arraybis: for loop
       if ( $sizevarbis ) {
-	$result .= python_code( "for count2 in range($sizevarbis):" );
+        if ( ! $sizevarbisdyn )
+          $result .= python_code( "for count2 in range($sizevarbis):" );
+        else {
+          $result .= python_code( "if (${sizevarbis}[count] > MAX_ARRAYSIZE): raise NIFError('array size unreasonably large (size %i)'%${sizevarbis}[count])" );
+          $result .= python_code( "for count2 in range(${sizevarbis}[count]):" );
+        };
 	$indent++;
 	$var .= "[count2]"; // this is now the variable that we shall read
       }
@@ -288,11 +310,12 @@ function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   };
   
   if ( $condvar ) $indent--;
-    
+  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) $indent--;
+  
   return $result;
 }
 
-function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $condtype)
+function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn, $condvar, $condval, $condtype, $ver_from, $ver_to)
 {
   global $indent;
   $result = "";
@@ -300,10 +323,21 @@ function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarb
   $sizevarbis = python_resolve($sizevarbis);
   $condvar = python_resolve($condvar);
 
+  // check version
+  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) {
+    $version_str = '';
+    if ( $ver_from !== null ) $version_str .= "(self.version >= 0x" . dechex($ver_from) . ") and ";
+    if ( $ver_to !== null ) $version_str .= "(self.version <= 0x" . dechex($ver_to) . ") and ";
+    if ( $ver_from === $ver_to ) $version_str = "(self.version == 0x" . dechex($ver_from) . ") and ";
+    $version_str = substr($version_str, 0, -5); // remove trailing " and "
+    $result .= python_code( "if $version_str: " );
+    $indent++;
+  };
+
   // array size check
   if ( $sizevar ) {
     $result .= python_code( "if ($sizevar > MAX_ARRAYSIZE): raise NIFError('array size unreasonably large (size %i)'%$sizevar)" );
-    if ( $sizevarbis )
+    if ( $sizevarbis and ( $sizevarbisdyn == null ) )
       $result .= python_code( "if ($sizevarbis > MAX_ARRAYSIZE): raise NIFError('array size unreasonably large (size %i)'%$sizevarbis)" );
   }
 
@@ -334,7 +368,12 @@ function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarb
       $var .= "[count]"; // this is now the variable that we shall write
       // arraybis: for loop
       if ( $sizevarbis ) {
-	$result .= python_code( "for count2 in range($sizevarbis):" );
+        if ( ! $sizevarbisdyn )
+          $result .= python_code( "for count2 in range($sizevarbis):" );
+        else {
+          $result .= python_code( "if (${sizevarbis}[count] > MAX_ARRAYSIZE): raise NIFError('array size unreasonably large (size %i)'%${sizevarbis}[count])" );
+          $result .= python_code( "for count2 in range(${sizevarbis}[count]):" );
+        };
 	$indent++;
 	$var .= "[count2]"; // this is now the variable that we shall write
       }
@@ -366,11 +405,12 @@ function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarb
   };
   
   if ( $condvar ) $indent--;
-
+  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) $indent--;
+  
   return $result;
 }
 
-function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $condtype)
+function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn, $condvar, $condval, $condtype, $ver_from, $ver_to)
 {
   global $indent;
   $result = "";
@@ -379,6 +419,17 @@ function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   $sizevar = python_resolve($sizevar);
   $sizevarbis = python_resolve($sizevarbis);
   $condvar = python_resolve($condvar);
+
+  // check version
+  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) {
+    $version_str = '';
+    if ( $ver_from !== null ) $version_str .= "(self.version >= 0x" . dechex($ver_from) . ") and ";
+    if ( $ver_to !== null ) $version_str .= "(self.version <= 0x" . dechex($ver_to) . ") and ";
+    if ( $ver_from === $ver_to ) $version_str = "(self.version == 0x" . dechex($ver_from) . ") and ";
+    $version_str = substr($version_str, 0, -5); // remove trailing " and "
+    $result .= python_code( "if $version_str: " );
+    $indent++;
+  };
 
   // conditional: if statement
   if ( $condvar ) {
@@ -397,9 +448,12 @@ function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   if ( ( $some_type == "char" ) and ( $sizevar ) and ( ! $sizevarbis ) )
     $result .= python_code( "s += $displayvar + ': %s\\n'%self.$var" );
   // double arrays
-  else if ($sizevarbis)
-    $result .= python_code( "s += '$var: array[%i][%i]\\n'%($sizevar,$sizevarbis)");
-  else {
+  else if ($sizevarbis) {
+    if ( $sizevarbisdyn == null )
+      $result .= python_code( "s += '$var: array[%i][%i]\\n'%($sizevar,$sizevarbis)");
+    else
+      $result .= python_code( "s += '$var: array[%i][]\\n'%$sizevar");
+  } else {
     
     // other cases
     
@@ -424,7 +478,7 @@ function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
     elseif ( $some_type == "flags" )
       $result .= python_code ( "s += $displayvar + ': 0x%04X\\n'%self.$var" ); // hex format
     else
-      $result .= python_code ( "s += $displayvar + ':\\n'\ns += str(self.$var) + '\\n'" );
+      $result .= python_code ( "s += $displayvar + ':\\n'\ns += str(self.$var)" );
     
     // restore indentation
     if ( $sizevar ) {
@@ -439,7 +493,8 @@ function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   };
   
   if ( $condvar ) $indent--;
-
+  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) $indent--;
+  
   return $result;
 }
 
@@ -471,16 +526,18 @@ foreach ( $block_ids_sort as $block_id ) {
   // so that's what we start with
   echo python_comment ( "constructor" );
   if ( $attr_precedence[$block_attributes[$block_id][0]] == -1 )
-    echo htmlify( python_code ( "def __init__(self, init_arg):" ) );
+    echo htmlify( python_code ( "def __init__(self, ver, init_arg):" ) );
   else
-    echo htmlify( python_code ( "def __init__(self):" ) );
+    echo htmlify( python_code ( "def __init__(self, ver):" ) );
   $indent++;
+  // set version
+  echo htmlify( python_code( "self.version = ver" ) );
   // non-abstract blocks (which have no children), declare a block_type string variable
   if ( ! $block_is_abstract[$block_id] )
     echo htmlify( python_code ( "self.block_type = mystring(\"$block_cname[$block_id]\")" ) );
   // call base class constructor (which btw. should not have an initialization argument!)
   if ( $block_parent_id[$block_id] )
-    echo htmlify( python_code ( "$block_parent_cname[$block_id].__init__(self)" ) );
+    echo htmlify( python_code ( "$block_parent_cname[$block_id].__init__(self, ver)" ) );
   // here we iterate over all rows
   foreach ( $block_attributes[$block_id] as $attr_id ) {
     if ( $attr_description[$attr_id] )
@@ -492,7 +549,8 @@ foreach ( $block_ids_sort as $block_id ) {
 				      $attr_type_cname[$attr_id],
 				      $attr_arg_cname[$attr_id],
 				      $attr_arr1_cname[$attr_id],
-				      $attr_arr2_cname[$attr_id] ) );
+				      $attr_arr2_cname[$attr_id],
+                                      $attr_arr2_dynamic[$attr_id] ) );
   }
   $indent--;
   echo "\n\n\n";
@@ -515,9 +573,12 @@ foreach ( $block_ids_sort as $block_id ) {
 				      $attr_arg_cname[$attr_id],
 				      $attr_arr1_cname[$attr_id],
 				      $attr_arr2_cname[$attr_id],
+                                      $attr_arr2_dynamic[$attr_id],
 				      $attr_cond_cname[$attr_id],
 				      $attr_cond_val[$attr_id],
-				      $attr_cond_type[$attr_id] ) );
+				      $attr_cond_type[$attr_id],
+				      $attr_ver_from[$attr_id],
+				      $attr_ver_to[$attr_id] ) );
   $indent--;
   echo "\n\n\n";
   
@@ -542,9 +603,12 @@ foreach ( $block_ids_sort as $block_id ) {
 				       $attr_arg_cname[$attr_id],
 				       $attr_arr1_cname[$attr_id],
 				       $attr_arr2_cname[$attr_id],
+                                       $attr_arr2_dynamic[$attr_id],
 				       $attr_cond_cname[$attr_id],
 				       $attr_cond_val[$attr_id],
-				       $attr_cond_type[$attr_id] ) );
+				       $attr_cond_type[$attr_id],
+				       $attr_ver_from[$attr_id],
+				       $attr_ver_to[$attr_id] ) );
   $indent--;
   echo "\n\n\n";
   
@@ -567,9 +631,12 @@ foreach ( $block_ids_sort as $block_id ) {
 				      $attr_arg_cname[$attr_id],
 				      $attr_arr1_cname[$attr_id],
 				      $attr_arr2_cname[$attr_id],
+                                      $attr_arr2_dynamic[$attr_id],
 				      $attr_cond_cname[$attr_id],
 				      $attr_cond_val[$attr_id],
-				      $attr_cond_type[$attr_id] ) );
+				      $attr_cond_type[$attr_id],
+				      $attr_ver_from[$attr_id],
+				      $attr_ver_to[$attr_id] ) );
   echo htmlify( python_code ( "return s" ) );
   $indent--;
   echo "\n\n\n";
@@ -594,22 +661,21 @@ class mystring(string):
 
 
 # 
-# NIF file header
-#
-class NiHeader:
-    # constructor
+# The NIF base class
+# 
+class NIF:
     def __init__(self):
-        # Morrowind files read: "NetImmerse File Format, Version 4.0.0.2"
-        # (followed by a line feed (0x0A) which we however do not store)
-        self.headerstr = "NetImmerse File Format, Version 4.0.0.2"
-        # Morrowind files say: 0x04000002
-        self.version = 0x04000002
-        # number of blocks
-        self.nblocks = 0
+	self.version = 0x04000002
+        self.header = header(self.version)
+        self.header.header_string_v4_0_0_2 = "NetImmerse File Format, Version 4.0.0.2\\n"
+        self.header.nif_version = self.version
+        self.blocks = []
+        self.footer = footer(self.version)
+        self.footer.unknown1 = 1
+        self.footer.unknown2 = 0
 
 
 
-    # read from file
     def read(self, file):
         # find the header (method taken from Brandano's import script)
 	file.seek(0)
@@ -624,98 +690,39 @@ class NiHeader:
         headerstr_len = tmp.find('\\x0A')
         if (headerstr_len < 0):
             raise NIFError("Invalid header: not a NIF file.")
-        file.seek(0)
-        self.headerstr, dummy, self.version, = struct.unpack('<%isci'%headerstr_len, file.read(headerstr_len + 5))
-        assert(dummy == '\\x0A') # debug
-        if (self.version == 0x04000002): # morrowind
-	    assert(self.headerstr == "NetImmerse File Format, Version 4.0.0.2");
-	    self.nblocks, = struct.unpack('<i', file.read(4))
-	else:
-	    raise NIFError("Unsupported NIF format (%s; 0x%X)."%(self.headerstr, self.version))
-
-
-
-    # write to file
-    def write(self, file):
-        if (self.headerstr.find('\\x0A') >= 0):
-            raise NIFError("Cannot write NIF file header (invalid character).")
-        file.write(struct.pack('<%iscii'%len(self.headerstr), self.headerstr, '\\x0A', self.version, self.nblocks))
-
-
-
-    # dump to screen
-    def __str__(self):
-        s = 'header:  ' + '%s'%self.headerstr + '\\n'
-        s += 'version: ' + '%i'%self.version + '\\n'
-        s += 'nblocks: ' + '%i'%self.nblocks + '\\n'
-        return s
-
-
-
-# 
-# NIF file footer
-#
-class NiFooter:
-    # constructor
-    def __init__(self):
-        # usually 1
-        self.dunno1 = 1
-        # usually 0
-        self.dunno2 = 0
-
-
-
-    # read from file
-    def read(self, file):
-        self.dunno1, self.dunno2 = struct.unpack('<ii', file.read(8))
-	#assert((self.dunno1 == 1) and (self.dunno2 == 0)) # ?
-
-
-
-    # write to file
-    def write(self, file):
-        file.write(struct.pack('<ii', self.dunno1, self.dunno2))
-
-
-
-    # dump to screen
-    def __str__(self):
-        s = 'dunno1: ' + '%i'%self.dunno1 + '\\n'
-        s += 'dunno2: ' + '%i'%self.dunno2 + '\\n'
-        return s
-
-# 
-# The NIF base class
-# 
-class NIF:
-    def __init__(self):
-        self.header = NiHeader()
-        self.blocks = []
-        self.footer = NiFooter()
-
-
-
-    def read(self, file):
         # read header
-        self.header.read(file)
+        for self.version in [ 0x04000002, 0x0A000100, 0x0A010000, 0x14000004 ]:
+            try:
+                self.header = header(self.version)
+                file.seek(0)
+                self.header.read(file)
+                if self.header.nif_version == self.version:
+                    break
+            except:
+                pass
+        else:
+            raise NIFError("Unsupported NIF format (%s)."%tmp[0:headerstr_len])
         # read all the blocks
         self.blocks = []
-        for block_id in range(self.header.nblocks):
-            # each block starts with a string, describing the type of the block,
-
-            # so first we read this string
-            block_id_str = mystring('')
-	    try:
+        for block_id in range(self.header.num_blocks):
+            if self.version < 0x0A000000:
+                # versions < 10.x.x.x: each block starts with a string, describing the type of the block,
+                # so first we read this string
+                block_id_str = mystring('')
+	        try:
+                    block_pos = file.tell()
+                    block_id_str.read(file)
+                except NIFError:
+	            # something to investigate! hex dump
+    	            try:
+                        hexdump(file, block_pos)
+                    except:
+                        pass
+                    raise NIFError("failed to get next block (does not start with a string)")
+            else:
+                # versions >= 10.x.x.x: get block type from header
                 block_pos = file.tell()
-                block_id_str.read(file)
-            except NIFError:
-	        # something to investigate! hex dump
-    	        try:
-                    hexdump(file, block_pos)
-                except:
-                    pass
-                raise NIFError("failed to get next block (does not start with a string)")
-
+                block_id_str = self.header.block_types[self.header.block_type_index[block_id]]
             # check the string
 	    if (0): pass
 
@@ -724,7 +731,7 @@ END
 
 foreach ( $block_ids_sort as $block_id ) {
   if ( ! $block_is_abstract[$block_id] ) {
-    echo "            elif (block_id_str.value == \"$block_cname[$block_id]\"): this_block = $block_cname[$block_id]()\n";
+    echo "            elif (block_id_str.value == \"$block_cname[$block_id]\"): this_block = $block_cname[$block_id](self.version)\n";
   };
 };
 
@@ -777,7 +784,7 @@ echo htmlify( <<<END
 
     # writing all the data
     def write(self, file):
-        if (self.header.nblocks != len(self.blocks)):
+        if (self.header.num_blocks != len(self.blocks)):
             raise NIFError("Invalid NIF object: wrong number of blocks specified in header.")
         self.header.write(file)
         for block in self.blocks:

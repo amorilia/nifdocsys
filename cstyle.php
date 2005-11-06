@@ -22,9 +22,9 @@ echo <<<ENDHTML
 <h1>File Format Browser - C-Style</h1>
 
 <p align="center">
-<a href="index.php?mode=list&amp;table=block&amp;view=hier">Hierarchical</a>
+<a href="index.php?mode=list&amp;table=block&amp;view=hier&amp;version=NULL">Hierarchical</a>
 |
-<a href="index.php?mode=list&amp;table=block&amp;view=alpha">Alphabetical</a>
+<a href="index.php?mode=list&amp;table=block&amp;view=alpha&amp;version=NULL">Alphabetical</a>
 |
 <a href="cstyle.php">C-Style</a>
 |
@@ -58,11 +58,22 @@ function txtcode( $txt )
   return $result;
 }
 
-function txtvariable($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $condtype, $comment)
+function txtvariable($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $condvar, $condval, $condtype, $comment, $ver_from, $ver_to)
 {
   global $indent;
   $result = "";
 
+  // version: if statement
+  
+  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) {
+    $version_str = '';
+    if ( $ver_from !== null ) $version_str .= "(version >= 0x" . dechex($ver_from) . ") and ";
+    if ( $ver_to !== null ) $version_str .= "(version <= 0x" . dechex($ver_to) . ") and ";
+    $version_str = substr($version_str, 0, -5); // remove trailing " and "
+    $result .= txtcode( "if $version_str: " );
+    $indent++;
+  };
+  
   // conditional: if statement
   if ( $condvar ) {
     if ( $condval === null )
@@ -101,6 +112,7 @@ function txtvariable($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $c
 
   // restore indentation
   if ( $condvar ) $indent--;
+  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) $indent--;
 
   return $result;
 }
@@ -115,22 +127,12 @@ function htmlify( $txt )
 // file header
 
 echo "<h2>File header</h2>\n";
-echo "<pre>\n";
-echo txtvariable("headerstr", "char", null, 40, null, null, null, null, "\"NetImmerse File Format, Version 4.0.0.2\\n\"");
-echo txtvariable("version", "int", null, null, null, null, null, null, "0x04000002" );
-echo txtvariable("num_blocks", "int", null, null, null, null, null, null, "number of file blocks" );
 
-echo "</pre>\n";
-echo "<p>The header is immediately followed by a sequence of <code>num_blocks</code> file blocks. The file ends with the file footer.</p>\n";
+echo "<p>The header is immediately followed by a sequence of <code>num_blocks</code> file blocks. The file ends with the file footer.</p>\n<p>For versions 10.x.x.x, all these data blocks are separated by a zero trailer, and the first data block is of type blocktype_name[blocktype_index[0]], the second of blocktype_name[blocktype_index[1]], etc.</p>";
 
 // file footer
 
 echo "<h2>File footer</h2>\n";
-echo "<pre>\n";
-echo txtvariable("unknown1", "int", null, null, null, null, null, null, "Always 1.");
-echo txtvariable("unknown2", "int", null, null, null, null, null, null, "Always 0.");
-echo "</pre>\n";
-
 
 echo "<h2>File blocks</h2>\n";
 
@@ -163,7 +165,7 @@ display_blocks( 2 );
 
 function display_blocks( $b_category ) {
   global $block_ids_sort;
-  global $block_attributes, $block_category, $block_description, $block_cname, $block_parent_cname, $attr_cname, $attr_description, $block_parent_id, $attr_type_cname, $attr_arg_cname, $attr_arr1_cname, $attr_arr2_cname, $attr_cond_cname, $attr_cond_val, $attr_cond_type, $attr_precedence;
+  global $block_attributes, $block_category, $block_description, $block_cname, $block_parent_cname, $attr_cname, $attr_description, $block_parent_id, $attr_type_cname, $attr_arg_cname, $attr_arr1_cname, $attr_arr2_cname, $attr_cond_cname, $attr_cond_val, $attr_cond_type, $attr_precedence, $attr_ver_from, $attr_ver_to;
 
   foreach ( $block_ids_sort as $b_id ) {
     if ( $block_category[$b_id] !== $b_category ) continue;
@@ -186,7 +188,9 @@ function display_blocks( $b_category ) {
                             $attr_cond_cname[$a_id],
                             $attr_cond_val[$a_id],
                             $attr_cond_type[$a_id],
-                            $attr_description[$a_id] );
+                            $attr_description[$a_id],
+			    $attr_ver_from[$a_id],
+			    $attr_ver_to[$a_id]);
       echo "</pre>\n";
     };
   };

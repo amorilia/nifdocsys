@@ -66,6 +66,8 @@
  *  - added support for long block descriptions with line breaks
  * 0.7 (Amorilia, Oct 15, 2005):
  *  - added column to check for inequality in conditional attributes
+ * 0.8 (Amorilia, Nov 3, 2005):
+ *  - multiple version support
  */
 
 define('IN_PHPBB', true);
@@ -112,24 +114,17 @@ include($docsys_root_path . 'readdb.' . $phpEx);
 
 include('HTML/QuickForm.php');
 
-// HTML header and main menu
+// HTML header
 
 require("../header.tpl");
 
-echo <<<ENDHTML
-<h1>File Format Browser</h1>
-
-<p align="center">
-<a href="index.php?mode=list&amp;table=block&amp;view=hier">Hierarchical</a>
-|
-<a href="index.php?mode=list&amp;table=block&amp;view=alpha">Alphabetical</a>
-|
-<a href="cstyle.php">C-Style</a>
-|
-<a href="python.php">Python</a>
-</p>
-
-ENDHTML;
+echo "<h1>File Format Browser (";
+if ( $version === null ) {
+  echo " All Versions ";
+} else {
+  echo " " . $version_description[$version] . " : " . $version_games[$version] . " ";
+};
+echo ")</h1>\n";
 
 /*
  * Are we in listing mode?
@@ -137,10 +132,23 @@ ENDHTML;
 
 if ( $mode === "list" and $table === "block" ) {
   
+  // HTML main menu
+  
+  echo '<p align="center">';
+  echo '<a href="index.php?mode=list&amp;table=block&amp;view=hier&amp;version=NULL">Hierarchical</a>';
+  echo ' | <a href="index.php?mode=list&amp;table=block&amp;view=alpha&amp;version=NULL">Alphabetical</a>';
+  echo ' | <a href="cstyle.php">C-Style</a>';
+  echo ' | <a href="python.php">Python</a><br />';
+  echo '<a href="index.php?mode=list&amp;table=block&amp;view=' . $view . '&amp;version=NULL">All Versions</a>';
+  foreach ( $version_description as $ver_num => $ver_desc ) {
+    echo ' | <a href="index.php?mode=list&amp;table=block&amp;view=' . $view . '&amp;version=' . $ver_num . '">' . $ver_desc . '</a>';
+  };
+  echo "</p>\n";
+ 
   // Display basic types
   
   if ( $docsys_admin ) {
-    echo '<h2>Basic types (<a href="index.php?mode=edit&amp;table=block&amp;block_category=0">New Count</a>, <a href="index.php?mode=edit&amp;table=block&amp;block_category=1">New Non-Count</a>)</h2>' . "\n";
+    echo '<h2>Basic types (<a href="index.php?mode=edit&amp;table=block&amp;block_category=0&amp;version=' . $version . '">New Count</a>, <a href="index.php?mode=edit&amp;table=block&amp;block_category=1&amp;version=' . $version . '">New Non-Count</a>)</h2>' . "\n";
     
     if ( $view === "alpha" ) {
       echo "<table>\n";
@@ -154,6 +162,7 @@ if ( $mode === "list" and $table === "block" ) {
       $bgcol = 'reg0';
       foreach ( $block_ids as $b_id ) {
 	if ( $block_category[$b_id] >= 2 ) continue;
+	if ( ! check_version( $version, $block_ver_from[$b_id], $block_ver_to[$b_id] ) ) continue;
 	echo '<tr class="' . $bgcol . '">' . "\n";
 	echo "<td><b>" . htmlify( $block_name[$b_id] ) . "</b></td>\n";
 	if ( $block_category[$b_id] === 0 )
@@ -162,8 +171,8 @@ if ( $mode === "list" and $table === "block" ) {
 	  echo "<td>no</td>\n";
 	echo "<td>" . nl2br( htmlify( $block_description[$b_id] ) ) . "</td>\n";
 	if ( $docsys_admin ) {
-	  echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
-	  echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
+	  echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '&amp;version=' . $version . '">Edit</a></td>' . "\n";
+	  echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '&amp;version=' . $version . '">Delete</a></td>' . "\n";
 	};
 	echo "</tr>\n";
 	if ($bgcol === 'reg0') {
@@ -185,7 +194,7 @@ if ( $mode === "list" and $table === "block" ) {
   // Display compound types
   
   if ( $docsys_admin ) {
-    echo '<h2>Compound types (<a href="index.php?mode=edit&amp;table=block&amp;block_category=2">New</a>)</h2>' . "\n";
+    echo '<h2>Compound types (<a href="index.php?mode=edit&amp;table=block&amp;block_category=2&amp;version=' . $version . '">New</a>)</h2>' . "\n";
     
     if ( $view === "alpha" ) {
       
@@ -200,12 +209,13 @@ if ( $mode === "list" and $table === "block" ) {
       $bgcol = 'reg0';
       foreach ( $block_ids as $b_id ) {
 	if ( $block_category[$b_id] !== 2 ) continue;
+	if ( ! check_version( $version, $block_ver_from[$b_id], $block_ver_to[$b_id] ) ) continue;
 	echo '<tr class="' . $bgcol . '">' . "\n";
-	echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
+	echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '&amp;version=' . $version . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
 	echo "<td>" . nl2br( htmlify( $block_description[$b_id] ) ) . "</td>\n";
 	if ( $docsys_admin ) {
-	  echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
-	  echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
+	  echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '&amp;version=' . $version . '">Edit</a></td>' . "\n";
+	  echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '&amp;version=' . $version . '">Delete</a></td>' . "\n";
 	};
 	echo "</tr>\n";
 	if ($bgcol === 'reg0') {
@@ -224,7 +234,7 @@ if ( $mode === "list" and $table === "block" ) {
   // Display block types
   
   if ( $docsys_admin )
-    echo '<h2>File block types (<a href="index.php?mode=edit&amp;table=block&amp;block_category=3">New</a>)</h2>' . "\n";
+    echo '<h2>File block types (<a href="index.php?mode=edit&amp;table=block&amp;block_category=3&amp;version=' . $version . '">New</a>)</h2>' . "\n";
   else
     echo "<h2>File block types</h2>\n";
 
@@ -243,16 +253,17 @@ if ( $mode === "list" and $table === "block" ) {
     $bgcol = 'reg0';
     foreach ( $block_ids as $b_id ) {
       if ( $block_category[$b_id] !== 3 ) continue;
+      if ( ! check_version( $version, $block_ver_from[$b_id], $block_ver_to[$b_id] ) ) continue;
       echo '<tr class="' . $bgcol . '">' . "\n";
-      echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
+      echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '&amp;version=' . $version . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a></td>\n";
       echo "<td>" . nl2br( htmlify( $block_description[$b_id] ) ) . "</td>\n";
       if ( $block_parent_id[$b_id] !== null )
-	echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $block_parent_id[$b_id] . '"><b>' . htmlify( $block_parent_name[$b_id] ) . "</b></a></td>\n";
+	echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $block_parent_id[$b_id] . '&amp;version=' . $version . '"><b>' . htmlify( $block_parent_name[$b_id] ) . "</b></a></td>\n";
       else
 	echo "<td></td>\n"; 
       if ( $docsys_admin ) {
-	echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '">Edit</a></td>' . "\n";
-	echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a></td>' . "\n";
+	echo '<td><a href="index.php?mode=edit&amp;table=block&amp;block_id=' . $b_id . '&amp;version=' . $version . '">Edit</a></td>' . "\n";
+	echo '<td><a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '&amp;version=' . $version . '">Delete</a></td>' . "\n";
       };
       echo "</tr>\n";
       if ($bgcol === 'reg0') {
@@ -269,12 +280,24 @@ if ( $mode === "list" and $table === "block" ) {
 };
 
 if ( $mode === "list" and $table === "attr" ) {
+  // HTML main menu
+  
+  echo '<p align="center">';
+  echo '<a href="index.php?mode=list&amp;table=block&amp;view=hier&amp;version=' . $ver_num . '">Hierarchical</a>';
+  echo ' | <a href="index.php?mode=list&amp;table=block&amp;view=alpha&amp;version=' . $ver_num . '">Alphabetical</a>';
+  echo ' | <a href="cstyle.php">C-Style</a> | <a href="python.php">Python</a><br />'; 
+  echo '<a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $req_block_id . '&amp;version=NULL">All Versions</a>';
+  foreach ( $version_description as $ver_num => $ver_desc ) {
+    echo ' | <a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $req_block_id . '&amp;version=' . $ver_num . '">' . $ver_desc . '</a>';
+  };
+  echo "</p>\n";
+ 
   // Show block header.
   
   if ( $block_parent_id[$req_block_id] )
-    echo "<h2>" . htmlify( $block_name[$req_block_id] ) . ' ::  <a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $block_parent_id[$req_block_id] . '">' . htmlify( $block_parent_name[$req_block_id]). "</a></h2>\n";
+    echo "<h2>" . htmlify( $block_name[$req_block_id] ) . ' ::  <a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $block_parent_id[$req_block_id] . '&amp;version=' . $version . '">' . htmlify( $block_parent_name[$req_block_id]). "</a></h2>\n";
   else
-    echo "<h2>" . htmlify( $block_name[$req_block_id] ) . ' ::  <a href="index.php?mode=list&amp;table=block&amp;view=hier">(None)</a></h2>' . "\n";
+    echo "<h2>" . htmlify( $block_name[$req_block_id] ) . ' ::  <a href="index.php?mode=list&amp;table=block&amp;view=hier&amp;version=' . $version . '">(None)</a></h2>' . "\n";
   echo "<p>" . nl2br( htmlify( $block_description[$req_block_id] ) ) . "</p>\n";
 
   // Block derived classes.
@@ -283,7 +306,7 @@ if ( $mode === "list" and $table === "attr" ) {
     echo "<h3>Parent of...</h3>\n";
     echo "<ul>\n";
     foreach ( $block_children[$req_block_id] as $b_id ) 
-      echo '<li><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '">' . htmlify( $block_name[$b_id] ). "</a></li>\n";
+      echo '<li><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '&amp;version=' . $version . '">' . htmlify( $block_name[$b_id] ). "</a></li>\n";
     echo "</ul>\n";
   };
 
@@ -299,7 +322,7 @@ if ( $mode === "list" and $table === "attr" ) {
 	    echo "<h3>Attribute of...</h3>\n";
 	    echo "<ul>\n";
 	  };
-	  echo '<li><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '">' . htmlify( $block_name[$b_id] ). "</a></li>\n";
+	  echo '<li><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '&amp;version=' . $version . '">' . htmlify( $block_name[$b_id] ). "</a></li>\n";
 	  break;
 	};
       };
@@ -312,11 +335,11 @@ if ( $mode === "list" and $table === "attr" ) {
   if ( $block_category[$req_block_id] >= 2 ) {
     
     if ( $docsys_admin ) {
-      echo '<h3>Attributes (<a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '">New Regular</a>';
+      echo '<h3>Attributes (<a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '&amp;version=' . $version . '">New Regular</a>';
       // Present option to create external attribute, if we have none.
       if ( $block_category[$req_block_id] === 2 ) // only compound types can have have external attributes
 	if ( ( ! $block_attributes[$req_block_id] ) or $attr_precedence[$block_attributes[$req_block_id][0]] !== -1 ) // must have no external attributes yet
-	  echo ', <a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '&amp;attr_precedence=-1">New External</a>';
+	  echo ', <a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '&amp;attr_precedence=-1&amp;version=' . $version . '">New External</a>';
       echo ") </h3>\n";
     } else
       echo "<h3>Attributes</h3>\n";
@@ -331,6 +354,7 @@ if ( $mode === "list" and $table === "attr" ) {
     echo "<th>Arr2</th>\n";
     echo "<th>Cond</th>\n";
     echo "<th>Description</th>\n";
+    if ( $version === null ) echo "<th>From</th><th>To</th>\n";
     if ( $docsys_admin ) echo '<th colspan="3">Admin</th>' . "\n";
     echo "</tr>\n";
     
@@ -351,6 +375,8 @@ if ( $mode === "edit" and $table === "block" ) {
     $b_name = $block_name[$req_block_id];
     $b_description = $block_description[$req_block_id];
     $b_parent_id = $block_parent_id[$req_block_id];
+    $b_ver_from = $block_ver_from[$req_block_id];
+    $b_ver_to = $block_ver_to[$req_block_id];
     $b_category = $block_category[$req_block_id];
     echo '<h2>Edit ' . $b_name . '</h2>' . "\n";
   } else {
@@ -361,8 +387,30 @@ if ( $mode === "edit" and $table === "block" ) {
     $b_name = '';
     $b_description = '';
     $b_parent_id = null;
+    $b_ver_from = $version;
+    $b_ver_to = null;
     $b_category = $req_block_category; // this must be passed!
   };
+
+  // Construct map: version => description
+  $version_table_from = array();
+  if ( $b_ver_from !== null )
+    $version_table_from[ $b_ver_from ] = '-Oops-';
+  else
+    $version_table_from['NULL'] = "-Oops-";
+  
+  $version_table_to = array();
+  if ( $b_ver_to !== null )
+    $version_table_to[ $b_ver_to ] = '-Oops-';
+  else
+    $version_table_to[ 'NULL' ] = "-Oops-";
+  
+  $version_table_from['NULL'] = "(Any)";  
+  foreach ( $version_description as $ver_num => $ver_desc ) {
+    $version_table_from[$ver_num] = $ver_desc;
+    $version_table_to[$ver_num] = $ver_desc;
+  };
+  $version_table_to['NULL'] = "(Any)";
 
   // Construct map: block_id => name. Make sure that block_parent_id
   // comes first (the <select> html attribute has no default
@@ -391,6 +439,9 @@ if ( $mode === "edit" and $table === "block" ) {
     $form->addElement('select', 'block_parent_id', 'Parent:', $parent_id_table );
   else
     $form->addElement('hidden', 'block_parent_id', 'NULL');
+  $form->addElement('select', 'block_ver_from', 'Appears first in:', $version_table_from );
+  $form->addElement('select', 'block_ver_to', 'Appears last in:', $version_table_to );
+  $form->addElement('hidden', 'version', $version);
   if ( $req_block_id ) {
     $form->addElement('hidden', 'block_id', $req_block_id);
     $form->addElement('submit', 'action', 'Modify');
@@ -402,18 +453,20 @@ if ( $mode === "edit" and $table === "block" ) {
   $form->addRule('block_name', 'Name too long', 'maxlength', 64, 'client');
   //$form->addRule('block_name', 'Invalid characters in name', 'regex', REGEX_NAME, 'client'); // bug in html_quickform
   $form->addRule('block_description', 'Please enter a description', 'required', null, 'client');
-  $form->addRule('block_description', 'Description too long (max 2048 characters)', 'maxlength', 2048, 'client');
+  $form->addRule('block_description', 'Description too long (max 4096 characters)', 'maxlength', 4096, 'client');
   //$form->addRule('block_description', 'Invalid characters in description', 'regex', REGEX_DESC, 'client'); // bug in html_quickform
   $form->setDefaults( array( 'block_name' => $b_name,
 			     'block_description' => $b_description,
-			     'block_parent_id' => $b_parent_id ) );
+			     'block_parent_id' => $b_parent_id,
+			     'block_ver_from' => $b_ver_from,
+			     'block_ver_to' => $b_ver_to ) );
   $form->display();
 };
 
 if ( $mode === "edit" and $table === "attr" ) {
   // Get to know about the block.
   
-  if ( $req_block_id === null ) oops( $errcode_val );
+  if ( $req_block_id === null ) oops( $errcode_val, $req_block_id );
   $req_block_name = $block_name[$req_block_id];
 
   // If attr_id was passed, we are editing; if not, we create a new
@@ -434,6 +487,8 @@ if ( $mode === "edit" and $table === "attr" ) {
     $a_cond_id = $attr_cond_id[$req_attr_id];
     $a_cond_val = $attr_cond_val[$req_attr_id];
     $a_cond_type = $attr_cond_type[$req_attr_id];
+    $a_ver_from = $attr_ver_from[$req_attr_id];
+    $a_ver_to = $attr_ver_to[$req_attr_id];
   } else {
     echo "<h2>Create " . $req_block_name . " attribute</h2>";
     $a_name = '';
@@ -447,7 +502,7 @@ if ( $mode === "edit" and $table === "attr" ) {
 	if ( $attr_precedence[$a_id] > $a_precedence) $a_precedence = $attr_precedence[$a_id];
       $a_precedence = $a_precedence + 1; // if there are no attributes, $a_precedence is 1.
     } else {// for external attributes the precedence (-1) is passed as an argument
-      if ( $req_attr_precedence !== -1 ) oops( $errcode_val );
+      if ( $req_attr_precedence !== -1 ) oops( $errcode_val, $req_attr_precedence );
       $a_precedence = $req_attr_precedence;
     };
     $a_arg_id = null;
@@ -458,7 +513,29 @@ if ( $mode === "edit" and $table === "attr" ) {
     $a_cond_id = null;
     $a_cond_val = null;
     $a_cond_type = null;
+    $a_ver_from = $version;
+    $a_ver_to = null;
   };
+
+  // Construct map: version => description
+  $version_table_from = array();
+  if ( $b_ver_from !== null )
+    $version_table_from[ $b_ver_from ] = '-Oops-';
+  else
+    $version_table_from['NULL'] = "-Oops-";
+  
+  $version_table_to = array();
+  if ( $b_ver_to !== null )
+    $version_table_to[ $b_ver_to ] = '-Oops-';
+  else
+    $version_table_to[ 'NULL' ] = "-Oops-";
+  
+  $version_table_from['NULL'] = "(Any)";  
+  foreach ( $version_description as $ver_num => $ver_desc ) {
+    $version_table_from[$ver_num] = $ver_desc;
+    $version_table_to[$ver_num] = $ver_desc;
+  };
+  $version_table_to['NULL'] = "(Any)";
 
   // Construct map: block_id => name. Make sure that attr_type_id
   // comes first (the <select> html attribute has no default
@@ -509,6 +586,24 @@ if ( $mode === "edit" and $table === "attr" ) {
   if ( $a_cond_id !== null )
     $attr_cond_table[ $a_cond_id ] = "-Oops-";
   $attr_cond_table['NULL'] = "(None)";
+  // parent attributes (we only go down two levels; TODO go down arbitrary level)
+  if ( $block_parent_id[$req_block_id] !== null ) {
+    if ( $block_parent_id[$block_parent_id[$req_block_id]] !== null ) {
+      foreach ( $block_attributes[$block_parent_id[$block_parent_id[$req_block_id]]] as $a_id ) {
+	if ( $block_category[$attr_type_id[$a_id]] !== 0 ) continue; // argument must be a count
+	$attr_cond_table[$a_id] = $attr_name[$a_id];
+	$attr_arr1_table[$a_id] = $attr_name[$a_id];
+	$attr_arr2_table[$a_id] = $attr_name[$a_id];
+      };
+    };
+    foreach ( $block_attributes[$block_parent_id[$req_block_id]] as $a_id ) {
+      if ( $block_category[$attr_type_id[$a_id]] !== 0 ) continue; // argument must be a count
+      $attr_cond_table[$a_id] = $attr_name[$a_id];
+      $attr_arr1_table[$a_id] = $attr_name[$a_id];
+      $attr_arr2_table[$a_id] = $attr_name[$a_id];
+    };
+  };
+  // the block attributes itself
   foreach ( $block_attributes[$req_block_id] as $a_id ) {
     if ( $attr_precedence[$a_id] >= $a_precedence ) continue; // argument must come before
     if ( $block_category[$attr_type_id[$a_id]] !== 0 ) continue; // argument must be a count
@@ -545,6 +640,9 @@ if ( $mode === "edit" and $table === "attr" ) {
     $form->addElement('advcheckbox', 'attr_cond_type', 'Negate:', null, null, array( 0, 1 ) );
   };
   $form->addElement('textarea', 'attr_description', 'Description:', array('rows' => 3, 'cols' => 50 ));
+  $form->addElement('select', 'attr_ver_from', 'Appears first in:', $version_table_from );
+  $form->addElement('select', 'attr_ver_to', 'Appears last in:', $version_table_to );
+  $form->addElement('hidden', 'version', $version);
   if ( $req_attr_id ) {
     $form->addElement('hidden', 'attr_id', $req_attr_id);
     $form->addElement('submit', 'action', 'Modify');
@@ -556,7 +654,7 @@ if ( $mode === "edit" and $table === "attr" ) {
   $form->addRule('attr_name', 'Name too long', 'maxlength', 64, 'client');
   //$form->addRule('attr_name', 'Invalid characters in name', 'regex', REGEX_NAME, 'client'); // bug in html_quickform
   $form->addRule('attr_description', 'Please enter a description', 'required', null, 'client');
-  $form->addRule('attr_description', 'Description too long (max 256 characters)', 'maxlength', 256, 'client');
+  $form->addRule('attr_description', 'Description too long (max 2048 characters)', 'maxlength', 2048, 'client');
   //$form->addRule('attr_description', 'Invalid characters in description', 'regex', REGEX_DESC, 'client'); // bug in html_quickform
   $form->addRule('attr_cond_val', 'Please enter a conditional value', 'numerical', null, 'client');
   $form->addRule('attr_arr1_num', 'Leave empty, or enter a numerical value for the 1st array index', 'numerical', null, 'client');
@@ -566,8 +664,10 @@ if ( $mode === "edit" and $table === "attr" ) {
 			     'attr_cond_val' => $a_cond_val,
 			     'attr_arr1_num' => $a_arr1_num,
 			     'attr_arr2_num' => $a_arr2_num, 
-                             'attr_cond_type' => $a_cond_type ) );
-  $form->display();
+                             'attr_cond_type' => $a_cond_type,
+			     'attr_ver_from' => $a_ver_from,
+			     'attr_ver_to' => $a_ver_to ) );
+   $form->display();
 };
 
 echo <<<END
@@ -589,27 +689,31 @@ function htmlify( $txt ) {
 // Display hierarchy of compound types, as an unordered list.
 
 function display_children( $b_category, $b_parent_id ) {
-  global $block_ids, $block_name, $block_category, $block_description, $block_parent_id, $block_children, $block_root;
-  global $docsys_admin;
+  global $block_ids, $block_name, $block_category, $block_description, $block_parent_id, $block_children, $block_root, $block_ver_from, $block_ver_to;
+  global $docsys_admin, $version;
 
-  if ( $b_parent_id === null )
-    $list = $block_root[$b_category];
-  else
-    $list = $block_children[$b_parent_id];
+  $list = array();
+  if ( $b_parent_id === null ) {
+    foreach ( $block_root[$b_category] as $b_id )
+      if ( check_version( $version, $block_ver_from[$b_id], $block_ver_to[$b_id] ) ) $list[] = $b_id;
+  } else {
+    foreach ( $block_children[$b_parent_id] as $b_id )
+      if ( check_version( $version, $block_ver_from[$b_id], $block_ver_to[$b_id] ) ) $list[] = $b_id;
+  };
 
   if ( $list ) {
     echo "<ul>\n";
     foreach ( $list as $b_id ) {
       echo "<li>\n";
       if ( $b_category >= 2 )
-	echo '<a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a>";
+	echo '<a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $b_id . '&amp;version=' . $version . '"><b>' . htmlify( $block_name[$b_id] ) . "</b></a>";
       else
 	echo '<b>' . htmlify( $block_name[$b_id] ) . "</b>";
       if ( $docsys_admin )
-	echo "\n | " . '<a href="index.php?mode=edit&amp;table=block&amp;block_id=' .$b_id . '">Edit</a>';
+	echo "\n | " . '<a href="index.php?mode=edit&amp;table=block&amp;block_id=' .$b_id . '&amp;version=' . $version . '">Edit</a>';
       echo "\n | " . nl2br( htmlify( $block_description[$b_id] ) ); 
       if ( $docsys_admin )
-	echo "\n | " . '<a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '">Delete</a>';
+	echo "\n | " . '<a href="index.php?mode=action&amp;table=block&amp;action=Delete&amp;block_id=' . $b_id . '&amp;version=' . $version . '">Delete</a>';
       display_children( $b_category, $b_id );
       echo "</li>\n";
     };
@@ -620,9 +724,9 @@ function display_children( $b_category, $b_parent_id ) {
 // Display parent's attributes, as part of a table.
 
 function display_attributes( $b_id, $active, $count ) {
-  global $block_attributes, $block_category, $attr_name, $attr_description, $block_parent_id, $attr_type_id, $attr_type_name, $attr_arg_id, $attr_arg_name, $attr_arr1_id, $attr_arr1_name, $attr_arr1_num, $attr_arr2_id, $attr_arr2_name, $attr_arr2_num, $attr_cond_id, $attr_cond_name, $attr_cond_val, $attr_precedence, $attr_cond_type;
+  global $block_attributes, $block_category, $attr_name, $attr_description, $block_parent_id, $attr_type_id, $attr_type_name, $attr_arg_id, $attr_arg_name, $attr_arr1_id, $attr_arr1_name, $attr_arr1_num, $attr_arr2_id, $attr_arr2_name, $attr_arr2_num, $attr_cond_id, $attr_cond_name, $attr_cond_val, $attr_precedence, $attr_cond_type, $attr_ver_from, $attr_ver_to, $version_description;
   global $req_block_id;
-  global $docsys_admin;
+  global $docsys_admin, $version;
   
   // Show parent attributes.
   
@@ -632,6 +736,7 @@ function display_attributes( $b_id, $active, $count ) {
   // Show attributes.
   $is1st = 1;
   foreach ( $block_attributes[$b_id] as $a_id ) {
+    if ( ! check_version( $version, $attr_ver_from[$a_id], $attr_ver_to[$a_id] ) ) continue;
     if ( $active ) {
       if ( ($count & 1) === 0 )
 	$bgcol = 'reg0';
@@ -648,7 +753,7 @@ function display_attributes( $b_id, $active, $count ) {
     echo '<tr class="' . $bgcol . '">' . "\n";
     echo "<td><i>" . htmlify( $attr_name[$a_id] ) . "</i></td>\n";
     //if ( $block_category[ $attr_type_id[$a_id] ] >= 2 )
-    echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $attr_type_id[$a_id] . '"><b>' . htmlify( $attr_type_name[$a_id] ) . "</b></a></td>\n";
+    echo '<td><a href="index.php?mode=list&amp;table=attr&amp;block_id=' . $attr_type_id[$a_id] . '&amp;version=' . $version . '"><b>' . htmlify( $attr_type_name[$a_id] ) . "</b></a></td>\n";
     //else
     //echo '<td><b>' . htmlify( $attr_type_name[$a_id] ) . "</b></td>\n";
     if ( $attr_arg_id[$a_id] !== null )
@@ -683,15 +788,20 @@ function display_attributes( $b_id, $active, $count ) {
     echo '<td>' . $cond_expr . '</td>' . "\n";
     echo "<td>" . nl2br( htmlify( $attr_description[$a_id] ) ) . "</td>\n";
 
+    if ( $version === null ) {
+      if ( $attr_ver_from[$a_id] !== null ) echo "<td>" . $version_description[$attr_ver_from[$a_id]] . "</td>"; else echo "<td>Any</td>";
+      if ( $attr_ver_to[$a_id] !== null ) echo "<td>" . $version_description[$attr_ver_to[$a_id]] . "</td>"; else echo "<td>Any</td>";
+    };
+
     if ( $docsys_admin ) {
       if ( $active ) {
-	echo '<td><a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '&amp;attr_id=' . $a_id . '">Edit</a></td>' . "\n";
+	echo '<td><a href="index.php?mode=edit&amp;table=attr&amp;block_id=' . $req_block_id . '&amp;attr_id=' . $a_id . '&amp;version=' . $version . '">Edit</a></td>' . "\n";
 	if ( $is1st === 1 ) {
 	  echo '<td></td>' . "\n";
 	  if ( $attr_precedence[$a_id] !== -1 ) $is1st = 0;
 	} else
-	  echo '<td><a href="index.php?mode=action&amp;table=attr&amp;action=Up&amp;block_id=' . $req_block_id . '&amp;attr_id=' . $a_id . '&amp;attr_precedence=' . $attr_precedence[$a_id] . '">Up</a></td>' . "\n";
-	echo '<td><a href="index.php?mode=action&amp;table=attr&amp;action=Delete&amp;block_id=' . $req_block_id . '&amp;attr_id=' . $a_id . '">Delete</a></td>' . "\n";
+	  echo '<td><a href="index.php?mode=action&amp;table=attr&amp;action=Up&amp;block_id=' . $req_block_id . '&amp;attr_id=' . $a_id . '&amp;attr_precedence=' . $attr_precedence[$a_id] . '&amp;version=' . $version . '">Up</a></td>' . "\n";
+	echo '<td><a href="index.php?mode=action&amp;table=attr&amp;action=Delete&amp;block_id=' . $req_block_id . '&amp;attr_id=' . $a_id . '&amp;version=' . $version . '">Delete</a></td>' . "\n";
       } else {
 	echo "<td></td>\n";
 	echo "<td></td>\n";
