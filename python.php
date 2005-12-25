@@ -28,6 +28,8 @@ echo <<<ENDHTML
 <a href="cstyle.php">C-Style</a>
 |
 <a href="python.php">Python</a>
+|
+<a href="xml.php">XML</a>
 </p>
 
 <pre>
@@ -95,7 +97,7 @@ import struct
 
 MAX_ARRAYDUMPSIZE = 8 # we shall not dump arrays that have more elements than this number
 
-MAX_STRLEN = 256 # reading/writing strings longer than this number will raise an exception
+MAX_STRLEN = 8196 # reading/writing strings longer than this number will raise an exception
 
 MAX_ARRAYSIZE = 8388608 # reading/writing arrays that have more elements than this number will raise an exception
 
@@ -180,10 +182,26 @@ function python_code_init($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   if ( ( $some_type == "byte" )
        or ( $some_type == "short" )
        or ( $some_type == "int" )
-       or ( $some_type == "flags" ) )
-    // byte, short, int => 32 bit signed integer
+       or ( $some_type == "bool" ) )
     $result = "0";
-  elseif ( $some_type == "index" )
+  elseif ( $some_type == "flags" )
+    $result = "0x0008";
+  elseif ( $some_type == "alphaformat" )
+    $result = "3";
+  elseif ( $some_type == "applymode" )
+    $result = "2";
+  elseif ( $some_type == "lightmode" )
+    $result = "1";
+  elseif ( $some_type == "mipmapformat" )
+    $result = "2";
+  elseif ( $some_type == "pixellayout" )
+    $result = "5";
+  elseif ( $some_type == "vertmode" )
+    $result = "2";
+    // byte, short, int => 32 bit signed integer
+  elseif ( ( $some_type == "link" )
+           or ( $some_type == "nodeancestor" )
+           or ( $some_type == "skeletonroot" ) )
     // index -1 refers to nothing
     $result = "-1";
   elseif ( $some_type == "char" )
@@ -242,7 +260,8 @@ function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   // initialise the variable, if required
   if ( ( $sizevar ) or ( $condvar ) or
        ( ( $some_type != "byte" ) and ( $some_type != "short" ) and ( $some_type != "int" ) and ( $some_type != "char" ) and
-	 ( $some_type != "flags" ) and ( $some_type != "index" ) and ( $some_type != "float" ) ) )
+	 ( $some_type != "flags" ) and ( $some_type != "link" ) and ( $some_type != "float" ) and
+         ( $some_type != "vertmode" ) and ( $some_type != "pixellayout" ) and ( $some_type != "skeletonroot" ) and ( $some_type != "nodeancestor" ) and ( $some_type != "mipmapformat" ) and ( $some_type != "lightmode") and ( $some_type != "bool" ) and ( $some_type != "applymode" ) and ( $some_type != "alphaformat" ) ) )
     $result .= python_code_init( $var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn );
 
   // conditional: if statement
@@ -283,17 +302,19 @@ function python_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
 	$var .= "[count2]"; // this is now the variable that we shall read
       }
     }
-    
+
     // main
-    if ( $some_type == "byte" )
+    if ( $some_type == "bool" )
+      $result .= python_code( "if self.version < 0x04010001:\n\tself.$var, = struct.unpack('<I', file.read(4))\nelse:\n\tself.$var, = struct.unpack('<B', file.read(1))" );
+    elseif ( $some_type == "byte" )
       $result .= python_code( "self.$var, = struct.unpack('<B', file.read(1))" );
     elseif ( $some_type == "short" )
       $result .= python_code( "self.$var, = struct.unpack('<H', file.read(2))" );
     elseif ( $some_type == "flags" )
       $result .= python_code( "self.$var, = struct.unpack('<H', file.read(2))" );
-    elseif ( $some_type == "int" )
+    elseif ( ( $some_type == "int" ) or ( $some_type == "alphaformat" ) or ( $some_type == "applymode" ) or ( $some_type == "lightmode") or ( $some_type == "mipmapformat" ) or ( $some_type == "pixellayout" ) or ( $some_type == "vertmode" ) )
       $result .= python_code( "self.$var, = struct.unpack('<I', file.read(4))" );
-    elseif ( $some_type == "index" )
+    elseif ( ( $some_type == "link" ) or ( $some_type == "nodeancestor") or ( $some_type == "skeletonroot" ) )
       $result .= python_code( "self.$var, = struct.unpack('<i', file.read(4))" );
     elseif ( $some_type == "char" )
       $result .= python_code( "self.$var, = struct.unpack('<c', file.read(1))" );
@@ -380,15 +401,17 @@ function python_code_write($var, $some_type, $some_type_arg, $sizevar, $sizevarb
     }
     
     // main
-    if ( $some_type == "byte" )
+    if ( $some_type == "bool" )
+      $result .= python_code( "if self.version < 0x04010001:\n\tfile.write(struct.pack('<I', self.$var))\nelse:\n\tfile.write(struct.pack('<B', self.$var))" );
+    elseif ( $some_type == "byte" )
       $result .= python_code( "file.write(struct.pack('<b', self.$var))" );
     elseif ( $some_type == "short" )
       $result .= python_code( "file.write(struct.pack('<H', self.$var))" );
     elseif ( $some_type == "flags" )
       $result .= python_code( "file.write(struct.pack('<H', self.$var))" );
-    elseif ( $some_type == "int" )
+    elseif ( ( $some_type == "int" ) or ( $some_type == "alphaformat" ) or ( $some_type == "applymode" ) or ( $some_type == "lightmode") or ( $some_type == "mipmapformat" ) or ( $some_type == "pixellayout" ) or ( $some_type == "vertmode" ) )
       $result .= python_code( "file.write(struct.pack('<I', self.$var))" );
-    elseif ( $some_type == "index" )
+    elseif ( ( $some_type == "link" ) or ( $some_type == "nodeancestor") or ( $some_type == "skeletonroot" ) )
       $result .= python_code( "file.write(struct.pack('<i', self.$var))" );
     elseif ( $some_type == "char" )
       $result .= python_code( "file.write(struct.pack('<c', self.$var))" );
@@ -448,13 +471,7 @@ function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
   if ( ( $some_type == "char" ) and ( $sizevar ) and ( ! $sizevarbis ) )
     $result .= python_code( "s += $displayvar + ': %s\\n'%self.$var" );
   // double arrays
-  else if ($sizevarbis) {
-    if ( $sizevarbisdyn == null )
-      $result .= python_code( "s += '$var: array[%i][%i]\\n'%($sizevar,$sizevarbis)");
-    else
-      $result .= python_code( "s += '$var: array[%i][]\\n'%$sizevar");
-  } else {
-    
+  else {
     // other cases
     
     if ( $sizevar ) {
@@ -464,12 +481,38 @@ function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
       $indent++;
       $displayvar .= " + '[%i]'%count"; // also print the index
       $var .= "[count]"; // this is now the variable that we shall dump
-    }
+      if ($sizevarbis) {
+        if ( $sizevarbisdyn == null ) {
+          $result .= python_code( "if ($sizevarbis <= MAX_ARRAYDUMPSIZE):" );
+          $indent++;
+          $result .= python_code( "for count2 in range($sizevarbis):" );
+          $indent++;
+          $displayvar .= " + '[%i]'%count2"; // also print the index
+          $var .= "[count2]"; // this is now the variable that we shall dump
+        } else {
+          $result .= python_code( "if (${sizevarbis}[count] <= MAX_ARRAYDUMPSIZE):" );
+          $indent++;
+          $result .= python_code( "for count2 in range(${sizevarbis}[count]):" );
+          $indent++;
+          $displayvar .= " + '[%i]'%count2"; // also print the index
+          $var .= "[count2]"; // this is now the variable that we shall dump
+        };
+      };
+    };
     
     if ( ( $some_type == "byte" )
-	 or ( $some_type == "short" )
 	 or ( $some_type == "int" )
-	 or ( $some_type == "index" ) )
+	 or ( $some_type == "short" )
+	 or ( $some_type == "alphaformat" )
+	 or ( $some_type == "applymode" )
+	 or ( $some_type == "bool" )
+	 or ( $some_type == "lightmode" )
+	 or ( $some_type == "link" )
+	 or ( $some_type == "mipmapformat" )
+	 or ( $some_type == "nodeancestor" )
+	 or ( $some_type == "pixellayout" )
+	 or ( $some_type == "skeletonroot" )
+	 or ( $some_type == "vertmode" ) )
       $result .= python_code ( "s += $displayvar + ': %i\\n'%self.$var" );
     elseif  ( $some_type == "char" ) 
       $result .= python_code ( "s += $displayvar + ': %s\\n'%self.$var" );
@@ -482,6 +525,18 @@ function python_code_dump($var, $some_type, $some_type_arg, $sizevar, $sizevarbi
     
     // restore indentation
     if ( $sizevar ) {
+      if ( $sizevarbis ) {
+        $indent--;
+        $indent--;
+        // if we didn't print the array's contents, then...
+        $result .= python_code( "else:" );
+        $indent++;
+        if ( $sizevarbisdyn == null )
+          $result .= python_code( "s += '$origvar: array[%i][%i]\\n'%(count,$sizevarbis)" );
+         else
+          $result .= python_code( "s += '$origvar: array[%i][%i]\\n'%(count,${sizevarbis}[count])" );
+        $indent--;
+      }
       $indent--;
       $indent--;
       // if we didn't print the array's contents, then...
@@ -579,6 +634,8 @@ foreach ( $block_ids_sort as $block_id ) {
 				      $attr_cond_type[$attr_id],
 				      $attr_ver_from[$attr_id],
 				      $attr_ver_to[$attr_id] ) );
+  if ( ! $block_attributes[$block_id] )
+    echo htmlify( python_code( "pass" ) );
   $indent--;
   echo "\n\n\n";
   
@@ -591,7 +648,7 @@ foreach ( $block_ids_sort as $block_id ) {
   $indent++;
   // non-abstract blocks (which have no children), first write a block_type string variable
   if ( ! $block_is_abstract[$block_id] )
-    echo htmlify( python_code ( "self.block_type.write(file)" ) );
+    echo htmlify( python_code ( "if self.version < 0x0A000000: self.block_type.write(file)" ) );
   // call base class writer
   if ( $block_parent_id[$block_id] )
     echo htmlify( python_code ( "$block_parent_cname[$block_id].write(self, file)" ) );
@@ -609,6 +666,8 @@ foreach ( $block_ids_sort as $block_id ) {
 				       $attr_cond_type[$attr_id],
 				       $attr_ver_from[$attr_id],
 				       $attr_ver_to[$attr_id] ) );
+  if ( ! $block_attributes[$block_id] )
+    echo htmlify( python_code( "pass" ) );
   $indent--;
   echo "\n\n\n";
   
@@ -619,8 +678,8 @@ foreach ( $block_ids_sort as $block_id ) {
   // non-abstract blocks (which have no children), dump their block_type string variable
   echo htmlify( python_code ( "s = ''" ) );
   if ( ! $block_is_abstract[$block_id] )
-    echo htmlify( python_code ( "s += str(self.block_type)" ) );
-  // call base class dumper
+    echo htmlify( python_code ( "s += 'type:' + self.block_type.value + '\\n'" ) );
+   // call base class dumper
   if ( $block_parent_id[$block_id] )
     echo htmlify( python_code ( "s += $block_parent_cname[$block_id].__str__(self)" ) );
   // again, iterate over all rows
@@ -680,28 +739,25 @@ class NIF:
         # find the header (method taken from Brandano's import script)
 	file.seek(0)
 	try:
-	    tmp, = struct.unpack('<100s', file.read(100))
+	    tmp, = struct.unpack('<45s', file.read(45))
 	except:
-            pass # if file is less than 100 bytes long...
+            # if file is less than 45 bytes long...
+            raise NIFError("File too small: cannot be a NIF file.")
         # roughly check if it's a nif file
         if (tmp[0:22] != "NetImmerse File Format") and (tmp[0:20] != "Gamebryo File Format"):
-            raise NIFError("Invalid header: not a NIF file")
+            raise NIFError("Invalid header: not a NIF file.")
         # if it is a nif file, this will get the header
         headerstr_len = tmp.find('\\x0A')
         if (headerstr_len < 0):
             raise NIFError("Invalid header: not a NIF file.")
         # read header
-        for self.version in [ 0x04000002, 0x0A000100, 0x0A010000, 0x14000004 ]:
-            try:
-                self.header = header(self.version)
-                file.seek(0)
-                self.header.read(file)
-                if self.header.nif_version == self.version:
-                    break
-            except:
-                pass
-        else:
+        file.seek(headerstr_len + 1)
+        self.version, = struct.unpack('<I', file.read(4))
+        if not self.version in [ 0x04000002, 0x04010001, 0x0401000C, 0x04020002, 0x04020100, 0x04020200, 0x0A000100, 0x0A010000, 0x0A020000, 0x14000004 ]:
             raise NIFError("Unsupported NIF format (%s)."%tmp[0:headerstr_len])
+        file.seek(headerstr_len + 1)
+        self.header = header(self.version)
+        self.header.read(file)
         # read all the blocks
         self.blocks = []
         for block_id in range(self.header.num_blocks):
@@ -722,6 +778,9 @@ class NIF:
             else:
                 # versions >= 10.x.x.x: get block type from header
                 block_pos = file.tell()
+                if self.version <= 0x0A010000:
+                    tag, = struct.unpack('<I', file.read(4)) # zero tag
+                    if (tag != 0): raise NIFError("nonzero tag")
                 block_id_str = self.header.block_types[self.header.block_type_index[block_id]]
             # check the string
 	    if (0): pass
@@ -751,23 +810,24 @@ echo htmlify( <<<END
                 raise NIFError("unknown block type (%s)"%btype)
 
             # read the data
-	    try:
+            try:
                 this_block.read(file)
-	    except:
+            except:
                 # we failed to read: dump what we did read, and do a hex dump
                 print "%s data dump:"%block_id_str.value
-	        try: 
+                try: 
                     print this_block
                 except:
                     pass # we do not care about errors during dumping
-	        try: 
-	            hexdump(file, block_pos)
+                try: 
+                    hexdump(file, block_pos)
                 except:
                     pass # we do not care about errors during dumping
                 raise
 
-             # and store it
+            # and store it
             self.blocks.append(this_block)
+
         # read the footer
         block_pos = file.tell()
 	try:
@@ -796,9 +856,12 @@ echo htmlify( <<<END
     # dump all the data
     def __str__(self):
         s = str(self.header) + '\\n'
+        if self.version >= 0x0A000100:
+            for block_id in range(self.header.num_blocks):
+                s += 'block %i: %s\\n'%(block_id, self.header.block_types[self.header.block_type_index[block_id]].value)
         count = 0
         for block in self.blocks:
-            s += "\\n%i\\n"%count
+            s += "\\nblock %i:\\n"%count
 	    s += str(block);
             count += 1
 	s += str(self.footer)

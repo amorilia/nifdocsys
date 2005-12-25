@@ -29,6 +29,8 @@ echo <<<ENDHTML
 <a href="cstyle.php">C-Style</a>
 |
 <a href="python.php">Python</a>
+|
+<a href="xml.php">XML</a>
 </p>
 
 ENDHTML;
@@ -88,10 +90,12 @@ function txtvariable($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $c
   }
 
   // main
+  $spaceslen = 16 - 2 * $indent - strlen($some_type);
+  if ( $spaceslen < 0 ) $spaceslen = 0;
   if ( $var !== null ) // not a basic type
-    $tmptype = "<a href=\"#$some_type\">" . htmlify( $some_type ) . "</a>" . str_repeat(" ", 16 - 2 * $indent - strlen($some_type) );
+    $tmptype = "<a href=\"#$some_type\">" . htmlify( $some_type ) . "</a>" . str_repeat(" ", $spaceslen );
   else // basic type
-    $tmptype = "<span id=\"$some_type\">" . htmlify( $some_type ) . "</span>" . str_repeat(" ", 16 - 2 * $indent - strlen($some_type) );    
+    $tmptype = "<span id=\"$some_type\">" . htmlify( $some_type ) . "</span>" . str_repeat(" ", $spaceslen );    
   $tmpvar  = $var;
   // array
   if ( $sizevar !== null ) {
@@ -126,13 +130,9 @@ function htmlify( $txt )
 
 // file header
 
-echo "<h2>File header</h2>\n";
+echo "<h2>File structure</h2>\n";
 
-echo "<p>The header is immediately followed by a sequence of <code>num_blocks</code> file blocks. The file ends with the file footer.</p>\n<p>For versions 10.x.x.x, all these data blocks are separated by a zero trailer, and the first data block is of type blocktype_name[blocktype_index[0]], the second of blocktype_name[blocktype_index[1]], etc.</p>";
-
-// file footer
-
-echo "<h2>File footer</h2>\n";
+echo "<p>Begins with a <a href=\"#header\">header</a> struct, immediately followed by a sequence of <code>num_blocks</code> file blocks. The file ends with a <a href=\"#footer\">footer</a> struct.</p>\n<p>For versions < 10.x.x.x, all file blocks are preceeded by a file block type string.</p>\n<p>For versions >= 10.x.x.x, the first file block is of type <code>blocktype_name[blocktype_index[0]]</code>, the second of <code>blocktype_name[blocktype_index[1]]</code>, etc.</p>\n<p>For versions >= 10.x.x.x but <= 10.1.0.0, all file blocks are preceeded by a zero 32-bit integer.</p>";
 
 echo "<h2>File blocks</h2>\n";
 
@@ -147,7 +147,7 @@ echo "<pre>\n";
 
 foreach ( $block_ids_sort as $b_id ) {
   if ( $block_category[$b_id] >= 2 ) continue;
-  echo txtvariable( null, $block_name[$b_id], null, null, null, null, null, null, ereg_replace( "\n", "<br />\n", $block_description[$b_id] ) );
+  echo txtvariable( null, $block_name[$b_id], null, null, null, null, null, null, $block_description[$b_id], null, null );
 };
 
 echo "</pre>\n";
