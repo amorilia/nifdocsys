@@ -232,9 +232,6 @@ class SAXtracer(ContentHandler):
     def __init__(self,objname):
         self.objname=objname
         self.met_name=""
-        self.block_name = None
-        self.block_inherit = None
-        self.block_attrs = None
 
     def startElement(self, name, attrs):
         global INDENT
@@ -242,31 +239,51 @@ class SAXtracer(ContentHandler):
             self.block_name = attrs.get('name', '').replace(' ', '_')
             self.block_inherit = None
             self.block_attrs = []
+            self.block_template = False
         elif name == "inherit":
             self.block_inherit = attrs.get('name', '').replace(' ', '_')
         elif name == "add":
             attr = [ None, None, None, None ]
+
+            # read the raw values
             attr[ATTR_NAME] = attrs.get('name', '').lower().replace(' ', '_')
             attr[ATTR_TYPE] = attrs.get('type', '').replace(' ', '_')
-            attr[ATTR_ARR1] = attrs.get('arr1', "").lower().replace(' ', '_')
-            attr[ATTR_ARR2] = attrs.get('arr2', "").lower().replace(' ', '_')
+            attr[ATTR_ARR1] = attrs.get('arr1', '').lower().replace(' ', '_')
+            attr[ATTR_ARR2] = attrs.get('arr2', '').lower().replace(' ', '_')
+
+            # post-processing
+            if attr[ATTR_TYPE] == '(TEMPLATE)':
+                attr[ATTR_TYPE] = 'T'
+                self.block_template = True
+
+            # store it
             self.block_attrs.append(attr)
 
     def endElement(self, name):
         global INDENT
         if name == "niblock" or name == "compound" or name == "ancestor":
+            # header
+            hdr = "struct ext_%s"%self.block_name
+            if self.block_template:
+                hdr += "<T>"
             if self.block_inherit:
-                print cpp_code("struct ext_%s : ext_%s {" % (self.block_name, self.block_inherit))
-            else:
-                print cpp_code("struct ext_%s {" % self.block_name)
+                hdr += " : ext_%s"%self.block_inherit
+            hdr += " {"
+            print cpp_code(hdr)
+            
+            # fields
             INDENT += 1
             for attr in self.block_attrs:
                 print cpp_code_decl(attr[ATTR_NAME], attr[ATTR_TYPE], '', attr[ATTR_ARR1], attr[ATTR_ARR2], '')
             INDENT -= 1
             print cpp_code("}")
-            self.block_name = None
-            self.block_inherit = None
-            self.block_attrs = None
+            print
+
+            # clean up
+            del self.block_name
+            del self.block_inherit
+            del self.block_attrs
+            del self.block_template
 
 print """/* --------------------------------------------------------------------------
  * nif_struct.h: C++ header file for raw reading, writing, and printing
