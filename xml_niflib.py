@@ -222,6 +222,14 @@ def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbis
 ##  return $result;
 ##};
 
+def cpp_type_name(n):
+    # TODO basic types should be left alone
+    # must add them to the XML
+    return "ext_" + n.replace(' ', '_')
+
+def cpp_attr_name(n):
+    return n.lower().replace(' ', '_')
+
 ATTR_NAME = 0
 ATTR_TYPE = 1
 ATTR_ARR1 = 2
@@ -236,20 +244,20 @@ class SAXtracer(ContentHandler):
     def startElement(self, name, attrs):
         global INDENT
         if name == "niblock" or name == "compound" or name == "ancestor":
-            self.block_name = attrs.get('name', '').replace(' ', '_')
+            self.block_name = cpp_type_name(attrs.get('name', ''))
             self.block_inherit = None
             self.block_attrs = []
             self.block_template = False
         elif name == "inherit":
-            self.block_inherit = attrs.get('name', '').replace(' ', '_')
+            self.block_inherit = cpp_type_name(attrs.get('name', ''))
         elif name == "add":
             attr = [ None, None, None, None ]
 
             # read the raw values
-            attr[ATTR_NAME] = attrs.get('name', '').lower().replace(' ', '_')
-            attr[ATTR_TYPE] = attrs.get('type', '').replace(' ', '_')
-            attr[ATTR_ARR1] = attrs.get('arr1', '').lower().replace(' ', '_')
-            attr[ATTR_ARR2] = attrs.get('arr2', '').lower().replace(' ', '_')
+            attr[ATTR_NAME] = cpp_attr_name(attrs.get('name', ''))
+            attr[ATTR_TYPE] = cpp_type_name(attrs.get('type', ''))
+            attr[ATTR_ARR1] = cpp_attr_name(attrs.get('arr1', ''))
+            attr[ATTR_ARR2] = cpp_attr_name(attrs.get('arr2', ''))
 
             # post-processing
             if attr[ATTR_TYPE] == '(TEMPLATE)':
@@ -263,11 +271,11 @@ class SAXtracer(ContentHandler):
         global INDENT
         if name == "niblock" or name == "compound" or name == "ancestor":
             # header
-            hdr = "struct ext_%s"%self.block_name
+            hdr = "struct %s"%self.block_name
             if self.block_template:
                 hdr += "<T>"
             if self.block_inherit:
-                hdr += " : ext_%s"%self.block_inherit
+                hdr += " : %s"%self.block_inherit
             hdr += " {"
             print cpp_code(hdr)
             
