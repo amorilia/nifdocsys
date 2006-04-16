@@ -38,7 +38,7 @@ def cpp_type_size(some_type):
     elif ( some_type == "short" ): return 2
     elif ( some_type == "int" or some_type == "alphaformat" or some_type == "applymode" or some_type == "lightmode" or some_type == "mipmapformat" or some_type == "pixellayout" or some_type == "vertmode" ): return 4
     elif ( some_type == "flags" ): return 2
-    elif ( some_type == "link" or some_type == "nodeancestor" or some_type == "skeletonroot" ): return 4
+    elif ( some_type == "link" or some_type == "nodeancestor" or some_type == "skeletonroot" or some_type == "crossref" or some_type == "parent" ): return 4
     elif ( some_type == "char" ): return 1
     elif ( some_type == "float" ): return 4
     else: return -1
@@ -49,7 +49,7 @@ def cpp_type(some_type):
     elif ( some_type == "short" ): return "unsigned short" 
     elif ( some_type == "int" or some_type == "alphaformat" or some_type == "applymode" or some_type == "lightmode" or some_type == "mipmapformat" or some_type == "pixellayout" or some_type == "vertmode" ): return "unsigned int"
     elif ( some_type == "flags" ): return "unsigned short"
-    elif ( some_type == "link" or some_type == "nodeancestor" or some_type == "skeletonroot" ): return "int"
+    elif ( some_type == "link" or some_type == "nodeancestor" or some_type == "skeletonroot" or some_type == "crossref" or some_type == "parent" ): return "int"
     elif ( some_type == "char" ): return "char"
     elif ( some_type == "float" ): return "float"
     else: return some_type
@@ -222,38 +222,57 @@ def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbis
 ##  return $result;
 ##};
 
+ATTR_NAME = 0
+ATTR_TYPE = 1
+ATTR_ARR1 = 2
+ATTR_ARR2 = 3
+
 # This class has all the XML parser code.
 class SAXtracer(ContentHandler):
     def __init__(self,objname):
         self.objname=objname
         self.met_name=""
+        self.block_name = None
+        self.block_inherit = None
+        self.block_attrs = None
 
     def startElement(self, name, attrs):
         global INDENT
-        if name == "niblock" or name == "compound":
-            print "struct ext_%s {" % (attrs.get('name', "").replace(' ', '_'))
-            INDENT += 1
+        if name == "niblock" or name == "compound" or name == "ancestor":
+            self.block_name = attrs.get('name', '').replace(' ', '_')
+            self.block_inherit = None
+            self.block_attrs = []
+        elif name == "inherit":
+            self.block_inherit = attrs.get('name', '').replace(' ', '_')
         elif name == "add":
-            member_name = attrs.get('name', "")
-            member_name = member_name.lower()
-            member_name = member_name.replace(' ', '_')
-            member_type = attrs.get('type', "")
-            member_type = member_type.replace(' ', '_')
-            member_arr1 = attrs.get('arr1', "").lower().replace(' ', '_')
-            member_arr2 = attrs.get('arr2', "").lower().replace(' ', '_')
-            print cpp_code_decl(member_name, member_type, "", member_arr1, member_arr2, "")
+            attr = [ None, None, None, None ]
+            attr[ATTR_NAME] = attrs.get('name', '').lower().replace(' ', '_')
+            attr[ATTR_TYPE] = attrs.get('type', '').replace(' ', '_')
+            attr[ATTR_ARR1] = attrs.get('arr1', "").lower().replace(' ', '_')
+            attr[ATTR_ARR2] = attrs.get('arr2', "").lower().replace(' ', '_')
+            self.block_attrs.append(attr)
 
     def endElement(self, name):
         global INDENT
-        if name == "niblock" or name == "compound":
-            print "}\n"
+        if name == "niblock" or name == "compound" or name == "ancestor":
+            if self.block_inherit:
+                print cpp_code("struct ext_%s : ext_%s {" % (self.block_name, self.block_inherit))
+            else:
+                print cpp_code("struct ext_%s {" % self.block_name)
+            INDENT += 1
+            for attr in self.block_attrs:
+                print cpp_code_decl(attr[ATTR_NAME], attr[ATTR_TYPE], '', attr[ATTR_ARR1], attr[ATTR_ARR2], '')
             INDENT -= 1
+            print cpp_code("}")
+            self.block_name = None
+            self.block_inherit = None
+            self.block_attrs = None
 
 print """/* --------------------------------------------------------------------------
  * nif_struct.h: C++ header file for raw reading, writing, and printing
  *               NetImmerse and Gamebryo files (.nif & .kf & .kfa)
  * --------------------------------------------------------------------------
- * ***** BEGIN BSD LICENSE BLOCK *****
+ * ***** BEGIN LICENSE BLOCK *****
  *
  * Copyright (c) 2005, NIF File Format Library and Tools
  * All rights reserved.
@@ -289,7 +308,7 @@ print """/* --------------------------------------------------------------------
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
- * ***** END BSD LICENCE BLOCK *****
+ * ***** END LICENCE BLOCK *****
  * --------------------------------------------------------------------------
  */
 
