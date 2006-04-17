@@ -303,6 +303,7 @@ class SAXtracer(ContentHandler):
                 INDENT += 1
                 print cpp_code("return attr_ref(%s)"%attr[ATTR_CPP_NAME])
                 INDENT -= 1
+            print cpp_code("throw runtime_error(\"The attribute you requested does not exist in this block.\");")
             INDENT -= 1
             print cpp_code("};")
             INDENT -= 1
