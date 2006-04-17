@@ -307,11 +307,28 @@ class SAXtracer(ContentHandler):
             INDENT -= 1
             print cpp_code("};")
             INDENT -= 1
-            print cpp_code("}")
+            print cpp_code("};")
             print
-            print cpp_code('void NifStream( %s & val, istream & in );'%self.block_name)
+            print cpp_code('void NifStream( %s & val, istream & in ) {'%self.block_name)
+            INDENT += 1
+            for attr in self.block_attrs:
+                print cpp_code("NifStream( %s, in, version );"%attr[ATTR_CPP_NAME])
+            INDENT -= 1
+            print cpp_code("};")
+            print
             print cpp_code('void NifStream( %s const & val, ostream & out );'%self.block_name)
+            INDENT += 1
+            for attr in self.block_attrs:
+                print cpp_code("NifStream( %s, out, version );"%attr[ATTR_CPP_NAME])
+            INDENT -= 1
+            print cpp_code("};")
+            print
             print cpp_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_name)
+            INDENT += 1
+            for attr in self.block_attrs:
+                print cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr[ATTR_NAME], attr[ATTR_CPP_NAME]))
+            INDENT -= 1
+            print cpp_code("};")
             print
 
             # clean up
