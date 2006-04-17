@@ -45,13 +45,9 @@ def cpp_type_size(some_type):
 
 def cpp_type(some_type):
     if ( some_type == "byte" ): return "unsigned char"
-    elif ( some_type == "bool" ): return "bool"
     elif ( some_type == "short" ): return "unsigned short" 
-    elif ( some_type == "int" or some_type == "alphaformat" or some_type == "applymode" or some_type == "lightmode" or some_type == "mipmapformat" or some_type == "pixellayout" or some_type == "vertmode" ): return "unsigned int"
-    elif ( some_type == "flags" ): return "unsigned short"
-    elif ( some_type == "link" or some_type == "nodeancestor" or some_type == "skeletonroot" or some_type == "crossref" or some_type == "parent" ): return "int"
-    elif ( some_type == "char" ): return "char"
-    elif ( some_type == "float" ): return "float"
+    elif ( some_type == "int" ): return "unsigned int"
+    elif ( some_type == "flags" ): return "nif_flags"
     else: return some_type
 
 def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbisdyn):
@@ -292,8 +288,13 @@ class SAXtracer(ContentHandler):
             INDENT += 1
             for attr in self.block_attrs:
                 print cpp_code_decl(attr[ATTR_NAME], attr[ATTR_TYPE], '', attr[ATTR_ARR1], attr[ATTR_ARR2], '')
+            print cpp_code('attr_ref GetAttrByName( string & name );')
             INDENT -= 1
             print cpp_code("}")
+            print
+            print cpp_code('void NifStream( %s & val, istream & in );'%self.block_name)
+            print cpp_code('void NifStream( %s const & val, ostream & out );'%self.block_name)
+            print cpp_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_name)
             print
 
             # clean up
@@ -371,3 +372,5 @@ p = make_parser()
 
 p.setContentHandler(SAXtracer("doc_handler"))
 p.parse("nif.xml")
+
+print "#endif"
