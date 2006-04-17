@@ -238,6 +238,10 @@ ATTR_NAME = 0
 ATTR_TYPE = 1
 ATTR_ARR1 = 2
 ATTR_ARR2 = 3
+ATTR_CPP_NAME = 4
+ATTR_CPP_TYPE = 5
+ATTR_CPP_ARR1 = 6
+ATTR_CPP_ARR2 = 7
 
 # This class has all the XML parser code.
 class SAXtracer(ContentHandler):
@@ -255,16 +259,20 @@ class SAXtracer(ContentHandler):
         elif name == "inherit":
             self.block_inherit = cpp_type_name(attrs.get('name', ''))
         elif name == "add":
-            attr = [ None, None, None, None ]
+            attr = [ None, None, None, None, None, None, None, None ]
 
             # read the raw values
-            attr[ATTR_NAME] = cpp_attr_name(attrs.get('name', ''))
-            attr[ATTR_TYPE] = cpp_type_name(attrs.get('type', ''))
-            attr[ATTR_ARR1] = cpp_attr_name(attrs.get('arr1', ''))
-            attr[ATTR_ARR2] = cpp_attr_name(attrs.get('arr2', ''))
+            attr[ATTR_NAME] = attrs.get('name', '')
+            attr[ATTR_TYPE] = attrs.get('type', '')
+            attr[ATTR_ARR1] = attrs.get('arr1', '')
+            attr[ATTR_ARR2] = attrs.get('arr2', '')
+            attr[ATTR_CPP_NAME] = cpp_attr_name(attr[ATTR_NAME])
+            attr[ATTR_CPP_TYPE] = cpp_type_name(attr[ATTR_TYPE])
+            attr[ATTR_CPP_ARR1] = cpp_attr_name(attr[ATTR_ARR1])
+            attr[ATTR_CPP_ARR2] = cpp_attr_name(attr[ATTR_ARR2])
 
             # post-processing
-            if attr[ATTR_TYPE] == 'T':
+            if attr[ATTR_TYPE] == '(TEMPLATE)':
                 self.block_template = True
 
             # store it
@@ -287,8 +295,16 @@ class SAXtracer(ContentHandler):
             # fields
             INDENT += 1
             for attr in self.block_attrs:
-                print cpp_code_decl(attr[ATTR_NAME], attr[ATTR_TYPE], '', attr[ATTR_ARR1], attr[ATTR_ARR2], '')
-            print cpp_code('attr_ref GetAttrByName( string & name );')
+                print cpp_code_decl(attr[ATTR_CPP_NAME], attr[ATTR_CPP_TYPE], '', attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], '')
+            print cpp_code('attr_ref GetAttrByName( string & _name ) {')
+            INDENT += 1
+            for attr in self.block_attrs:
+                print cpp_code("if ( _name == \"%s\" )"%attr[ATTR_NAME])
+                INDENT += 1
+                print cpp_code("return attr_ref(%s)"%attr[ATTR_CPP_NAME])
+                INDENT -= 1
+            INDENT -= 1
+            print cpp_code("};")
             INDENT -= 1
             print cpp_code("}")
             print
