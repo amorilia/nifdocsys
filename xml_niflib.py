@@ -281,8 +281,10 @@ class SAXtracer(ContentHandler):
             hdr = "struct %s"%self.block_name
             if self.block_template:
                 hdr += "<T>"
-            if self.block_inherit:
-                hdr += " : %s"%self.block_inherit
+            if name == "niblock" or name == "ancestor":
+                hdr += " : public ni_block"
+                if self.block_inherit:
+                    hdr += ", public %s"%self.block_inherit
             hdr += " {"
             print cpp_code(hdr)
             
