@@ -219,6 +219,7 @@ def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbis
 ##};
 
 def cpp_type_name(n):
+    if n == '(TEMPLATE)': return 'T'
     n2 = ''
     for i, c in enumerate(n):
         if ('A' <= c) and (c <= 'Z'):
@@ -231,7 +232,6 @@ def cpp_type_name(n):
     return n2
 
 def cpp_attr_name(n):
-    if n == '(TEMPLATE)': return 'T'
     return n.lower().replace(' ', '_').replace('?', '_')
 
 ATTR_NAME = 0
