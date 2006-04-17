@@ -225,10 +225,10 @@ def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbis
 def cpp_type_name(n):
     # TODO basic types should be left alone
     # must add them to the XML
-    return "ext_" + n.replace(' ', '_')
+    return "ext_" + n.replace(' ', '_').replace('?', '_')
 
 def cpp_attr_name(n):
-    return n.lower().replace(' ', '_')
+    return n.lower().replace(' ', '_').replace('?', '_')
 
 ATTR_NAME = 0
 ATTR_TYPE = 1
