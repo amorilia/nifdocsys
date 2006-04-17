@@ -223,11 +223,19 @@ def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbis
 ##};
 
 def cpp_type_name(n):
-    # TODO basic types should be left alone
-    # must add them to the XML
-    return "ext_" + n.replace(' ', '_').replace('?', '_')
+    n2 = ''
+    for i, c in enumerate(n):
+        if ('A' <= c) and (c <= 'Z'):
+            if i > 0: n2 += '_'
+            n2 += c.lower()
+        elif (('a' <= c) and (c <= 'z')) or (('0' <= c) and (c <= '9')):
+            n2 += c
+        else:
+            n2 += '_'
+    return n2
 
 def cpp_attr_name(n):
+    if n == '(TEMPLATE)': return 'T'
     return n.lower().replace(' ', '_').replace('?', '_')
 
 ATTR_NAME = 0
@@ -260,8 +268,7 @@ class SAXtracer(ContentHandler):
             attr[ATTR_ARR2] = cpp_attr_name(attrs.get('arr2', ''))
 
             # post-processing
-            if attr[ATTR_TYPE] == '(TEMPLATE)':
-                attr[ATTR_TYPE] = 'T'
+            if attr[ATTR_TYPE] == 'T':
                 self.block_template = True
 
             # store it
@@ -352,16 +359,9 @@ using namespace std;
 #define MAX_ARRAYSIZE     8388608 // reading/writing arrays that have more elements than this number will raise an exception
 #define MAX_HEXDUMP       128     // number of bytes that should be dumped if something goes wrong (set to 0 to turn off hex dumping)
 
-// 
-// A simple custom exception class
-//
-class NIFException {
-public:
-  char* message;
-  NIFException( char* m ) { message = m; };
-};
-
-
+struct ni_object {
+    attr_ref GetAttrByName( string & name ) {}
+}
 
 """
 
