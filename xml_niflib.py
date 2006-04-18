@@ -2,30 +2,22 @@ import sys
 from xml.sax import *
 
 
-# indent level
-INDENT = 0
-
-# dictionary which maps docsys type names to names of native types
-NATIVE_TYPES = {}
-
-# indent C++ code; the returned result never ends with a newline
-def cpp_code(txt):
-    global INDENT
-
+# indent C++ code; the returned result always ends with a newline
+def cpp_code(txt, indent):
     # create indentation string
-    prefix = "  " * INDENT
+    prefix = "  " * indent
     # strip trailing whitespace, including newlines
     txt = txt.rstrip()
     # replace tabs
     txt = txt.replace("\t", "  ");
     # indent, and add newline
-    result = prefix + txt.replace("\n", "\n" + prefix)
+    result = prefix + txt.replace("\n", "\n" + prefix) + "\n"
     return result
 
 # create C++-style comments (handle multilined comments as well)
 # result always ends with a newline
-def cpp_comment(txt):
-    return cpp_code( "// " . txt.replace("\n", "\n// ") );
+def cpp_comment(txt, indent):
+    return cpp_code("// " . txt.replace("\n", "\n// "), indent)
 
 # this returns this->$objectname if it's a class variable, $objectname
 # otherwise; one array index is substituted as well.
@@ -38,23 +30,6 @@ def cpp_resolve(objectname):
         objectname = objectname[:posarr1begin + 1] + cpp_resolve(objectname[posarr1begin + 1:posarr1end - 1]) + objectname[posarr1end:]
 
     return objectname
-
-def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbisdyn):
-    some_type_arg = cpp_resolve(some_type_arg)
-    sizevar = cpp_resolve(sizevar)
-    sizevarbis = cpp_resolve(sizevarbis)
-
-    # first handle the case of a string
-    if ( ( some_type == "char" ) and ( sizevar != None ) and ( sizevarbis == None ) ):
-        return cpp_code( "string $var" )
-
-    result = some_type
-    if sizevar: result = "vector<%s>"%result
-    if sizevarbis: result = "vector<%s >"%result
-    result += " " + var
-    #if ( $some_type_arg and ! $sizevar )
-    #    $result .= "($some_type_arg)";
-    return cpp_code( result + ";" )
 
 ##function cpp_code_construct($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn)
 ##{
@@ -207,28 +182,6 @@ def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbis
 ##  return $result;
 ##};
 
-def cpp_type_name(n):
-    if n == None: return None
-    try:
-        return NATIVE_TYPES[n]
-    except KeyError:
-        pass
-    if n == '(TEMPLATE)': return 'T'
-    n2 = ''
-    for i, c in enumerate(n):
-        if ('A' <= c) and (c <= 'Z'):
-            if i > 0: n2 += '_'
-            n2 += c.lower()
-        elif (('a' <= c) and (c <= 'z')) or (('0' <= c) and (c <= '9')):
-            n2 += c
-        else:
-            n2 += '_'
-    return n2
-
-def cpp_attr_name(n):
-    if n == None: return None
-    return n.lower().replace(' ', '_').replace('?', '_')
-
 ATTR_NAME = 0
 ATTR_TYPE = 1
 ATTR_ARR1 = 2
@@ -241,104 +194,79 @@ ATTR_CPP_ARR2 = 7
 # This class has all the XML parser code.
 class SAXtracer(ContentHandler):
     def __init__(self,objname):
-        self.objname=objname
-        self.met_name=""
+        pass
 
-    def startElement(self, name, attrs):
-        global INDENT
-        global NATIVE_TYPES
-        if name == "basic":
-            if attrs.has_key('niflibtype'):
-                NATIVE_TYPES[attrs.get('name')] = attrs.get('niflibtype')
-        elif name == "niblock" or name == "compound" or name == "ancestor":
-            self.block_name = cpp_type_name(attrs.get('name'))
-            self.block_inherit = None
-            self.block_attrs = []
-            self.block_template = False
-        elif name == "inherit":
-            self.block_inherit = cpp_type_name(attrs.get('name'))
-        elif name == "add":
-            attr = [ None, None, None, None, None, None, None, None ]
+    def cpp_code(self, txt, extra_indent = False):
+        if txt[:1] == "}":
+            self.indent_cpp -= 1
+        if extra_indent: self.indent_cpp += 1
+        self.file_cpp.write(cpp_code(txt, self.indent_cpp))
+        if extra_indent: self.indent_cpp -= 1
+        if txt[:1] == "}" and self.indent_cpp == 0:
+            self.file_cpp.write("\n")
+        if txt[-1:] == "{":
+            self.indent_cpp += 1
+    
+    def h_code(self, txt, extra_indent = False):
+        if txt[:1] == "}":
+            self.indent_h -= 1
+        if extra_indent: self.indent_h += 1
+        self.file_h.write(cpp_code(txt, self.indent_h))
+        if extra_indent: self.indent_h -= 1
+        if txt[:1] == "}" and self.indent_h == 0:
+            self.file_h.write("\n")
+        if txt[-1:] == "{":
+            self.indent_h += 1
 
-            # read the raw values
-            attr[ATTR_NAME] = attrs.get('name')
-            attr[ATTR_TYPE] = attrs.get('type')
-            attr[ATTR_ARR1] = attrs.get('arr1')
-            attr[ATTR_ARR2] = attrs.get('arr2')
-            attr[ATTR_CPP_NAME] = cpp_attr_name(attr[ATTR_NAME])
-            attr[ATTR_CPP_TYPE] = cpp_type_name(attr[ATTR_TYPE])
-            attr[ATTR_CPP_ARR1] = cpp_attr_name(attr[ATTR_ARR1])
-            attr[ATTR_CPP_ARR2] = cpp_attr_name(attr[ATTR_ARR2])
+    def cpp_type_name(self, n):
+        if n == None: return None
+        try:
+            return self.native_types[n]
+        except KeyError:
+            pass
+        if n == '(TEMPLATE)': return 'T'
+        n2 = ''
+        for i, c in enumerate(n):
+            if ('A' <= c) and (c <= 'Z'):
+                if i > 0: n2 += '_'
+                n2 += c.lower()
+            elif (('a' <= c) and (c <= 'z')) or (('0' <= c) and (c <= '9')):
+                n2 += c
+            else:
+                n2 += '_'
+        return n2
 
-            # post-processing
-            if attr[ATTR_TYPE] == '(TEMPLATE)':
-                self.block_template = True
+    def cpp_attr_name(self, n):
+        if n == None: return None
+        return n.lower().replace(' ', '_').replace('?', '_')
 
-            # store it
-            self.block_attrs.append(attr)
+    def h_code_decl(self, var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbisdyn):
+        some_type_arg = cpp_resolve(some_type_arg)
+        sizevar = cpp_resolve(sizevar)
+        sizevarbis = cpp_resolve(sizevarbis)
 
-    def endElement(self, name):
-        global INDENT
-        if name == "niblock" or name == "compound" or name == "ancestor":
-            # header
-            hdr = "struct %s"%self.block_name
-            if self.block_template:
-                hdr += "<T>"
-            if name == "niblock" or name == "ancestor":
-                hdr += " : public ni_block"
-                if self.block_inherit:
-                    hdr += ", public %s"%self.block_inherit
-            hdr += " {"
-            print cpp_code(hdr)
-            
-            # fields
-            INDENT += 1
-            for attr in self.block_attrs:
-                print cpp_code_decl(attr[ATTR_CPP_NAME], attr[ATTR_CPP_TYPE], '', attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], '')
-            print cpp_code('attr_ref GetAttrByName( string & attr_name ) {')
-            INDENT += 1
-            for attr in self.block_attrs:
-                print cpp_code("if ( attr_name == \"%s\" )"%attr[ATTR_NAME])
-                INDENT += 1
-                print cpp_code("return attr_ref(%s)"%attr[ATTR_CPP_NAME])
-                INDENT -= 1
-            print cpp_code("throw runtime_error(\"The attribute you requested does not exist in this block.\");")
-            INDENT -= 1
-            print cpp_code("};")
-            INDENT -= 1
-            print cpp_code("};")
-            print
-            print cpp_code('void NifStream( %s & val, istream & in ) {'%self.block_name)
-            INDENT += 1
-            for attr in self.block_attrs:
-                print cpp_code("NifStream( %s, in, version );"%attr[ATTR_CPP_NAME])
-            INDENT -= 1
-            print cpp_code("};")
-            print
-            print cpp_code('void NifStream( %s const & val, ostream & out );'%self.block_name)
-            INDENT += 1
-            for attr in self.block_attrs:
-                print cpp_code("NifStream( %s, out, version );"%attr[ATTR_CPP_NAME])
-            INDENT -= 1
-            print cpp_code("};")
-            print
-            print cpp_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_name)
-            INDENT += 1
-            for attr in self.block_attrs:
-                print cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr[ATTR_NAME], attr[ATTR_CPP_NAME]))
-            INDENT -= 1
-            print cpp_code("};")
-            print
+        # first handle the case of a string
+        if ( ( some_type == "char" ) and ( sizevar != None ) and ( sizevarbis == None ) ):
+            self.h_code( "string $var" )
+            return
 
-            # clean up
-            del self.block_name
-            del self.block_inherit
-            del self.block_attrs
-            del self.block_template
+        result = some_type
+        if sizevar: result = "vector<%s>"%result
+        if sizevarbis: result = "vector<%s >"%result
+        result += " " + var
+        #if ( $some_type_arg and ! $sizevar )
+        #    $result .= "($some_type_arg)";
+        self.h_code(result + ";\n")
 
-print """/* --------------------------------------------------------------------------
- * nif_struct.h: C++ header file for raw reading, writing, and printing
- *               NetImmerse and Gamebryo files (.nif & .kf & .kfa)
+    def startDocument(self):
+        self.indent_h = 0
+        self.indent_cpp = 0
+        self.native_types = {}
+        self.file_h = open("xml_extract.h", "w")
+        self.file_cpp = open("xml_extract.cpp", "w")
+        self.file_h.write("""/* --------------------------------------------------------------------------
+ * xml_extract.h: C++ header file for raw reading, writing, and printing
+ *                NetImmerse and Gamebryo files (.nif & .kf & .kfa)
  * --------------------------------------------------------------------------
  * ***** BEGIN LICENSE BLOCK *****
  *
@@ -380,8 +308,8 @@ print """/* --------------------------------------------------------------------
  * --------------------------------------------------------------------------
  */
 
-#ifndef _NIF_STRUCT_H_
-#define _NIF_STRUCT_H_
+#ifndef _XML_EXTRACT_H_
+#define _XML_EXTRACT_H_
 
 #include <iostream>
 #include <fstream>
@@ -390,20 +318,151 @@ print """/* --------------------------------------------------------------------
 
 using namespace std;
 
-#define MAX_ARRAYDUMPSIZE 8       // we shall not dump arrays that have more elements than this number
-#define MAX_STRLEN        1024    // reading/writing NiStrings longer than this number will raise an exception
-#define MAX_ARRAYSIZE     8388608 // reading/writing arrays that have more elements than this number will raise an exception
-#define MAX_HEXDUMP       128     // number of bytes that should be dumped if something goes wrong (set to 0 to turn off hex dumping)
-
 struct ni_object {
     attr_ref GetAttrByName( string & name ) {}
 }
 
-"""
+""")
+
+        self.file_cpp.write("""/* --------------------------------------------------------------------------
+ * xml_extract.cpp: C++ code for raw reading, writing, and printing
+ *                  NetImmerse and Gamebryo files (.nif & .kf & .kfa)
+ * --------------------------------------------------------------------------
+ * ***** BEGIN LICENSE BLOCK *****
+ *
+ * Copyright (c) 2005, NIF File Format Library and Tools
+ * All rights reserved.
+ * 
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *
+ *    * Neither the name of the NIF File Format Library and Tools
+ *      project nor the names of its contributors may be used to endorse
+ *      or promote products derived from this software without specific
+ *      prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * ***** END LICENCE BLOCK *****
+ * --------------------------------------------------------------------------
+ */
+
+#include "xml_extract.h"
+
+""")
+
+    def endDocument(self):
+        self.file_h.write("\n#endif\n")
+        self.file_h.close()
+        self.file_cpp.close()
+
+    def startElement(self, name, attrs):
+        if name == "basic":
+            if attrs.has_key('niflibtype'):
+                self.native_types[attrs.get('name')] = attrs.get('niflibtype')
+        elif name == "niblock" or name == "compound" or name == "ancestor":
+            self.block_name = cpp_type_name(attrs.get('name'))
+            self.block_inherit = None
+            self.block_attrs = []
+            self.block_template = False
+        elif name == "inherit":
+            self.block_inherit = cpp_type_name(attrs.get('name'))
+        elif name == "add":
+            attr = [ None, None, None, None, None, None, None, None ]
+
+            # read the raw values
+            attr[ATTR_NAME] = attrs.get('name')
+            attr[ATTR_TYPE] = attrs.get('type')
+            attr[ATTR_ARR1] = attrs.get('arr1')
+            attr[ATTR_ARR2] = attrs.get('arr2')
+            attr[ATTR_CPP_NAME] = self.cpp_attr_name(attr[ATTR_NAME])
+            attr[ATTR_CPP_TYPE] = self.cpp_type_name(attr[ATTR_TYPE])
+            attr[ATTR_CPP_ARR1] = self.cpp_attr_name(attr[ATTR_ARR1])
+            attr[ATTR_CPP_ARR2] = self.cpp_attr_name(attr[ATTR_ARR2])
+
+            # post-processing
+            if attr[ATTR_TYPE] == '(TEMPLATE)':
+                self.block_template = True
+
+            # store it
+            self.block_attrs.append(attr)
+
+    def endElement(self, name):
+        if name == "niblock" or name == "compound" or name == "ancestor":
+            # header
+            hdr = "struct %s"%self.block_name
+            if self.block_template:
+                hdr += "<T>"
+            if name == "niblock" or name == "ancestor":
+                hdr += " : public ni_block"
+                if self.block_inherit:
+                    hdr += ", public %s"%self.block_inherit
+            hdr += " {"
+            self.h_code(hdr)
+            
+            # fields
+            for attr in self.block_attrs:
+                self.h_code_decl(attr[ATTR_CPP_NAME], attr[ATTR_CPP_TYPE], '', attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], '')
+            self.h_code("attr_ref GetAttrByName( string & attr_name );")
+            self.h_code("};")
+            self.cpp_code("attr_ref %s::GetAttrByName( string & attr_name ) {"%self.block_name)
+            for attr in self.block_attrs:
+                self.cpp_code("if ( attr_name == \"%s\" )"%attr[ATTR_NAME])
+                self.cpp_code("return attr_ref(%s);"%attr[ATTR_CPP_NAME], True)
+            if name == "niblock":
+                self.cpp_code("throw runtime_error(\"The attribute you requested does not exist in this block.\");")
+            self.cpp_code("return attr_ref();")
+            self.cpp_code("};")
+
+            # istream
+            self.h_code('void NifStream( %s & val, istream & in );'%self.block_name)
+            self.cpp_code('void NifStream( %s & val, istream & in ) {'%self.block_name)
+            for attr in self.block_attrs:
+                self.cpp_code("NifStream( %s, in, version );"%attr[ATTR_CPP_NAME])
+            self.cpp_code("};")
+
+            # ostream
+            self.h_code('void NifStream( %s const & val, ostream & out );'%self.block_name)
+            self.cpp_code('void NifStream( %s const & val, ostream & out ) {'%self.block_name)
+            for attr in self.block_attrs:
+                self.cpp_code("NifStream( %s, out, version );"%attr[ATTR_CPP_NAME])
+            self.cpp_code("};")
+
+            # operator<< (meant for stdout)
+            self.h_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_name)
+            self.cpp_code('ostream & operator<<( ostream & lh, %s const & rh ) {'%self.block_name)
+            for attr in self.block_attrs:
+                self.cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr[ATTR_NAME], attr[ATTR_CPP_NAME]))
+            self.cpp_code("};")
+
+            # clean up
+            del self.block_name
+            del self.block_inherit
+            del self.block_attrs
+            del self.block_template
 
 p = make_parser()
 
 p.setContentHandler(SAXtracer("doc_handler"))
 p.parse("nif.xml")
-
-print "#endif"
