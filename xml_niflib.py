@@ -309,8 +309,6 @@ class SAXtracer(ContentHandler):
         if extra_indent: self.indent_cpp += 1
         self.file_cpp.write(cpp_code(txt, self.indent_cpp))
         if extra_indent: self.indent_cpp -= 1
-        if txt[:1] == "}" and self.indent_cpp == 0:
-            self.file_cpp.write("\n")
         if txt[-1:] == "{":
             self.indent_cpp += 1
     
@@ -320,8 +318,6 @@ class SAXtracer(ContentHandler):
         if extra_indent: self.indent_h += 1
         self.file_h.write(cpp_code(txt, self.indent_h))
         if extra_indent: self.indent_h -= 1
-        if txt[:1] == "}" and self.indent_h == 0:
-            self.file_h.write("\n")
         if txt[-1:] == "{":
             self.indent_h += 1
 
@@ -417,19 +413,19 @@ class SAXtracer(ContentHandler):
             hdr = "struct %s"%self.block_name
             if self.block_template:
                 hdr += "<T>"
-            if name == "niblock" or name == "ancestor":
-                hdr += " : public ni_block"
-                if self.block_inherit:
-                    hdr += ", public %s"%self.block_inherit
+            hdr += " : public ni_block"
+            if self.block_inherit:
+                hdr += ", public %s"%self.block_inherit
             hdr += " {"
             self.h_code(hdr)
             
             # fields
             for attr in self.block_attrs:
                 self.h_code_decl(attr[ATTR_CPP_NAME], attr[ATTR_CPP_TYPE], '', attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], '')
-            self.h_code("attr_ref GetAttrByName( string & attr_name );")
+            self.h_code("attr_ref GetAttrByName( string const & attr_name );")
             self.h_code("};")
-            self.cpp_code("attr_ref %s::GetAttrByName( string & attr_name ) {"%self.block_name)
+            self.file_h.write("\n")
+            self.cpp_code("attr_ref %s::GetAttrByName( string const & attr_name ) {"%self.block_name)
             for attr in self.block_attrs:
                 self.cpp_code("if ( attr_name == \"%s\" )"%attr[ATTR_NAME])
                 self.cpp_code("return attr_ref(%s);"%attr[ATTR_CPP_NAME], True)
@@ -437,27 +433,34 @@ class SAXtracer(ContentHandler):
                 self.cpp_code("throw runtime_error(\"The attribute you requested does not exist in this block.\");")
             self.cpp_code("return attr_ref();")
             self.cpp_code("};")
+            self.file_cpp.write("\n")
 
             # istream
             self.h_code('void NifStream( %s & val, istream & in );'%self.block_name)
+            self.file_h.write("\n")
             self.cpp_code('void NifStream( %s & val, istream & in ) {'%self.block_name)
             for attr in self.block_attrs:
                 self.cpp_code("NifStream( %s, in, version );"%attr[ATTR_CPP_NAME])
             self.cpp_code("};")
+            self.file_cpp.write("\n")
 
             # ostream
             self.h_code('void NifStream( %s const & val, ostream & out );'%self.block_name)
+            self.file_h.write("\n")
             self.cpp_code('void NifStream( %s const & val, ostream & out ) {'%self.block_name)
             for attr in self.block_attrs:
                 self.cpp_code("NifStream( %s, out, version );"%attr[ATTR_CPP_NAME])
             self.cpp_code("};")
+            self.file_cpp.write("\n")
 
             # operator<< (meant for stdout)
             self.h_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_name)
+            self.file_h.write("\n")
             self.cpp_code('ostream & operator<<( ostream & lh, %s const & rh ) {'%self.block_name)
             for attr in self.block_attrs:
                 self.cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr[ATTR_NAME], attr[ATTR_CPP_NAME]))
             self.cpp_code("};")
+            self.file_cpp.write("\n")
 
             # clean up
             del self.block_name
