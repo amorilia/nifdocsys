@@ -56,8 +56,8 @@ H_HEADER = """/* ---------------------------------------------------------------
 using namespace std;
 
 struct ni_object {
-    attr_ref GetAttrByName( string & name ) {}
-}
+  attr_ref GetAttrByName( string const & name ) = 0;
+};
 
 """
 
@@ -413,9 +413,10 @@ class SAXtracer(ContentHandler):
             hdr = "struct %s"%self.block_name
             if self.block_template:
                 hdr += "<T>"
-            hdr += " : public ni_block"
             if self.block_inherit:
-                hdr += ", public %s"%self.block_inherit
+                hdr += " : public %s"%self.block_inherit
+            else:
+                hdr += " : public ni_block"
             hdr += " {"
             self.h_code(hdr)
             
@@ -437,7 +438,6 @@ class SAXtracer(ContentHandler):
 
             # istream
             self.h_code('void NifStream( %s & val, istream & in );'%self.block_name)
-            self.file_h.write("\n")
             self.cpp_code('void NifStream( %s & val, istream & in ) {'%self.block_name)
             for attr in self.block_attrs:
                 self.cpp_code("NifStream( %s, in, version );"%attr[ATTR_CPP_NAME])
@@ -446,7 +446,6 @@ class SAXtracer(ContentHandler):
 
             # ostream
             self.h_code('void NifStream( %s const & val, ostream & out );'%self.block_name)
-            self.file_h.write("\n")
             self.cpp_code('void NifStream( %s const & val, ostream & out ) {'%self.block_name)
             for attr in self.block_attrs:
                 self.cpp_code("NifStream( %s, out, version );"%attr[ATTR_CPP_NAME])
