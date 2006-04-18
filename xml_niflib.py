@@ -297,6 +297,10 @@ ATTR_CPP_NAME = 4
 ATTR_CPP_TYPE = 5
 ATTR_CPP_ARR1 = 6
 ATTR_CPP_ARR2 = 7
+ATTR_VER1 = 8
+ATTR_VER2 = 9
+ATTR_ARG = 10
+ATTR_CPP_ARG = 11
 
 # This class has all the XML parser code.
 class SAXtracer(ContentHandler):
@@ -344,6 +348,7 @@ class SAXtracer(ContentHandler):
         return n.lower().replace(' ', '_').replace('?', '_')
 
     def h_code_decl(self, var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbisdyn):
+        some_type = self.cpp_type_name(some_type)
         some_type_arg = cpp_resolve(some_type_arg)
         sizevar = cpp_resolve(sizevar)
         sizevarbis = cpp_resolve(sizevarbis)
@@ -359,7 +364,37 @@ class SAXtracer(ContentHandler):
         result += " " + var
         #if ( $some_type_arg and ! $sizevar )
         #    $result .= "($some_type_arg)";
-        self.h_code(result + ";\n")
+        self.h_code(result + ";")
+
+    def h_code_construct(self, var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbisdyn):
+        # skip native types; these should have standard constructors
+        # TODO: handle these as well and provide them with default values
+        if self.native_types.has_key(some_type): return
+        
+        some_type = self.cpp_type_name(some_type)
+        some_type_arg = cpp_resolve(some_type_arg)
+        sizevar = cpp_resolve(sizevar)
+        sizevarbis = cpp_resolve(sizevarbis)
+        
+        result = ""
+        # first handle the case of a string
+        if ( some_type == "char" ) and sizevar and sizevarbis == None:
+            self.h_code( "%s = string(%s, ' ');"%(var, sizevar))
+            return
+    
+        # other cases
+        if some_type_arg:
+            result = some_type + "(%s)"%some_type_arg
+        else:
+            result = some_type + "()"
+        if not sizevar:
+            self.h_code( "%s = %s;"%(var, result))
+        elif not sizevarbis:
+            self.h_code( "%s = vector<%s>(%s, %s);"%(var, some_type, sizevar, result) )
+        elif not sizevarbisdyn:
+            self.h_code( "%s = vector<vector<%s> >(%s, vector<%s>(%s, %s));"%(var, some_type, sizevar, some_type, sizevarbis, result) )
+        else:
+            self.h_code( "%s = vector<vector<%s> >(%s);\nfor (int i; i<%s, i++)\n\t%s[i] = vector<%s(%s[i], %s))>;"%(var, some_type, sizevar, sizevar, var, sizevarbis, result) )
 
     def startDocument(self):
         self.indent_h = 0
@@ -388,17 +423,21 @@ class SAXtracer(ContentHandler):
         elif name == "inherit":
             self.block_inherit = cpp_type_name(attrs.get('name'))
         elif name == "add":
-            attr = [ None, None, None, None, None, None, None, None ]
+            attr = [ None ] * 12
 
             # read the raw values
             attr[ATTR_NAME] = attrs.get('name')
             attr[ATTR_TYPE] = attrs.get('type')
-            attr[ATTR_ARR1] = attrs.get('arr1')
-            attr[ATTR_ARR2] = attrs.get('arr2')
+            if attrs.has_key('arg'): attr[ATTR_ARG] = attrs.get('arg')
+            if attrs.has_key('arr1'): attr[ATTR_ARR1] = attrs.get('arr1')
+            if attrs.has_key('arr2'): attr[ATTR_ARR2] = attrs.get('arr2')
+            if attrs.has_key('ver1'): attr[ATTR_VER1] = attrs.get('ver1')
+            if attrs.has_key('ver2'): attr[ATTR_VER2] = attrs.get('ver2')
             attr[ATTR_CPP_NAME] = self.cpp_attr_name(attr[ATTR_NAME])
             attr[ATTR_CPP_TYPE] = self.cpp_type_name(attr[ATTR_TYPE])
             attr[ATTR_CPP_ARR1] = self.cpp_attr_name(attr[ATTR_ARR1])
             attr[ATTR_CPP_ARR2] = self.cpp_attr_name(attr[ATTR_ARR2])
+            attr[ATTR_CPP_ARG] = self.cpp_attr_name(attr[ATTR_ARG])
 
             # post-processing
             if attr[ATTR_TYPE] == '(TEMPLATE)':
@@ -422,7 +461,11 @@ class SAXtracer(ContentHandler):
             
             # fields
             for attr in self.block_attrs:
-                self.h_code_decl(attr[ATTR_CPP_NAME], attr[ATTR_CPP_TYPE], '', attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], '')
+                self.h_code_decl(attr[ATTR_CPP_NAME], attr[ATTR_TYPE], attr[ATTR_CPP_ARG], attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], '')
+            self.h_code("%s() {"%self.block_name)
+            for attr in self.block_attrs:
+                self.h_code_construct(attr[ATTR_CPP_NAME], attr[ATTR_TYPE], attr[ATTR_CPP_ARG], attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], False)
+            self.h_code("};")
             self.h_code("attr_ref GetAttrByName( string const & attr_name );")
             self.h_code("};")
             self.file_h.write("\n")
@@ -437,16 +480,16 @@ class SAXtracer(ContentHandler):
             self.file_cpp.write("\n")
 
             # istream
-            self.h_code('void NifStream( %s & val, istream & in );'%self.block_name)
-            self.cpp_code('void NifStream( %s & val, istream & in ) {'%self.block_name)
+            self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_name)
+            self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_name)
             for attr in self.block_attrs:
                 self.cpp_code("NifStream( %s, in, version );"%attr[ATTR_CPP_NAME])
             self.cpp_code("};")
             self.file_cpp.write("\n")
 
             # ostream
-            self.h_code('void NifStream( %s const & val, ostream & out );'%self.block_name)
-            self.cpp_code('void NifStream( %s const & val, ostream & out ) {'%self.block_name)
+            self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_name)
+            self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_name)
             for attr in self.block_attrs:
                 self.cpp_code("NifStream( %s, out, version );"%attr[ATTR_CPP_NAME])
             self.cpp_code("};")
