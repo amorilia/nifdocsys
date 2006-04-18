@@ -1,7 +1,12 @@
 import sys
 from xml.sax import *
 
-INDENT = 0 # indent level
+
+# indent level
+INDENT = 0
+
+# dictionary which maps docsys type names to names of native types
+NATIVE_TYPES = {}
 
 # indent C++ code; the returned result never ends with a newline
 def cpp_code(txt):
@@ -25,30 +30,14 @@ def cpp_comment(txt):
 # this returns this->$objectname if it's a class variable, $objectname
 # otherwise; one array index is substituted as well.
 def cpp_resolve(objectname):
+    if objectname == None: return None
+    
     posarr1begin = objectname.find("[")
     posarr1end = objectname.find("]")
     if ((posarr1begin >= 0) and (posarr1end > posarr1begin)):
         objectname = objectname[:posarr1begin + 1] + cpp_resolve(objectname[posarr1begin + 1:posarr1end - 1]) + objectname[posarr1end:]
 
     return objectname
-
-def cpp_type_size(some_type):
-    if ( some_type == "byte" ): return 1
-    elif ( some_type == "bool" ): return 1
-    elif ( some_type == "short" ): return 2
-    elif ( some_type == "int" or some_type == "alphaformat" or some_type == "applymode" or some_type == "lightmode" or some_type == "mipmapformat" or some_type == "pixellayout" or some_type == "vertmode" ): return 4
-    elif ( some_type == "flags" ): return 2
-    elif ( some_type == "link" or some_type == "nodeancestor" or some_type == "skeletonroot" or some_type == "crossref" or some_type == "parent" ): return 4
-    elif ( some_type == "char" ): return 1
-    elif ( some_type == "float" ): return 4
-    else: return -1
-
-def cpp_type(some_type):
-    if ( some_type == "byte" ): return "unsigned char"
-    elif ( some_type == "short" ): return "unsigned short" 
-    elif ( some_type == "int" ): return "unsigned int"
-    elif ( some_type == "flags" ): return "nif_flags"
-    else: return some_type
 
 def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbisdyn):
     some_type_arg = cpp_resolve(some_type_arg)
@@ -57,9 +46,9 @@ def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbis
 
     # first handle the case of a string
     if ( ( some_type == "char" ) and ( sizevar != None ) and ( sizevarbis == None ) ):
-        return python_code( "string $var" )
+        return cpp_code( "string $var" )
 
-    result = cpp_type( some_type )
+    result = some_type
     if sizevar: result = "vector<%s>"%result
     if sizevarbis: result = "vector<%s >"%result
     result += " " + var
@@ -219,6 +208,11 @@ def cpp_code_decl(var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbis
 ##};
 
 def cpp_type_name(n):
+    if n == None: return None
+    try:
+        return NATIVE_TYPES[n]
+    except KeyError:
+        pass
     if n == '(TEMPLATE)': return 'T'
     n2 = ''
     for i, c in enumerate(n):
@@ -232,6 +226,7 @@ def cpp_type_name(n):
     return n2
 
 def cpp_attr_name(n):
+    if n == None: return None
     return n.lower().replace(' ', '_').replace('?', '_')
 
 ATTR_NAME = 0
@@ -251,21 +246,25 @@ class SAXtracer(ContentHandler):
 
     def startElement(self, name, attrs):
         global INDENT
-        if name == "niblock" or name == "compound" or name == "ancestor":
-            self.block_name = cpp_type_name(attrs.get('name', ''))
+        global NATIVE_TYPES
+        if name == "basic":
+            if attrs.has_key('niflibtype'):
+                NATIVE_TYPES[attrs.get('name')] = attrs.get('niflibtype')
+        elif name == "niblock" or name == "compound" or name == "ancestor":
+            self.block_name = cpp_type_name(attrs.get('name'))
             self.block_inherit = None
             self.block_attrs = []
             self.block_template = False
         elif name == "inherit":
-            self.block_inherit = cpp_type_name(attrs.get('name', ''))
+            self.block_inherit = cpp_type_name(attrs.get('name'))
         elif name == "add":
             attr = [ None, None, None, None, None, None, None, None ]
 
             # read the raw values
-            attr[ATTR_NAME] = attrs.get('name', '')
-            attr[ATTR_TYPE] = attrs.get('type', '')
-            attr[ATTR_ARR1] = attrs.get('arr1', '')
-            attr[ATTR_ARR2] = attrs.get('arr2', '')
+            attr[ATTR_NAME] = attrs.get('name')
+            attr[ATTR_TYPE] = attrs.get('type')
+            attr[ATTR_ARR1] = attrs.get('arr1')
+            attr[ATTR_ARR2] = attrs.get('arr2')
             attr[ATTR_CPP_NAME] = cpp_attr_name(attr[ATTR_NAME])
             attr[ATTR_CPP_TYPE] = cpp_type_name(attr[ATTR_TYPE])
             attr[ATTR_CPP_ARR1] = cpp_attr_name(attr[ATTR_ARR1])
@@ -296,10 +295,10 @@ class SAXtracer(ContentHandler):
             INDENT += 1
             for attr in self.block_attrs:
                 print cpp_code_decl(attr[ATTR_CPP_NAME], attr[ATTR_CPP_TYPE], '', attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], '')
-            print cpp_code('attr_ref GetAttrByName( string & _name ) {')
+            print cpp_code('attr_ref GetAttrByName( string & attr_name ) {')
             INDENT += 1
             for attr in self.block_attrs:
-                print cpp_code("if ( _name == \"%s\" )"%attr[ATTR_NAME])
+                print cpp_code("if ( attr_name == \"%s\" )"%attr[ATTR_NAME])
                 INDENT += 1
                 print cpp_code("return attr_ref(%s)"%attr[ATTR_CPP_NAME])
                 INDENT -= 1
