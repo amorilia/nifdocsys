@@ -124,7 +124,7 @@ def cpp_code(txt, indent):
 # create C++-style comments (handle multilined comments as well)
 # result always ends with a newline
 def cpp_comment(txt, indent):
-    return cpp_code("// " . txt.replace("\n", "\n// "), indent)
+    return cpp_code("// " + txt.replace("\n", "\n// "), indent)
 
 # this returns this->$objectname if it's a class variable, $objectname
 # otherwise; one array index is substituted as well.
@@ -301,11 +301,14 @@ ATTR_VER1 = 8
 ATTR_VER2 = 9
 ATTR_ARG = 10
 ATTR_CPP_ARG = 11
+ATTR_COMMENT = 12
 
 # This class has all the XML parser code.
 class SAXtracer(ContentHandler):
     def __init__(self,objname):
-        pass
+        self.attr_idx = -1
+        self.in_block = False
+        self.in_attr = False
 
     def cpp_code(self, txt, extra_indent = False):
         if txt[:1] == "}":
@@ -324,6 +327,12 @@ class SAXtracer(ContentHandler):
         if extra_indent: self.indent_h -= 1
         if txt[-1:] == "{":
             self.indent_h += 1
+
+    def cpp_comment(self, txt):
+        self.file_cpp.write(cpp_comment(txt, self.indent_cpp))
+
+    def h_comment(self, txt):
+        self.file_h.write(cpp_comment(txt, self.indent_h))
 
     def cpp_type_name(self, n):
         if n == None: return None
@@ -416,14 +425,19 @@ class SAXtracer(ContentHandler):
             if attrs.has_key('niflibtype'):
                 self.native_types[attrs.get('name')] = attrs.get('niflibtype')
         elif name == "niblock" or name == "compound" or name == "ancestor":
-            self.block_name = cpp_type_name(attrs.get('name'))
+            self.in_block = True
+            self.attr_idx = -1
+            self.block_name = self.cpp_type_name(attrs.get('name'))
             self.block_inherit = None
             self.block_attrs = []
             self.block_template = False
+            self.block_comment = ''
         elif name == "inherit":
-            self.block_inherit = cpp_type_name(attrs.get('name'))
+            self.block_inherit = self.cpp_type_name(attrs.get('name'))
         elif name == "add":
-            attr = [ None ] * 12
+            self.in_attr = True
+            self.attr_idx += 1
+            attr = [ None ] * 13
 
             # read the raw values
             attr[ATTR_NAME] = attrs.get('name')
@@ -438,6 +452,7 @@ class SAXtracer(ContentHandler):
             attr[ATTR_CPP_ARR1] = self.cpp_attr_name(attr[ATTR_ARR1])
             attr[ATTR_CPP_ARR2] = self.cpp_attr_name(attr[ATTR_ARR2])
             attr[ATTR_CPP_ARG] = self.cpp_attr_name(attr[ATTR_ARG])
+            attr[ATTR_COMMENT] = ''
 
             # post-processing
             if attr[ATTR_TYPE] == '(TEMPLATE)':
@@ -448,7 +463,9 @@ class SAXtracer(ContentHandler):
 
     def endElement(self, name):
         if name == "niblock" or name == "compound" or name == "ancestor":
+            self.in_block = False
             # header
+            self.h_comment(self.block_comment.strip())
             hdr = "struct %s"%self.block_name
             if self.block_template:
                 hdr += "<T>"
@@ -461,6 +478,7 @@ class SAXtracer(ContentHandler):
             
             # fields
             for attr in self.block_attrs:
+                self.h_comment(attr[ATTR_COMMENT].strip())
                 self.h_code_decl(attr[ATTR_CPP_NAME], attr[ATTR_TYPE], attr[ATTR_CPP_ARG], attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], '')
             self.h_code("%s() {"%self.block_name)
             for attr in self.block_attrs:
@@ -509,6 +527,15 @@ class SAXtracer(ContentHandler):
             del self.block_inherit
             del self.block_attrs
             del self.block_template
+            
+        elif name == "add":
+            self.in_attr = False
+
+    def characters(self, content):
+        if self.in_attr:
+            self.block_attrs[self.attr_idx][ATTR_COMMENT] += content
+        elif self.in_block:
+            self.block_comment += content
 
 p = make_parser()
 
