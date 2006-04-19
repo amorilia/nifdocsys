@@ -303,9 +303,38 @@ ATTR_ARG = 10
 ATTR_CPP_ARG = 11
 ATTR_COMMENT = 12
 
+class Attrib:
+    def __init__(self):
+        self.name = None
+        self.type = None
+        self.arg = None
+        self.template = None
+        self.arr1 = None
+        self.arr2 = None
+        self.cond = None
+        self.func = None
+        self.default = None
+        self.description = ''
+        self.ver1 = None
+        self.ver2 = None
+        self.is_array_size = False
+
+    def declare(self):
+        pass
+
+    def read(self):
+        pass
+
+    def write(self):
+        pass
+
+    def dump(self):
+        pass
+
 # This class has all the XML parser code.
 class SAXtracer(ContentHandler):
-    def __init__(self,objname):
+
+    def __init__(self):
         self.attr_idx = -1
         self.in_block = False
         self.in_attr = False
@@ -539,5 +568,5 @@ class SAXtracer(ContentHandler):
 
 p = make_parser()
 
-p.setContentHandler(SAXtracer("doc_handler"))
+p.setContentHandler(SAXtracer())
 p.parse("nif.xml")
