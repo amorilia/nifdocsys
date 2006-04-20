@@ -289,19 +289,31 @@ def cpp_resolve(objectname):
 ##  return $result;
 ##};
 
-ATTR_NAME = 0
-ATTR_TYPE = 1
-ATTR_ARR1 = 2
-ATTR_ARR2 = 3
-ATTR_CPP_NAME = 4
-ATTR_CPP_TYPE = 5
-ATTR_CPP_ARR1 = 6
-ATTR_CPP_ARR2 = 7
-ATTR_VER1 = 8
-ATTR_VER2 = 9
-ATTR_ARG = 10
-ATTR_CPP_ARG = 11
-ATTR_COMMENT = 12
+global native_types
+
+def cpp_type_name(n):
+    if n == None: return None
+    try:
+        return native_types[n]
+    except KeyError:
+        pass
+    if n == '(TEMPLATE)': return 'T'
+    n2 = ''
+    for i, c in enumerate(n):
+        if ('A' <= c) and (c <= 'Z'):
+            if i > 0: n2 += '_'
+            n2 += c.lower()
+        elif (('a' <= c) and (c <= 'z')) or (('0' <= c) and (c <= '9')):
+            n2 += c
+        else:
+            n2 += '_'
+    return n2
+
+def cpp_attr_name(n):
+    if n == None: return None
+    return n.lower().replace(' ', '_').replace('?', '_')
+
+
 
 class Attrib:
     def __init__(self):
@@ -317,9 +329,58 @@ class Attrib:
         self.description = ''
         self.ver1 = None
         self.ver2 = None
+        self.type_is_native = False
         self.is_array_size = False
+        self.arr2_dynamic = False
+        # cpp names
+        self.update_cnames()
 
+    def __init__(self, attrs): # attrs are the XML attributes
+        # attribute stuff
+        self.name      = attrs.get('name')
+        self.type      = attrs.get('type')
+        self.arg       = attrs.get('arg')
+        self.template  = attrs.get('template')
+        self.arr1      = attrs.get('arr1')
+        self.arr2      = attrs.get('arr2')
+        self.cond      = attrs.get('cond')
+        self.func      = attrs.get('function')
+        self.default   = attrs.get('default')
+        self.description = '' # read by "characters" function
+        self.ver1      = attrs.get('ver1')
+        self.ver2      = attrs.get('ver2')
+        # other flags: set them to their defaults
+        self.type_is_native = native_types.has_key(self.name) # true if the type is implemented natively
+        self.is_array_size  = False # true if it is used as the argument of an array
+        self.arr2_dynamic   = False # true if arr2 refers to an array
+        # cpp names
+        self.update_cnames()
+
+        # override default for attributes that have an argument
+        if self.arg:
+            self.default = "%s(%s)"%(self.ctype,self.carg)
+
+    def update_cnames(self):
+        pass
+        self.cname     = cpp_attr_name(self.name)
+        self.ctype     = cpp_type_name(self.type)
+        self.carg      = cpp_attr_name(self.arg)
+        self.ctemplate = cpp_type_name(self.template)
+        self.carr1     = cpp_attr_name(self.arr1)
+        self.carr2     = cpp_attr_name(self.arr2)
+ 
     def declare(self):
+        # first handle the case of a string
+        if self.type == "char" and self.arr1 and not self.arr2:
+            return "string %s"%self.name
+
+        result = self.type
+        if self.arr1: result = "vector<%s>"%result
+        if self.arr2: result = "vector<%s >"%result
+        result += " " + self.name
+        return result
+
+    def initialize(self):
         pass
 
     def read(self):
@@ -331,13 +392,216 @@ class Attrib:
     def dump(self):
         pass
 
+
+
 # This class has all the XML parser code.
 class SAXtracer(ContentHandler):
 
     def __init__(self):
-        self.attr_idx = -1
-        self.in_block = False
-        self.in_attr = False
+        self.current_block = None
+        self.current_attr = None # index into the attrib table
+        self.indent_h = 0
+        self.indent_cpp = 0
+        self.file_h = open("xml_extract.h", "w")
+        self.file_cpp = open("xml_extract.cpp", "w")
+
+    def startDocument(self):
+        self.file_h.write(H_HEADER)
+        self.file_cpp.write(CPP_HEADER)
+
+    def endDocument(self):
+        self.file_h.write("\n#endif\n")
+        self.file_h.close()
+        self.file_cpp.close()
+
+    def startElement(self, name, attrs):
+        global native_types
+        
+        # basic types
+        if name == "basic":
+            assert(self.current_block == None) # debug
+            assert(self.current_attr == None) # debug
+            
+            if attrs.has_key('niflibtype'):
+                native_types[attrs.get('name')] = attrs.get('niflibtype')
+                
+            # store block data
+            self.block_name = attrs.get('name')
+            self.block_cname = cpp_type_name(self.block_name)
+            self.block_comment = ''
+            self.block_attr_names = [] # sorts the names
+
+            # keep track of where we are
+            self.current_block = attrs.get('niflibtype')
+        # compound types (including blocks and ancestors)
+        elif name == "niblock" or name == "compound" or name == "ancestor":
+            assert(self.current_block == None) # debug
+            assert(self.current_attr == None) # debug
+            
+            # store block data
+            self.block_name = attrs.get('name')
+            self.block_cname = cpp_type_name(self.block_name)
+            self.block_inherit = None
+            self.block_attrs = {}
+            self.block_template = False
+            self.block_comment = ''
+            self.block_attr_names = [] # sorts the names
+
+            # keep track of where we are
+            self.current_block = self.block_name
+        elif name == "inherit":
+            assert(self.current_block != None) # debug
+            assert(self.current_attr == None) # debug
+            
+            self.block_inherit = cpp_type_name(attrs.get('name'))
+        elif name == "add":
+            assert(self.current_block != None) # debug
+            assert(self.current_attr == None) # debug
+            
+            # read the raw values
+            attrib = Attrib(attrs)
+
+            # update current attribute
+            self.current_attr = attrib.name
+
+            # detect templates
+            if attrib.type == '(TEMPLATE)':
+                self.block_template = True
+
+            # store it
+            self.block_attr_names.append(self.current_attr)
+            self.block_attrs[self.current_attr] = attrib
+
+    def endElement(self, name):
+        if name == "niblock" or name == "compound" or name == "ancestor":
+            assert(self.current_block != None) # debug
+            assert(self.current_attr == None) # debug
+            
+            # header
+            self.h_comment(self.block_comment.strip())
+            hdr = "struct %s"%self.block_name
+            if self.block_template:
+                hdr += "<T>"
+            if self.block_inherit:
+                hdr += " : public %s"%self.block_inherit
+            else:
+                hdr += " : public ni_block"
+            hdr += " {"
+            self.h_code(hdr)
+            
+            # fields
+            for attr in [self.block_attrs[name] for name in self.block_attr_names]:
+                self.h_comment(attr.description.strip())
+                self.h_code_decl(attr)
+            self.h_code("%s() {"%self.block_name)
+            for attr in [self.block_attrs[name] for name in self.block_attr_names]:
+                self.h_code_construct(attr)
+            self.h_code("};")
+            self.h_code("attr_ref GetAttrByName( string const & attr_name );")
+            self.h_code("};")
+            self.file_h.write("\n")
+            self.cpp_code("attr_ref %s::GetAttrByName( string const & attr_name ) {"%self.block_cname)
+            for attr in [self.block_attrs[name] for name in self.block_attr_names]:
+                self.cpp_code("if ( attr_name == \"%s\" )"%attr.name)
+                self.cpp_code("return attr_ref(%s);"%attr.cname, True)
+            if name == "niblock":
+                self.cpp_code("throw runtime_error(\"The attribute you requested does not exist in this block.\");")
+            self.cpp_code("return attr_ref();")
+            self.cpp_code("};")
+            self.file_cpp.write("\n")
+
+            # istream
+            self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
+            self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
+            for attr in [self.block_attrs[name] for name in self.block_attr_names]:
+                self.cpp_code("NifStream( %s, in, version );"%attr.cname)
+            self.cpp_code("};")
+            self.file_cpp.write("\n")
+
+            # ostream
+            self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_cname)
+            self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
+            for attr in [self.block_attrs[name] for name in self.block_attr_names]:
+                self.cpp_code("NifStream( %s, out, version );"%attr.cname)
+            self.cpp_code("};")
+            self.file_cpp.write("\n")
+
+            # operator<< (meant for stdout)
+            self.h_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_cname)
+            self.file_h.write("\n")
+            self.cpp_code('ostream & operator<<( ostream & lh, %s const & rh ) {'%self.block_cname)
+            for attr in [self.block_attrs[name] for name in self.block_attr_names]:
+                self.cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr.name, attr.cname))
+            self.cpp_code("};")
+            self.file_cpp.write("\n")
+
+            # done!
+            self.current_block = None
+        elif name == "basic":
+            self.current_block = None
+        elif name == "add":
+            # done!
+            self.current_attr = None
+
+    def characters(self, content):
+        if self.current_attr:
+            self.block_attrs[self.current_attr].description += content
+        elif self.current_block:
+            self.block_comment += content
+
+    def h_code_decl(self, attr):
+        # first handle the case of a string
+        if attr.type == "char" and attr.arr1 and not attr.arr2:
+            self.h_code( "string %s;"%attr.cname )
+            return
+
+        result = attr.ctype
+        if attr.arr1:
+            result = "vector<%s>"%result
+            if attr.arr2:
+                result = "vector<%s >"%result
+
+        result += " " + attr.cname
+        if attr.arg and not attr.arr1:
+            result += "(%s)"%attr.carg
+        self.h_code(result + ";")
+
+    def h_code_construct(self, attr):
+        # first handle the case of a string
+        if attr.type == "char" and attr.arr1 and not attr.arr2:
+            self.h_code( "%s = string(%s, ' ');"%(attr.cname, attr.carr1))
+            return
+    
+        # other cases
+        if not attr.arr1:
+            # no array
+            if attr.default:
+                self.h_code( "%s = %s"%(attr.cname, attr.default) )
+            else:
+                pass
+                # no need to construct
+                #self.h_code( "%s = %s;"%(attr.cname, result))
+        elif not attr.arr2:
+            # 1-dim array
+            if attr.default:
+                self.h_code( "%s = vector<%s>(%s, %s);"%(attr.cname, attr.ctype, attr.carr1, attr.default) )
+            else:
+                self.h_code( "%s = vector<%s>(%s);"%(attr.cname, attr.ctype, attr.carr1) )
+        elif not attr.arr2_dynamic:
+            # 2-dim array, non-dynamic
+            if attr.default:
+                self.h_code(\
+                    "%s = vector<vector<%s> >(%s, vector<%s>(%s, %s));"%(\
+                    attr.cname, attr.ctype, attr.carr1, attr.ctype, attr.carr2, attr.default) )
+            else:
+                self.h_code(\
+                    "%s = vector<vector<%s> >(%s, vector<%s>(%s));"%(\
+                    attr.cname, attr.ctype, attr.carr1, attr.ctype, attr.carr2) )
+        else:
+            # 2-dim array, dynamic
+            self.h_code(\
+                "%s = vector<vector<%s> >(%s);\nfor (int i; i<%s, i++)\n\t%s[i] = vector<%s(%s[i], %s))>;"%(\
+                    attr.cname, attr.ctype, attr.carr1, attr.carr1, attr.cname, attr.carr2, default) )
 
     def cpp_code(self, txt, extra_indent = False):
         if txt[:1] == "}":
@@ -363,210 +627,6 @@ class SAXtracer(ContentHandler):
     def h_comment(self, txt):
         self.file_h.write(cpp_comment(txt, self.indent_h))
 
-    def cpp_type_name(self, n):
-        if n == None: return None
-        try:
-            return self.native_types[n]
-        except KeyError:
-            pass
-        if n == '(TEMPLATE)': return 'T'
-        n2 = ''
-        for i, c in enumerate(n):
-            if ('A' <= c) and (c <= 'Z'):
-                if i > 0: n2 += '_'
-                n2 += c.lower()
-            elif (('a' <= c) and (c <= 'z')) or (('0' <= c) and (c <= '9')):
-                n2 += c
-            else:
-                n2 += '_'
-        return n2
-
-    def cpp_attr_name(self, n):
-        if n == None: return None
-        return n.lower().replace(' ', '_').replace('?', '_')
-
-    def h_code_decl(self, var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbisdyn):
-        some_type = self.cpp_type_name(some_type)
-        some_type_arg = cpp_resolve(some_type_arg)
-        sizevar = cpp_resolve(sizevar)
-        sizevarbis = cpp_resolve(sizevarbis)
-
-        # first handle the case of a string
-        if ( ( some_type == "char" ) and ( sizevar != None ) and ( sizevarbis == None ) ):
-            self.h_code( "string $var" )
-            return
-
-        result = some_type
-        if sizevar: result = "vector<%s>"%result
-        if sizevarbis: result = "vector<%s >"%result
-        result += " " + var
-        #if ( $some_type_arg and ! $sizevar )
-        #    $result .= "($some_type_arg)";
-        self.h_code(result + ";")
-
-    def h_code_construct(self, var, some_type, some_type_arg, sizevar, sizevarbis, sizevarbisdyn):
-        # skip native types; these should have standard constructors
-        # TODO: handle these as well and provide them with default values
-        if self.native_types.has_key(some_type): return
-        
-        some_type = self.cpp_type_name(some_type)
-        some_type_arg = cpp_resolve(some_type_arg)
-        sizevar = cpp_resolve(sizevar)
-        sizevarbis = cpp_resolve(sizevarbis)
-        
-        result = ""
-        # first handle the case of a string
-        if ( some_type == "char" ) and sizevar and sizevarbis == None:
-            self.h_code( "%s = string(%s, ' ');"%(var, sizevar))
-            return
-    
-        # other cases
-        if some_type_arg:
-            result = some_type + "(%s)"%some_type_arg
-        else:
-            result = some_type + "()"
-        if not sizevar:
-            self.h_code( "%s = %s;"%(var, result))
-        elif not sizevarbis:
-            self.h_code( "%s = vector<%s>(%s, %s);"%(var, some_type, sizevar, result) )
-        elif not sizevarbisdyn:
-            self.h_code( "%s = vector<vector<%s> >(%s, vector<%s>(%s, %s));"%(var, some_type, sizevar, some_type, sizevarbis, result) )
-        else:
-            self.h_code( "%s = vector<vector<%s> >(%s);\nfor (int i; i<%s, i++)\n\t%s[i] = vector<%s(%s[i], %s))>;"%(var, some_type, sizevar, sizevar, var, sizevarbis, result) )
-
-    def startDocument(self):
-        self.indent_h = 0
-        self.indent_cpp = 0
-        self.native_types = {}
-        self.file_h = open("xml_extract.h", "w")
-        self.file_cpp = open("xml_extract.cpp", "w")
-        self.file_h.write(H_HEADER)
-
-        self.file_cpp.write(CPP_HEADER)
-
-    def endDocument(self):
-        self.file_h.write("\n#endif\n")
-        self.file_h.close()
-        self.file_cpp.close()
-
-    def startElement(self, name, attrs):
-        if name == "basic":
-            if attrs.has_key('niflibtype'):
-                self.native_types[attrs.get('name')] = attrs.get('niflibtype')
-        elif name == "niblock" or name == "compound" or name == "ancestor":
-            self.in_block = True
-            self.attr_idx = -1
-            self.block_name = self.cpp_type_name(attrs.get('name'))
-            self.block_inherit = None
-            self.block_attrs = []
-            self.block_template = False
-            self.block_comment = ''
-        elif name == "inherit":
-            self.block_inherit = self.cpp_type_name(attrs.get('name'))
-        elif name == "add":
-            self.in_attr = True
-            self.attr_idx += 1
-            attr = [ None ] * 13
-
-            # read the raw values
-            attr[ATTR_NAME] = attrs.get('name')
-            attr[ATTR_TYPE] = attrs.get('type')
-            if attrs.has_key('arg'): attr[ATTR_ARG] = attrs.get('arg')
-            if attrs.has_key('arr1'): attr[ATTR_ARR1] = attrs.get('arr1')
-            if attrs.has_key('arr2'): attr[ATTR_ARR2] = attrs.get('arr2')
-            if attrs.has_key('ver1'): attr[ATTR_VER1] = attrs.get('ver1')
-            if attrs.has_key('ver2'): attr[ATTR_VER2] = attrs.get('ver2')
-            attr[ATTR_CPP_NAME] = self.cpp_attr_name(attr[ATTR_NAME])
-            attr[ATTR_CPP_TYPE] = self.cpp_type_name(attr[ATTR_TYPE])
-            attr[ATTR_CPP_ARR1] = self.cpp_attr_name(attr[ATTR_ARR1])
-            attr[ATTR_CPP_ARR2] = self.cpp_attr_name(attr[ATTR_ARR2])
-            attr[ATTR_CPP_ARG] = self.cpp_attr_name(attr[ATTR_ARG])
-            attr[ATTR_COMMENT] = ''
-
-            # post-processing
-            if attr[ATTR_TYPE] == '(TEMPLATE)':
-                self.block_template = True
-
-            # store it
-            self.block_attrs.append(attr)
-
-    def endElement(self, name):
-        if name == "niblock" or name == "compound" or name == "ancestor":
-            self.in_block = False
-            # header
-            self.h_comment(self.block_comment.strip())
-            hdr = "struct %s"%self.block_name
-            if self.block_template:
-                hdr += "<T>"
-            if self.block_inherit:
-                hdr += " : public %s"%self.block_inherit
-            else:
-                hdr += " : public ni_block"
-            hdr += " {"
-            self.h_code(hdr)
-            
-            # fields
-            for attr in self.block_attrs:
-                self.h_comment(attr[ATTR_COMMENT].strip())
-                self.h_code_decl(attr[ATTR_CPP_NAME], attr[ATTR_TYPE], attr[ATTR_CPP_ARG], attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], '')
-            self.h_code("%s() {"%self.block_name)
-            for attr in self.block_attrs:
-                self.h_code_construct(attr[ATTR_CPP_NAME], attr[ATTR_TYPE], attr[ATTR_CPP_ARG], attr[ATTR_CPP_ARR1], attr[ATTR_CPP_ARR2], False)
-            self.h_code("};")
-            self.h_code("attr_ref GetAttrByName( string const & attr_name );")
-            self.h_code("};")
-            self.file_h.write("\n")
-            self.cpp_code("attr_ref %s::GetAttrByName( string const & attr_name ) {"%self.block_name)
-            for attr in self.block_attrs:
-                self.cpp_code("if ( attr_name == \"%s\" )"%attr[ATTR_NAME])
-                self.cpp_code("return attr_ref(%s);"%attr[ATTR_CPP_NAME], True)
-            if name == "niblock":
-                self.cpp_code("throw runtime_error(\"The attribute you requested does not exist in this block.\");")
-            self.cpp_code("return attr_ref();")
-            self.cpp_code("};")
-            self.file_cpp.write("\n")
-
-            # istream
-            self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_name)
-            self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_name)
-            for attr in self.block_attrs:
-                self.cpp_code("NifStream( %s, in, version );"%attr[ATTR_CPP_NAME])
-            self.cpp_code("};")
-            self.file_cpp.write("\n")
-
-            # ostream
-            self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_name)
-            self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_name)
-            for attr in self.block_attrs:
-                self.cpp_code("NifStream( %s, out, version );"%attr[ATTR_CPP_NAME])
-            self.cpp_code("};")
-            self.file_cpp.write("\n")
-
-            # operator<< (meant for stdout)
-            self.h_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_name)
-            self.file_h.write("\n")
-            self.cpp_code('ostream & operator<<( ostream & lh, %s const & rh ) {'%self.block_name)
-            for attr in self.block_attrs:
-                self.cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr[ATTR_NAME], attr[ATTR_CPP_NAME]))
-            self.cpp_code("};")
-            self.file_cpp.write("\n")
-
-            # clean up
-            del self.block_name
-            del self.block_inherit
-            del self.block_attrs
-            del self.block_template
-            
-        elif name == "add":
-            self.in_attr = False
-
-    def characters(self, content):
-        if self.in_attr:
-            self.block_attrs[self.attr_idx][ATTR_COMMENT] += content
-        elif self.in_block:
-            self.block_comment += content
-
 p = make_parser()
-
 p.setContentHandler(SAXtracer())
 p.parse("nif.xml")
