@@ -354,8 +354,8 @@ class Attrib:
         self.ver2 = None
         self.type_is_native = False
         self.arr2_dynamic = False
-        self.arr1_ref = None # name of the attribute it is a size of
-        self.arr2_ref = None # name of the attribute it is a size of
+        self.arr1_ref = [] # names of the attributes it is a size of
+        self.arr2_ref = [] # names of the attributes it is a size of
         # cpp names
         self.update_cnames()
 
@@ -375,8 +375,8 @@ class Attrib:
         self.ver2      = attrs.get('ver2')
         # other flags: set them to their defaults
         self.type_is_native = native_types.has_key(self.name) # true if the type is implemented natively
-        self.arr1_ref = None # name of the attribute it is a size of
-        self.arr2_ref = None # name of the attribute it is a size of
+        self.arr1_ref = [] # names of the attributes it is a size of
+        self.arr2_ref = [] # names of the attributes it is a size of
         self.arr2_dynamic   = False # true if arr2 refers to an array
         # cpp names
         self.update_cnames()
@@ -386,15 +386,14 @@ class Attrib:
             self.default = "%s(%s)"%(self.ctype,self.carg)
 
     def update_cnames(self):
-        pass
         self.cname     = cpp_attr_name(self.name)
         self.ctype     = cpp_type_name(self.type)
         self.carg      = cpp_attr_name(self.arg)
         self.ctemplate = cpp_type_name(self.template)
         self.carr1     = cpp_attr_name(self.arr1)
         self.carr2     = cpp_attr_name(self.arr2)
-        self.arr1_ref  = cpp_attr_name(self.arr1_ref)
-        self.arr2_ref  = cpp_attr_name(self.arr2_ref)
+        self.carr1_ref = [cpp_attr_name(n) for n in self.arr1_ref]
+        self.carr2_ref = [cpp_attr_name(n) for n in self.arr2_ref]
  
     def declare(self, counts = False):
         # don't declare array sizes
@@ -468,7 +467,7 @@ class SAXtracer(ContentHandler):
             if attrs.has_key('niflibtype'):
                 native_types[attrs.get('name')] = attrs.get('niflibtype')
                 
-            # store block data
+            # reset block data
             self.block_name = attrs.get('name')
             self.block_cname = cpp_type_name(self.block_name)
             self.block_comment = ''
@@ -476,6 +475,7 @@ class SAXtracer(ContentHandler):
 
             # keep track of where we are
             self.current_block = self.block_name
+            
         # compound types (including blocks and ancestors)
         elif name == "niblock" or name == "compound" or name == "ancestor":
             assert(self.current_block == None) # debug
@@ -519,10 +519,12 @@ class SAXtracer(ContentHandler):
 
             # detect array sizes
             if attrib.arr1 in self.block_attr_names:
-                self.block_attrs[attrib.arr1].arr1_ref = attrib.name
+                self.block_attrs[attrib.arr1].arr1_ref.append(attrib.name)
+                self.block_attrs[attrib.arr1].carr1_ref.append(attrib.cname)
             if attrib.arr2 in self.block_attr_names:
-                self.block_attrs[attrib.arr2].arr2_ref = attrib.name
-
+                self.block_attrs[attrib.arr2].arr2_ref.append(attrib.name)
+                self.block_attrs[attrib.arr2].carr2_ref.append(attrib.cname)
+            
             # store it
             self.block_attr_names.append(self.current_attr)
             self.block_attrs[self.current_attr] = attrib
@@ -566,13 +568,26 @@ class SAXtracer(ContentHandler):
             self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
             self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                declare = attr.declare(counts = True)
+                if declare:
+                    self.cpp_code(declare)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 self.cpp_code("NifStream( %s, in, version );"%attr.cname)
+                for carr1_ref in attr.carr1_ref:
+                    self.cpp_code("%s.resize(%s);"%(carr1_ref,attr.cname))
             self.cpp_code("};")
             self.file_cpp.write("\n")
 
             # ostream
             self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_cname)
             self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                declare = attr.declare(counts = True)
+                if declare:
+                    self.cpp_code(declare)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                if attr.carr1_ref:
+                    self.cpp_code("%s = %s.size();"%(attr.cname, attr.carr1_ref[0]))
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 self.cpp_code("NifStream( %s, out, version );"%attr.cname)
             self.cpp_code("};")
@@ -582,7 +597,8 @@ class SAXtracer(ContentHandler):
             self.h_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_cname)
             self.cpp_code('ostream & operator<<( ostream & lh, %s const & rh ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                self.cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr.name, attr.cname))
+                if attr.declare():
+                    self.cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr.name, attr.cname))
             self.cpp_code("};")
             self.file_cpp.write("\n")
             self.file_h.write("\n")
