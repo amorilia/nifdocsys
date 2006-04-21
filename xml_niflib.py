@@ -55,8 +55,6 @@ H_HEADER = """/* ---------------------------------------------------------------
 
 using namespace std;
 
-class ABlock {};
-
 """
 
 CPP_HEADER = """/* --------------------------------------------------------------------------
@@ -108,7 +106,7 @@ CPP_HEADER = """/* -------------------------------------------------------------
 """
 
 # indent C++ code; the returned result always ends with a newline
-def cpp_code(txt, indent):
+def cpp_code(txt, indent, append_backslash = False):
     # create indentation string
     prefix = "  " * indent
     # strip trailing whitespace, including newlines
@@ -116,7 +114,11 @@ def cpp_code(txt, indent):
     # replace tabs
     txt = txt.replace("\t", "  ");
     # indent, and add newline
-    result = prefix + txt.replace("\n", "\n" + prefix) + "\n"
+    result = prefix + txt.replace("\n", "\n" + prefix)
+    if append_backslash:
+        result += " \\\n"
+    else:
+        result += "\n"
     return result
 
 # create C++-style comments (handle multilined comments as well)
@@ -315,17 +317,15 @@ def cpp_type_name(n):
             n2 += '_'
     return n2
 
-def cpp_id_name(n):
+def cpp_define_name(n):
     n2 = ''
     for i, c in enumerate(n):
         if ('A' <= c) and (c <= 'Z'):
             if i > 0:
                 n2 += '_'
                 n2 += c
-            elif c == 'I':
-                n2 += 'ID'
             else:
-                raise # bug
+                n2 += c
         elif (('a' <= c) and (c <= 'z')) or (('0' <= c) and (c <= '9')):
             n2 += c.upper()
         else:
@@ -353,8 +353,9 @@ class Attrib:
         self.ver1 = None
         self.ver2 = None
         self.type_is_native = False
-        self.is_array_size = False
         self.arr2_dynamic = False
+        self.arr1_ref = None # name of the attribute it is a size of
+        self.arr2_ref = None # name of the attribute it is a size of
         # cpp names
         self.update_cnames()
 
@@ -374,7 +375,8 @@ class Attrib:
         self.ver2      = attrs.get('ver2')
         # other flags: set them to their defaults
         self.type_is_native = native_types.has_key(self.name) # true if the type is implemented natively
-        self.is_array_size  = False # true if it is used as the argument of an array
+        self.arr1_ref = None # name of the attribute it is a size of
+        self.arr2_ref = None # name of the attribute it is a size of
         self.arr2_dynamic   = False # true if arr2 refers to an array
         # cpp names
         self.update_cnames()
@@ -391,8 +393,19 @@ class Attrib:
         self.ctemplate = cpp_type_name(self.template)
         self.carr1     = cpp_attr_name(self.arr1)
         self.carr2     = cpp_attr_name(self.arr2)
+        self.arr1_ref  = cpp_attr_name(self.arr1_ref)
+        self.arr2_ref  = cpp_attr_name(self.arr2_ref)
  
-    def declare(self):
+    def declare(self, counts = False):
+        # don't declare array sizes
+        # but only declare array sizes if counts is True
+        if self.arr1_ref or self.arr2_ref:
+            if counts == False:
+                return None
+        else:
+            if counts == True:
+                return None
+        
         # first handle the case of a string
         if self.type == "char" and self.arr1 and not self.arr2:
             return "string %s"%self.cname
@@ -403,8 +416,15 @@ class Attrib:
         result += " " + self.cname + ";"
         return result
 
-    def initialize(self):
-        pass
+    def construct(self):
+        # don't construct array sizes
+        if self.arr1_ref or self.arr2_ref:
+            return None
+
+        if not self.default:
+            return self.cname + "()"
+        else:
+            return "%s(%s)"%(self.cname, self.default)
 
     def read(self):
         pass
@@ -497,54 +517,109 @@ class SAXtracer(ContentHandler):
             if attrib.type == '(TEMPLATE)':
                 self.block_template = True
 
+            # detect array sizes
+            if attrib.arr1 in self.block_attr_names:
+                self.block_attrs[attrib.arr1].arr1_ref = attrib.name
+            if attrib.arr2 in self.block_attr_names:
+                self.block_attrs[attrib.arr2].arr2_ref = attrib.name
+
             # store it
             self.block_attr_names.append(self.current_attr)
             self.block_attrs[self.current_attr] = attrib
 
     def endElement(self, name):
-        if name == "niblock" or name == "compound" or name == "ancestor":
+        if name == "compound":
+            num_block_attrs = len(self.block_attr_names)
+            
             assert(self.current_block != None) # debug
             assert(self.current_attr == None) # debug
             
             # header
-            self.h_comment(self.block_comment.strip())
-            if name == "niblock" or name == "ancestor":
-                hdr = "class %s"%self.block_cname
-                if self.block_inherit and self.block_interface:
-                    hdr += " : public %s, public %s"%(self.block_inherit, self.block_interface)
-                elif self.block_inherit:
-                    hdr += " : public %s"%self.block_inherit
-                elif self.block_interface:
-                    hdr += " : public %s"%self.block_interface
-                else:
-                    hdr += " : public ABlock"
-            else:
-                hdr = "struct %s"%self.block_cname
-                if self.block_template:
-                    hdr += "<T>"
+            self.h_comment("\n" + self.block_comment.strip() + "\n")
+            hdr = "struct %s"%self.block_cname
+            if self.block_template: hdr += "<T>"
             hdr += " {"
             self.h_code(hdr)
-            
-            # members
-            if name == "niblock" or name == "ancestor":
-                self.h_code('public:')
-            self.h_code('void %s();'%self.block_cname)
-            if name == "niblock" or name == "ancestor":
-                self.h_code('void Read( %s & val, istream & in, uint version );'%self.block_cname)
-                self.h_code('void Write( %s const & val, ostream & out, uint version ) const;'%self.block_cname)
-                self.h_code('string asString() const;')
-            if name == "niblock":
-                self.h_code('string GetBlockType() const { return "%s"};'%self.block_cname)
-            if name == "niblock" or name == "ancestor":
-                self.h_code("attr_ref GetAttr( string const & attr_name ) const;")
 
             # constructor
-##            self.h_code("%s() {"%self.block_name)
-##            self.file_h.write('// __BEGIN_CONSTRUCT_%s\n'%self.block_cname.upper())
-##            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-##                self.h_code_construct(attr)
-##            self.file_h.write('// __END_CONSTRUCT_%s\n'%self.block_cname.upper())
-##            self.h_code("};")
+            self.h_code("%s() : "%self.block_cname)
+            self.indent_h += 1
+            for i, attr in enumerate([self.block_attrs[n] for n in self.block_attr_names]):
+                construct = attr.construct()
+                if construct:
+                    if i == num_block_attrs - 1: # last one
+                        self.h_code(attr.construct() + ' {};')
+                    else:
+                        self.h_code(attr.construct() + ',')
+            self.indent_h -= 1
+            
+            # members
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                declare = attr.declare()
+                if declare:
+                    self.h_comment(attr.description.strip())
+                    self.h_code(declare)
+            self.h_code("};")
+            self.file_h.write("\n")
+            
+            # istream
+            self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
+            self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                self.cpp_code("NifStream( %s, in, version );"%attr.cname)
+            self.cpp_code("};")
+            self.file_cpp.write("\n")
+
+            # ostream
+            self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_cname)
+            self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                self.cpp_code("NifStream( %s, out, version );"%attr.cname)
+            self.cpp_code("};")
+            self.file_cpp.write("\n")
+
+            # operator<< (meant for stdout)
+            self.h_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_cname)
+            self.cpp_code('ostream & operator<<( ostream & lh, %s const & rh ) {'%self.block_cname)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                self.cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr.name, attr.cname))
+            self.cpp_code("};")
+            self.file_cpp.write("\n")
+            self.file_h.write("\n")
+            
+            # done!
+            self.current_block = None
+            
+        if name == "niblock" or name == "ancestor":
+            assert(self.current_block != None) # debug
+            assert(self.current_attr == None) # debug
+            
+            # members
+            self.h_comment("\n" + self.block_comment.strip() + "\n")
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                declare = attr.declare()
+                if declare:
+                    self.h_comment(attr.description.strip())
+            self.h_code('#define %s_MEMBERS'%cpp_define_name(self.block_cname), append_backslash = True)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                declare = attr.declare()
+                if declare:
+                    self.h_code(declare + "\\")
+            self.file_h.write("\n")
+            
+            # header
+            self.h_comment(self.block_comment.strip())
+            inherit = self.block_inherit
+            if not inherit:
+                inherit = "ABlock"
+            self.h_code('#define %s_PARENTS %s'%(cpp_define_name(self.block_cname), inherit))
+            
+            # methods
+            self.h_code('void Read( %s & val, istream & in, uint version );'%self.block_cname)
+            self.h_code('void Write( %s const & val, ostream & out, uint version ) const;'%self.block_cname)
+            self.h_code('string asString() const;')
+            self.h_code('string GetBlockType() const { return "%s"};'%self.block_cname)
+            self.h_code("attr_ref GetAttr( string const & attr_name ) const;")
             self.cpp_code("attr_ref %s::GetAttr( string const & attr_name ) const {"%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 self.cpp_code("if ( attr_name == \"%s\" )"%attr.name)
@@ -555,68 +630,14 @@ class SAXtracer(ContentHandler):
             self.cpp_code("};")
             self.file_cpp.write("\n")
 
-            if self.block_interface:
-                self.file_h.write("\n")
-                self.h_code('void * QueryInterface(int id) {')
-                self.h_code('if ( id == %s )'%cpp_id_name(self.block_interface))
-                self.h_code('return (void *)static_cast<%s *>(this);'%self.block_interface, True)
-                self.h_code('else')
-                if self.block_inherit:
-                    self.h_code('return %s::QueryInterface(id);'%self.block_inherit, True)
-                else:
-                    self.h_code('return ABlock::QueryInterface(id);', True)
-                self.h_code('};')
-                self.h_code('void const * QueryInterface(int id) const {')
-                self.h_code('if ( id == %s )'%cpp_id_name(self.block_interface))
-                self.h_code('return (void const *)static_cast<%s const *>(this);'%self.block_interface, True)
-                self.h_code('else')
-                if self.block_inherit:
-                    self.h_code('return %s::QueryInterface(id);'%self.block_inherit, True)
-                else:
-                    self.h_code('return ABlock::QueryInterface(id);', True)
-                self.h_code('};')
-                self.h_code('DEF_%s'%self.block_interface.upper())
-                
-            # fields
-            if name == "niblock":
-                self.h_code('private:')
-            elif name == "ancestor":
-                self.h_code('protected:')
-            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                self.h_comment(attr.description.strip())
-                self.h_code_decl(attr)
+            # constructor
+##            self.h_code("%s() {"%self.block_name)
+##            self.file_h.write('// __BEGIN_CONSTRUCT_%s\n'%self.block_cname.upper())
+##            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+##                self.h_code_construct(attr)
+##            self.file_h.write('// __END_CONSTRUCT_%s\n'%self.block_cname.upper())
+##            self.h_code("};")
 
-            self.h_code("};")
-            self.file_h.write("\n")
-            
-            # functions
-            if name == "compound":
-                # istream
-                self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
-                self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
-                for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                    self.cpp_code("NifStream( %s, in, version );"%attr.cname)
-                self.cpp_code("};")
-                self.file_cpp.write("\n")
-
-                # ostream
-                self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_cname)
-                self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
-                for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                    self.cpp_code("NifStream( %s, out, version );"%attr.cname)
-                self.cpp_code("};")
-                self.file_cpp.write("\n")
-
-                # operator<< (meant for stdout)
-                self.h_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_cname)
-                self.cpp_code('ostream & operator<<( ostream & lh, %s const & rh ) {'%self.block_cname)
-                for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                    self.cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr.name, attr.cname))
-                self.cpp_code("};")
-                self.file_cpp.write("\n")
-                
-                self.file_h.write("\n")
-            
             # done!
             self.current_block = None
         elif name == "basic":
@@ -631,10 +652,7 @@ class SAXtracer(ContentHandler):
         elif self.current_block:
             self.block_comment += content
 
-    def h_code_decl(self, attr):
-        self.h_code(attr.declare())
-
-    def h_code_construct(self, attr):
+    def h_construct(self, attr):
         # first handle the case of a string
         if attr.type == "char" and attr.arr1 and not attr.arr2:
             self.h_code( "%s = string(%s, ' ');"%(attr.cname, attr.carr1))
@@ -680,13 +698,13 @@ class SAXtracer(ContentHandler):
         if txt[-1:] == "{":
             self.indent_cpp += 1
     
-    def h_code(self, txt, extra_indent = False):
+    def h_code(self, txt, extra_indent = False, append_backslash = False):
         if txt[:1] == "}":
             self.indent_h -= 1
         if txt[-1:] == ":":
             self.indent_h -= 1
         if extra_indent: self.indent_h += 1
-        self.file_h.write(cpp_code(txt, self.indent_h))
+        self.file_h.write(cpp_code(txt, self.indent_h, append_backslash))
         if extra_indent: self.indent_h -= 1
         if txt[-1:] == ":":
             self.indent_h += 1
