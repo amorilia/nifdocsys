@@ -527,7 +527,7 @@ class SAXtracer(ContentHandler):
             # store block data
             self.block_name = attrs.get('name')
             self.block_cname = cpp_type_name(self.block_name)
-            self.block_inherit = None
+            self.block_cinherit = None
             self.block_attrs = {}
             self.block_template = False
             self.block_comment = ''
@@ -540,7 +540,7 @@ class SAXtracer(ContentHandler):
             assert(self.current_block != None) # debug
             assert(self.current_attr == None) # debug
             
-            self.block_inherit = cpp_type_name(attrs.get('name'))
+            self.block_cinherit = cpp_type_name(attrs.get('name'))
         elif name == "interface":
             assert(self.current_block != None) # debug
             assert(self.current_attr == None) # debug
@@ -736,50 +736,116 @@ class SAXtracer(ContentHandler):
         if name == "niblock" or name == "ancestor":
             assert(self.current_block != None) # debug
             assert(self.current_attr == None) # debug
+
+            num_block_attrs = len(self.block_attr_names)
             
             # members
             self.h_comment("\n" + self.block_comment.strip() + "\n")
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 declare = attr.declare()
                 if declare:
-                    self.h_comment(attr.description.strip())
+                    self.h_comment("- " + attr.description.strip())
             self.h_code('#define %s_MEMBERS'%cpp_define_name(self.block_cname), append_backslash = True)
-            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+            for i, attr in enumerate([self.block_attrs[n] for n in self.block_attr_names]):
                 declare = attr.declare()
                 if declare:
-                    self.h_code(declare + "\\")
-            self.file_h.write("\n")
-            
-            # header
-            self.h_comment(self.block_comment.strip())
-            inherit = self.block_inherit
-            if not inherit:
-                inherit = "ABlock"
-            self.h_code('#define %s_PARENTS %s'%(cpp_define_name(self.block_cname), inherit))
-            
-            # methods
-            self.h_code('void Read( %s & val, istream & in, uint version );'%self.block_cname)
-            self.h_code('void Write( %s const & val, ostream & out, uint version ) const;'%self.block_cname)
-            self.h_code('string asString() const;')
-            self.h_code('string GetBlockType() const { return "%s"};'%self.block_cname)
+                    if i != num_block_attrs - 1:
+                        self.h_code(declare + " \\")
+                    else:
+                        self.h_code(declare + " \\") #self.h_code(declare) ## shall we append the methods as well?
+            # methods (declaration)
+            self.h_code('void Read(istream & in, uint version ); \\')
+            self.h_code('void Write(ostream & out, uint version ) const; \\')
+            self.h_code('string asString() const; \\')
+            self.h_code('string GetBlockType() const { return "%s"; }; \\'%self.block_cname)
             self.h_code("attr_ref GetAttr( string const & attr_name ) const;")
+            self.file_h.write("\n")
+
+            # code for methods in the cpp file
             self.cpp_code("attr_ref %s::GetAttr( string const & attr_name ) const {"%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                self.cpp_code("if ( attr_name == \"%s\" )"%attr.name)
-                self.cpp_code("return attr_ref(%s);"%attr.cname, True)
+                if attr.declare():
+                    self.cpp_code("if ( attr_name == \"%s\" )"%attr.name)
+                    self.cpp_code("return attr_ref(%s);"%attr.cname, True)
             if name == "niblock":
                 self.cpp_code("throw runtime_error(\"The attribute you requested does not exist in this block.\");")
             self.cpp_code("return attr_ref();")
             self.cpp_code("};")
             self.file_cpp.write("\n")
 
+            # code for methods in the h file as define's
+
+            # parents
+            inherit = self.block_cinherit
+            if not inherit:
+                inherit = "ABlock"
+            self.h_code('#define %s_PARENTS %s'%(cpp_define_name(self.block_cname), inherit))
+            self.file_h.write("\n")
+            
             # constructor
-##            self.h_code("%s() {"%self.block_name)
-##            self.file_h.write('// __BEGIN_CONSTRUCT_%s\n'%self.block_cname.upper())
-##            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-##                self.h_code_construct(attr)
-##            self.file_h.write('// __END_CONSTRUCT_%s\n'%self.block_cname.upper())
-##            self.h_code("};")
+            self.h_code("#define %s_CONSTRUCT \\"%cpp_define_name(self.block_cname))
+            for i, attr in enumerate([self.block_attrs[n] for n in self.block_attr_names]):
+                construct = attr.construct()
+                if construct:
+                    if i == num_block_attrs - 1: # last one
+                        self.h_code(attr.construct())
+                    else:
+                        self.h_code(attr.construct() + ', \\')
+            self.file_h.write("\n")
+            
+            # read
+            self.h_code("#define %s_READ \\"%cpp_define_name(self.block_cname))
+            if self.block_cinherit:
+                self.h_code("%s::Read( in, version ); \\"%self.block_cinherit)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                declare = attr.declare(counts = True)
+                if declare:
+                    self.h_code(declare + ' \\')
+            lastver1 = None
+            lastver2 = None
+            lastcond = None
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                if attr.func: continue # skip calculated stuff
+                if lastver1 != attr.ver1 or lastver2 != attr.ver2:
+                    # we must switch to a new version block
+                    # close old version block
+                    if lastver1 or lastver2:
+                        self.h_code("}; \\")
+                    # close old condition block as well
+                    if lastcond:
+                        self.h_code("}; \\")
+                        lastcond = None
+                    # start new version block
+                    if attr.ver1 and not attr.ver2:
+                        self.h_code("if ( version >= 0x%08X ) { \\"%attr.ver1)
+                    elif not attr.ver1 and attr.ver2:
+                        self.h_code("if ( version <= 0x%08X ) { \\"%attr.ver2)
+                    elif attr.ver1 and attr.ver2:
+                        self.h_code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) { \\"%(attr.ver1, attr.ver2))
+                    # start new condition block
+                    if lastcond != attr.cond.cpp_string():
+                        if attr.cond.cpp_string():
+                            self.h_code("if ( %s ) { \\"%attr.cond.cpp_string())
+                else:
+                    # we remain in the same version block
+                    # check condition block
+                    if lastcond != attr.cond.cpp_string():
+                        if lastcond:
+                            self.h_code("}; \\")
+                        if attr.cond.cpp_string():
+                            self.h_code("if ( %s ) { \\"%attr.cond.cpp_string())
+                if attr.arr1.lhs:
+                    self.h_code("%s.resize(%s); \\"%(attr.cname, attr.arr1.cpp_string()))
+                self.h_code("NifStream( %s, in, version ); \\"%attr.cname)
+                lastver1 = attr.ver1
+                lastver2 = attr.ver2
+                lastcond = attr.cond.cpp_string()
+            # close version condition block
+            if lastver1 or lastver2:
+                self.h_code("};")
+            if lastcond:
+                self.h_code("};")
+            self.file_h.write("\n")
 
             # done!
             self.current_block = None
@@ -851,7 +917,7 @@ class SAXtracer(ContentHandler):
         if extra_indent: self.indent_h -= 1
         if txt[-1:] == ":":
             self.indent_h += 1
-        if txt[-1:] == "{":
+        if txt[-1:] == "{" or txt[-3:] == "{ \\":
             self.indent_h += 1
 
     def cpp_comment(self, txt):
