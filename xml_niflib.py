@@ -441,14 +441,13 @@ class Attrib:
         self.carr1_ref = [cpp_attr_name(n) for n in self.arr1_ref]
         self.carr2_ref = [cpp_attr_name(n) for n in self.arr2_ref]
  
-    def declare(self, counts = False):
-        # don't declare (pure) array sizes
-        # but only declare array sizes if counts is True
-        if self.arr1_ref or self.arr2_ref:
-            if counts == False:
+    def declare(self, calculated = False):
+        # don't declare array sizes and calculated data
+        if self.arr1_ref or self.arr2_ref or self.func:
+            if calculated == False:
                 return None
         else:
-            if counts == True:
+            if calculated == True:
                 return None
         
         result = self.ctype
@@ -459,8 +458,8 @@ class Attrib:
         return result
 
     def construct(self):
-        # don't construct array sizes
-        if self.arr1_ref or self.arr2_ref:
+        # don't construct array sizes and calculated data
+        if self.arr1_ref or self.arr2_ref or self.func:
             return None
 
         if not self.default:
@@ -468,14 +467,27 @@ class Attrib:
         else:
             return "%s(%s)"%(self.cname, self.default)
 
+    def calculate(self):
+        # handle calculated data; used when writing
+        if self.arr1_ref:
+            return '%s = %s.size();'%(self.cname, self.carr1_ref[0])
+        elif self.arr2_ref:
+            return '%s = %s.size();'%(self.cname, self.carr2_ref[0])
+        elif self.func:
+            return '%s = %s();'%(self.cname, self.func)
+
     def read(self):
         pass
 
     def write(self):
         pass
 
-    def dump(self):
-        pass
+    def lshift(self):
+        # don't print array sizes and calculated data
+        if self.arr1_ref or self.arr2_ref or self.func:
+            return None
+        
+        return 'out << "%20s: " << %s << endl;'%(self.name, self.cname)
 
 
 
@@ -613,7 +625,7 @@ class SAXtracer(ContentHandler):
             self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
             self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare(counts = True)
+                declare = attr.declare(calculated = True)
                 if declare:
                     self.cpp_code(declare)
             lastver1 = None
@@ -667,7 +679,7 @@ class SAXtracer(ContentHandler):
             self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_cname)
             self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare(counts = True)
+                declare = attr.declare(calculated = True)
                 if declare:
                     self.cpp_code(declare)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
@@ -746,13 +758,10 @@ class SAXtracer(ContentHandler):
                 if declare:
                     self.h_comment("- " + attr.description.strip())
             self.h_code('#define %s_MEMBERS'%cpp_define_name(self.block_cname), append_backslash = True)
-            for i, attr in enumerate([self.block_attrs[n] for n in self.block_attr_names]):
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 declare = attr.declare()
                 if declare:
-                    if i != num_block_attrs - 1:
-                        self.h_code(declare + " \\")
-                    else:
-                        self.h_code(declare + " \\") #self.h_code(declare) ## shall we append the methods as well?
+                    self.h_code(declare + " \\")
             # methods (declaration)
             self.h_code('void Read(istream & in, uint version ); \\')
             self.h_code('void Write(ostream & out, uint version ) const; \\')
@@ -784,23 +793,20 @@ class SAXtracer(ContentHandler):
             
             # constructor
             self.h_code("#define %s_CONSTRUCT \\"%cpp_define_name(self.block_cname))
-            for i, attr in enumerate([self.block_attrs[n] for n in self.block_attr_names]):
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 construct = attr.construct()
                 if construct:
-                    if i == num_block_attrs - 1: # last one
-                        self.h_code(attr.construct())
-                    else:
-                        self.h_code(attr.construct() + ', \\')
+                    self.h_code(attr.construct() + ', \\')
             self.file_h.write("\n")
             
             # read
             self.h_code("#define %s_READ \\"%cpp_define_name(self.block_cname))
-            if self.block_cinherit:
-                self.h_code("%s::Read( in, version ); \\"%self.block_cinherit)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare(counts = True)
+                declare = attr.declare(calculated = True)
                 if declare:
                     self.h_code(declare + ' \\')
+            if self.block_cinherit:
+                self.h_code("%s::Read( in, version ); \\"%self.block_cinherit)
             lastver1 = None
             lastver2 = None
             lastcond = None
@@ -842,10 +848,78 @@ class SAXtracer(ContentHandler):
                 lastcond = attr.cond.cpp_string()
             # close version condition block
             if lastver1 or lastver2:
-                self.h_code("};")
+                self.h_code("}; \\")
             if lastcond:
-                self.h_code("};")
+                self.h_code("}; \\")
             self.file_h.write("\n")
+
+            # write
+            self.h_code("#define %s_WRITE \\"%cpp_define_name(self.block_cname))
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                declare = attr.declare(calculated = True)
+                if declare:
+                    self.h_code(declare + ' \\')
+            if self.block_cinherit:
+                self.h_code("%s::Write( out, version ); \\"%self.block_cinherit)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                calculate = attr.calculate()
+                if calculate:
+                    self.h_code(calculate + ' \\')
+            lastver1 = None
+            lastver2 = None
+            lastcond = None
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                if attr.func: continue # skip calculated stuff
+                if lastver1 != attr.ver1 or lastver2 != attr.ver2:
+                    # we must switch to a new version block
+                    # close old version block
+                    if lastver1 or lastver2:
+                        self.h_code("}; \\")
+                    # close old condition block as well
+                    if lastcond:
+                        self.h_code("}; \\")
+                        lastcond = None
+                    # start new version block
+                    if attr.ver1 and not attr.ver2:
+                        self.h_code("if ( version >= 0x%08X ) { \\"%attr.ver1)
+                    elif not attr.ver1 and attr.ver2:
+                        self.h_code("if ( version <= 0x%08X ) { \\"%attr.ver2)
+                    elif attr.ver1 and attr.ver2:
+                        self.h_code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) { \\"%(attr.ver1, attr.ver2))
+                    # start new condition block
+                    if lastcond != attr.cond.cpp_string():
+                        if attr.cond.cpp_string():
+                            self.h_code("if ( %s ) { \\"%attr.cond.cpp_string())
+                else:
+                    # we remain in the same version block
+                    # check condition block
+                    if lastcond != attr.cond.cpp_string():
+                        if lastcond:
+                            self.h_code("}; \\")
+                        if attr.cond.cpp_string():
+                            self.h_code("if ( %s ) { \\"%attr.cond.cpp_string())
+                self.h_code("NifStream( %s, out, version ); \\"%attr.cname)
+                lastver1 = attr.ver1
+                lastver2 = attr.ver2
+                lastcond = attr.cond.cpp_string()
+            # close version condition block
+            if lastver1 or lastver2:
+                self.h_code("}; \\")
+            if lastcond:
+                self.h_code("}; \\")
+            self.file_h.write("\n")
+
+            # as string
+            self.h_code("#define %s_STRING \\"%cpp_define_name(self.block_cname))
+            self.h_code("stringstream out; \\")
+            self.h_code("out.setf(ios::fixed, ios::floatfield); \\")
+            self.h_code("out << setprecision(1); \\")
+            if self.block_cinherit:
+                self.h_code("out << %s::asString(); \\"%self.block_cinherit)
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                lshift = attr.lshift()
+                if lshift:
+                    self.h_code(lshift + ' \\')
 
             # done!
             self.current_block = None
