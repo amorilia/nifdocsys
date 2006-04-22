@@ -336,7 +336,14 @@ def cpp_attr_name(n):
     if n == None: return None
     return n.lower().replace(' ', '_').replace('?', '_')
 
-
+def version2number(s):
+    if s == None: return None
+    l = s.split('.')
+    if len(l) != 4:
+        raise
+        return int(s)
+    else:
+        return (int(l[0]) << 24) + (int(l[1]) << 16) + (int(l[2]) << 8) + int(l[3])
 
 class Attrib:
     def __init__(self):
@@ -371,8 +378,8 @@ class Attrib:
         self.func      = attrs.get('function')
         self.default   = attrs.get('default')
         self.description = '' # read by "characters" function
-        self.ver1      = attrs.get('ver1')
-        self.ver2      = attrs.get('ver2')
+        self.ver1      = version2number(attrs.get('ver1'))
+        self.ver2      = version2number(attrs.get('ver2'))
         # other flags: set them to their defaults
         self.type_is_native = native_types.has_key(self.name) # true if the type is implemented natively
         self.arr1_ref = [] # names of the attributes it is a size of
@@ -571,10 +578,28 @@ class SAXtracer(ContentHandler):
                 declare = attr.declare(counts = True)
                 if declare:
                     self.cpp_code(declare)
+            lastver1 = None
+            lastver2 = None
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                if lastver1 != attr.ver1 or lastver2 != attr.ver2:
+                    # close old version condition block
+                    if lastver1 or lastver2:
+                        self.cpp_code("};")
+                    # start new version condition block
+                    if attr.ver1 and not attr.ver2:
+                        self.cpp_code("if ( version >= %s ) {"%hex(attr.ver1))
+                    elif not attr.ver1 and attr.ver2:
+                        self.cpp_code("if ( version <= %s ) {"%hex(attr.ver2))
+                    elif attr.ver1 and attr.ver2:
+                        self.cpp_code("if ( ( version >= %s ) && ( version <= %s ) ) {"%(hex(attr.ver1),hex(attr.ver2)))
                 self.cpp_code("NifStream( %s, in, version );"%attr.cname)
                 for carr1_ref in attr.carr1_ref:
                     self.cpp_code("%s.resize(%s);"%(carr1_ref,attr.cname))
+                lastver1 = attr.ver1
+                lastver2 = attr.ver2
+            # final closing
+            if lastver1 or lastver2:
+                self.cpp_code("};")
             self.cpp_code("};")
             self.file_cpp.write("\n")
 
