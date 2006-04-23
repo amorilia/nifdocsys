@@ -803,10 +803,13 @@ class SAXtracer(ContentHandler):
             
             # constructor
             self.h_code("#define %s_CONSTRUCT \\"%cpp_define_name(self.block_cname))
-            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+            for i, attr in enumerate([self.block_attrs[n] for n in self.block_attr_names]):
                 construct = attr.construct()
                 if construct:
-                    self.h_code(attr.construct() + ', \\')
+                    if i == num_block_attrs - 1: # last one
+                        self.h_code(construct)
+                    else:
+                        self.h_code(construct + ', \\')
             self.file_h.write("\n")
             
             # read
