@@ -423,8 +423,9 @@ class Attrib:
         self.ver2      = version2number(attrs.get('ver2'))
         # other flags: set them to their defaults
         self.type_is_native = native_types.has_key(self.name) # true if the type is implemented natively
-        self.arr1_ref = [] # names of the attributes it is a size of
-        self.arr2_ref = [] # names of the attributes it is a size of
+        self.arr1_ref = [] # names of the attributes it is a (unmasked) size of
+        self.arr2_ref = [] # names of the attributes it is a (unmasked) size of
+        self.cond_ref = [] # names of the attributes it is a condition of
         self.arr2_dynamic   = False # true if arr2 refers to an array
         # cpp names
         self.update_cnames()
@@ -440,10 +441,11 @@ class Attrib:
         self.ctemplate = cpp_type_name(self.template)
         self.carr1_ref = [cpp_attr_name(n) for n in self.arr1_ref]
         self.carr2_ref = [cpp_attr_name(n) for n in self.arr2_ref]
+        self.ccond_ref = [cpp_attr_name(n) for n in self.cond_ref]
  
     def declare(self, calculated = False):
         # don't declare array sizes and calculated data
-        if self.arr1_ref or self.arr2_ref or self.func:
+        if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
             if calculated == False:
                 return None
         else:
@@ -459,7 +461,7 @@ class Attrib:
 
     def construct(self):
         # don't construct array sizes and calculated data
-        if self.arr1_ref or self.arr2_ref or self.func:
+        if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
             return None
 
         if not self.default:
@@ -469,12 +471,16 @@ class Attrib:
 
     def calculate(self):
         # handle calculated data; used when writing
-        if self.arr1_ref:
+        if self.cond_ref:
+            return None
+        elif self.arr1_ref:
             return '%s = %s.size();'%(self.cname, self.carr1_ref[0])
         elif self.arr2_ref:
             return '%s = %s.size();'%(self.cname, self.carr2_ref[0])
         elif self.func:
             return '%s = %s();'%(self.cname, self.func)
+        else:
+            return None
 
     def read(self):
         pass
@@ -484,7 +490,7 @@ class Attrib:
 
     def lshift(self):
         # don't print array sizes and calculated data
-        if self.arr1_ref or self.arr2_ref or self.func:
+        if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
             return None
         
         return 'out << "%20s: " << %s << endl;'%(self.name, self.cname)
@@ -581,6 +587,9 @@ class SAXtracer(ContentHandler):
                 if not attrib.arr2.op:
                     self.block_attrs[attrib.arr2.lhs].arr2_ref.append(attrib.name)
                     self.block_attrs[attrib.arr2.lhs].carr2_ref.append(attrib.cname)
+            if attrib.cond.lhs in self.block_attr_names:
+                self.block_attrs[attrib.cond.lhs].cond_ref.append(attrib.name)
+                self.block_attrs[attrib.cond.lhs].ccond_ref.append(attrib.cname)
             
             # store it
             self.block_attr_names.append(self.current_attr)
@@ -683,8 +692,9 @@ class SAXtracer(ContentHandler):
                 if declare:
                     self.cpp_code(declare)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                if attr.carr1_ref:
-                    self.cpp_code("%s = %s.size();"%(attr.cname, attr.carr1_ref[0]))
+                calculate = attr.calculate()
+                if calculate:
+                    self.cpp_code(calculate)
             lastver1 = None
             lastver2 = None
             lastcond = None
@@ -1003,3 +1013,4 @@ class SAXtracer(ContentHandler):
 p = make_parser()
 p.setContentHandler(SAXtracer())
 p.parse("nif.xml")
+del p # releases "nif.xml", even if we keep the GUI running, so we can edit it
