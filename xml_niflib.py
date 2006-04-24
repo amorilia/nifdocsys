@@ -794,6 +794,9 @@ class SAXtracer(ContentHandler):
 
             # code for methods in the cpp file
             self.cpp_code("attr_ref %s::GetAttr( string const & attr_name ) const {"%self.block_cname)
+            if self.block_cinherit:
+                self.cpp_code("attr_ref attr = %s::GetAttr( attr_name );"%self.block_cinherit)
+                self.cpp_code("if ( attr ) return attr;")
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if attr.declare():
                     self.cpp_code("if ( attr_name == \"%s\" )"%attr.name)
