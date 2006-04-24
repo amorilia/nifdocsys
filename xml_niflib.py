@@ -534,6 +534,7 @@ class SAXtracer(ContentHandler):
             self.block_cname = cpp_type_name(self.block_name)
             self.block_comment = ''
             self.block_attr_names = [] # sorts the names
+            self.block_niflibtype = attrs.get('niflibtype')
 
             # keep track of where we are
             self.current_block = self.block_name
@@ -543,6 +544,9 @@ class SAXtracer(ContentHandler):
             assert(self.current_block == None) # debug
             assert(self.current_attr == None) # debug
             
+            if attrs.has_key('niflibtype'):
+                native_types[attrs.get('name')] = attrs.get('niflibtype')
+                
             # store block data
             self.block_name = attrs.get('name')
             self.block_cname = cpp_type_name(self.block_name)
@@ -552,6 +556,7 @@ class SAXtracer(ContentHandler):
             self.block_comment = ''
             self.block_attr_names = [] # sorts the names
             self.block_interface = None
+            self.block_niflibtype = attrs.get('niflibtype')
 
             # keep track of where we are
             self.current_block = self.block_name
@@ -602,6 +607,10 @@ class SAXtracer(ContentHandler):
             
             assert(self.current_block != None) # debug
             assert(self.current_attr == None) # debug
+
+            if self.block_niflibtype:
+                self.current_block = None
+                return # skip it!
             
             # header
             self.h_comment("\n" + self.block_comment.strip() + "\n")
@@ -805,14 +814,17 @@ class SAXtracer(ContentHandler):
             self.file_h.write("\n")
             
             # constructor
-            self.h_code("#define %s_CONSTRUCT \\"%cpp_define_name(self.block_cname))
+            construct_first = True
+            construct_string = "#define %s_CONSTRUCT "%cpp_define_name(self.block_cname)
             for i, attr in enumerate([self.block_attrs[n] for n in self.block_attr_names]):
                 construct = attr.construct()
                 if construct:
-                    if i == num_block_attrs - 1: # last one
-                        self.h_code(construct)
+                    if not construct_first:
+                        construct_string += ', ' + construct
                     else:
-                        self.h_code(construct + ', \\')
+                        construct_string += construct
+                        construct_first = False
+            self.h_code(construct_string)
             self.file_h.write("\n")
             
             # read
