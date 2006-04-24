@@ -464,10 +464,11 @@ class Attrib:
         if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
             return None
 
+        # don't construct if it has no default
         if not self.default:
-            return self.cname + "()"
-        else:
-            return "%s(%s)"%(self.cname, self.default)
+            return None
+
+        return "%s(%s)"%(self.cname, self.default)
 
     def calculate(self):
         # handle calculated data; used when writing
@@ -610,16 +611,18 @@ class SAXtracer(ContentHandler):
             self.h_code(hdr)
 
             # constructor
-            self.h_code("%s() : "%self.block_cname)
-            self.indent_h += 1
+            construct_first = True
+            construct_string = "%s()"%self.block_cname
             for i, attr in enumerate([self.block_attrs[n] for n in self.block_attr_names]):
                 construct = attr.construct()
                 if construct:
-                    if i == num_block_attrs - 1: # last one
-                        self.h_code(attr.construct() + ' {};')
+                    if not construct_first:
+                        construct_string += ', ' + construct
                     else:
-                        self.h_code(attr.construct() + ',')
-            self.indent_h -= 1
+                        construct_string += ' : ' + construct
+                        construct_first = False
+            construct_string += ' {};'
+            self.h_code(construct_string)
             
             # members
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
