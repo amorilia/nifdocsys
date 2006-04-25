@@ -785,29 +785,30 @@ class SAXtracer(ContentHandler):
                 if declare:
                     self.h_code(declare + " \\")
             # methods (declaration)
-            self.h_code('void Read(istream & in, uint version ); \\')
-            self.h_code('void Write(ostream & out, uint version ) const; \\')
-            self.h_code('string asString() const; \\')
-            self.h_code('string GetBlockType() const { return "%s"; }; \\'%self.block_cname)
-            self.h_code("attr_ref GetAttr( string const & attr_name ) const;")
+            # (disabled for now)
+            #self.h_code('void Read(istream & in, uint version ); \\')
+            #self.h_code('void Write(ostream & out, uint version ) const; \\')
+            #self.h_code('string asString() const; \\')
+            #self.h_code('string GetBlockType() const { return "%s"; }; \\'%self.block_cname)
+            #self.h_code("attr_ref GetAttr( string const & attr_name ) const;")
             self.file_h.write("\n")
 
-            # code for methods in the cpp file
-            self.cpp_code("attr_ref %s::GetAttr( string const & attr_name ) const {"%self.block_cname)
+            # code for methods in the h file as define's
+
+            # get the attributes whose type is implemented natively by Niflib
+            self.h_code("#define %s_GETATTR \\"%cpp_define_name(self.block_cname))
             if self.block_cinherit:
-                self.cpp_code("attr_ref attr = %s::GetAttr( attr_name );"%self.block_cinherit)
-                self.cpp_code("if ( attr ) return attr;")
+                self.h_code("attr_ref attr = %s::GetAttr( attr_name ); \\"%self.block_cinherit)
+                self.h_code("if ( attr ) return attr;")
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if attr.declare():
-                    self.cpp_code("if ( attr_name == \"%s\" )"%attr.name)
-                    self.cpp_code("return attr_ref(%s);"%attr.cname, True)
+                    if native_types.has_key(attr.type) and (not attr.arr1.lhs) and (not attr.arr2.lhs) and (not attr.func):
+                        self.h_code("if ( attr_name == \"%s\" ) \\"%attr.name)
+                        self.h_code("return attr_ref(%s); \\"%attr.cname, extra_indent = True)
             if name == "niblock":
-                self.cpp_code("throw runtime_error(\"The attribute you requested does not exist in this block.\");")
-            self.cpp_code("return attr_ref();")
-            self.cpp_code("};")
-            self.file_cpp.write("\n")
-
-            # code for methods in the h file as define's
+                self.h_code("throw runtime_error(\"The attribute you requested does not exist in this block, or can't be accessed.\"); \\")
+            self.h_code("return attr_ref(); \\")
+            self.file_h.write("\n")
 
             # parents
             inherit = self.block_cinherit
@@ -951,6 +952,7 @@ class SAXtracer(ContentHandler):
                 lshift = attr.lshift()
                 if lshift:
                     self.h_code(lshift + ' \\')
+            self.file_h.write("\n")
 
             # done!
             self.current_block = None
