@@ -48,6 +48,8 @@ H_HEADER = """/* ---------------------------------------------------------------
 #ifndef _XML_EXTRACT_H_
 #define _XML_EXTRACT_H_
 
+#include "niflib.h"
+#include "NIF_IO.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
