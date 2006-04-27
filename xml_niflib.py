@@ -57,6 +57,13 @@ H_HEADER = """/* ---------------------------------------------------------------
 
 using namespace std;
 
+// this solves a few compilation errors... probably we want to put this somewhere else
+typedef blk_ref link_ref;
+typedef unsigned int uint;
+typedef unsigned short ushort;
+typedef unsigned char byte;
+typedef string HeaderString; // TODO: implement
+
 """
 
 CPP_HEADER = """/* --------------------------------------------------------------------------
@@ -688,7 +695,7 @@ class SAXtracer(ContentHandler):
             # header
             self.h_comment("\n" + self.block_comment.strip() + "\n")
             hdr = "struct %s"%self.block_cname
-            if self.block_template: hdr += "<T>"
+            if self.block_template: hdr = "template <class T >\n%s"%hdr
             hdr += " {"
             self.h_code(hdr)
 
@@ -716,8 +723,12 @@ class SAXtracer(ContentHandler):
             self.file_h.write("\n")
             
             # istream
-            self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
-            self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
+            if not self.block_template:
+                self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
+                self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
+            else:
+                self.h_code('template <class T >\nvoid NifStream( %s<T> & val, istream & in, uint version );'%self.block_cname)
+                self.cpp_code('template <class T >\nvoid NifStream( %s<T> & val, istream & in, uint version ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if not attr.is_declared:
                     self.cpp_code(attr.cpp_declare)
@@ -769,8 +780,12 @@ class SAXtracer(ContentHandler):
             self.file_cpp.write("\n")
 
             # ostream
-            self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_cname)
-            self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
+            if not self.block_template:
+                self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_cname)
+                self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
+            else:
+                self.h_code('template <class T >\nvoid NifStream( %s<T> const & val, ostream & out, uint version );'%self.block_cname)
+                self.cpp_code('template <class T >\nvoid NifStream( %s<T> const & val, ostream & out, uint version ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if not attr.is_declared:
                     self.cpp_code(attr.cpp_declare)
@@ -825,8 +840,12 @@ class SAXtracer(ContentHandler):
             self.file_cpp.write("\n")
 
             # operator<< (meant for stdout)
-            self.h_code('ostream & operator<<( ostream & out, %s const & val );'%self.block_cname)
-            self.cpp_code('ostream & operator<<( ostream & out, %s const & val ) {'%self.block_cname)
+            if not self.block_template:
+                self.h_code('ostream & operator<<( ostream & out, %s const & val );'%self.block_cname)
+                self.cpp_code('ostream & operator<<( ostream & out, %s const & val ) {'%self.block_cname)
+            else:
+                self.h_code('template <class T >\nostream & operator<<( ostream & out, %s<T> const & val );'%self.block_cname)
+                self.cpp_code('template <class T >\nostream & operator<<( ostream & out, %s<T> const & val ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 self.cpp_code(attr.val_lshift())
             self.cpp_code("};")
