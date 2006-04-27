@@ -595,7 +595,7 @@ class SAXtracer(ContentHandler):
             if attrib.type == '(TEMPLATE)':
                 self.block_template = True
 
-            if attrib.template:
+            if attrib.template == '(TEMPLATE)':
                 self.block_template = True
 
             # detect array sizes
