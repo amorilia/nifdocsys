@@ -455,9 +455,13 @@ class Attrib:
                 return None
         
         result = self.ctype
+        if self.ctemplate:
+            result += "<%s >"%self.ctemplate
+        
         if self.arr1.lhs:
-            result = "vector<%s>"%result
+            result = "vector<%s >"%result
             if self.arr2.lhs: result = "vector<%s >"%result
+
         result += " " + self.cname + ";"
         return result
 
@@ -584,6 +588,9 @@ class SAXtracer(ContentHandler):
 
             # detect templates
             if attrib.type == '(TEMPLATE)':
+                self.block_template = True
+
+            if attrib.template:
                 self.block_template = True
 
             # detect array sizes
