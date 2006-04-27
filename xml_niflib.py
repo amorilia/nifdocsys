@@ -64,6 +64,7 @@ typedef unsigned short ushort;
 typedef unsigned char byte;
 typedef string HeaderString; // TODO: implement
 
+/*
 void NifStream( int & x, istream & in, uint version ) {
   NifStream( x, in );
 };
@@ -146,7 +147,7 @@ void NifStream( bool const & x, ostream & out, uint version ) {
   else
     NifStream( x1, out );
 };
-
+*/
 """
 
 CPP_HEADER = """/* --------------------------------------------------------------------------
@@ -544,8 +545,8 @@ class Attrib:
         self.update_cnames()
 
         # override default for attributes that have an argument
-        if self.arg:
-            self.default = "%s(%s)"%(self.ctype,self.carg)
+        #if self.arg:
+        #    self.default = "%s(%s)"%(self.ctype,self.carg)
 
     def update_cnames(self):
         self.cname     = cpp_attr_name(self.name)
