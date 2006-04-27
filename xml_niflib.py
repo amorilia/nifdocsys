@@ -64,6 +64,29 @@ typedef unsigned short ushort;
 typedef unsigned char byte;
 typedef string HeaderString; // TODO: implement
 
+void NifStream( uint & x, istream & in, uint version ) {
+  NifStream( x, in );
+};
+void NifStream( uint const & x, ostream & out, uint version ) {
+  NifStream( x, out );
+};
+
+template <class T>
+void NifStream( vector<T> & val, istream& file, uint version ) {
+  typename vector<T>::iterator it;
+  for ( it = val.begin(); it != val.end(); ++it ) {
+    NifStream( *it, file, version );
+  };
+};
+template <class T>
+void NifStream( vector<T> const & val, ostream& file, uint version ) {
+  typename vector<T>::iterator it;
+  for ( it = val.begin(); it != val.end(); ++it ) {
+    NifStream( *it, file, version );
+  };
+};
+
+
 """
 
 CPP_HEADER = """/* --------------------------------------------------------------------------
@@ -825,8 +848,6 @@ class SAXtracer(ContentHandler):
                             self.cpp_code("};")
                         if attr.cond.cpp_string():
                             self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
-                if attr.arr1.lhs:
-                    self.cpp_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string(self.block_attrs)))
                 self.cpp_code("NifStream( %s, out, version );"%attr.valcname)
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
