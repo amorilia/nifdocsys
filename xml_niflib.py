@@ -813,7 +813,7 @@ class SAXtracer(ContentHandler):
             self.h_code("#define %s_GETATTR \\"%cpp_define_name(self.block_cname))
             if self.block_cinherit:
                 self.h_code("attr_ref attr = %s::GetAttr( attr_name ); \\"%self.block_cinherit)
-                self.h_code("if ( attr ) return attr;")
+                self.h_code("if ( attr.is_null() == false ) return attr; \\")
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if attr.declare():
                     if native_types.has_key(attr.type) and (not attr.arr1.lhs) and (not attr.arr2.lhs) and (not attr.func):
