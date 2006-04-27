@@ -351,13 +351,15 @@ class Expr:
     def __init__(self):
         self.lhs = None
         self.clhs = None
+        self.valclhs = None
         self.op = None
         self.rhs = None
 
-    def __init__(self, n):
+    def __init__(self, n, block_attrs):
         if n == None:
             self.lhs = None
             self.clhs = None
+            self.valclhs = None
             self.op = None
             self.rhs = None
             return
@@ -370,11 +372,19 @@ class Expr:
         if not x:
             self.lhs = n.strip()
             self.clhs = cpp_attr_name(self.lhs)
+            if block_attrs.has_key(self.lhs) and block_attrs[self.lhs].is_declared:
+                self.valclhs = "val.%s"%self.clhs
+            else:
+                self.valclhs = self.clhs
             self.op = None
             self.rhs = None
         elif len(x) == 2:
             self.lhs = x[0].strip()
             self.clhs = cpp_attr_name(self.lhs)
+            if block_attrs.has_key(self.lhs) and block_attrs[self.lhs].is_declared:
+                self.valclhs = "val.%s"%self.clhs
+            else:
+                self.valclhs = self.clhs
             self.op = op
             self.rhs = x[1].strip()
         else:
@@ -387,6 +397,12 @@ class Expr:
             return self.clhs
         else:
             return '%s %s %s'%(self.clhs, self.op, self.rhs)
+
+    def val_cpp_string(self):
+        if not self.op:
+            return self.valclhs
+        else:
+            return '%s %s %s'%(self.valclhs, self.op, self.rhs)
 
 class Attrib:
     def __init__(self):
@@ -409,15 +425,17 @@ class Attrib:
         # cpp names
         self.update_cnames()
 
-    def __init__(self, attrs): # attrs are the XML attributes
+    # attrs are the XML attributes
+    # block_attrs are the block attributes of the stuff that has already been processed
+    def __init__(self, attrs, block_attrs):
         # attribute stuff
         self.name      = attrs.get('name')
         self.type      = attrs.get('type')
         self.arg       = attrs.get('arg')
         self.template  = attrs.get('template')
-        self.arr1      = Expr(attrs.get('arr1'))
-        self.arr2      = Expr(attrs.get('arr2'))
-        self.cond      = Expr(attrs.get('cond'))
+        self.arr1      = Expr(attrs.get('arr1'), block_attrs)
+        self.arr2      = Expr(attrs.get('arr2'), block_attrs)
+        self.cond      = Expr(attrs.get('cond'), block_attrs)
         self.func      = attrs.get('function')
         self.default   = attrs.get('default')
         self.description = '' # read by "characters" function
@@ -429,6 +447,7 @@ class Attrib:
         self.arr2_ref = [] # names of the attributes it is a (unmasked) size of
         self.cond_ref = [] # names of the attributes it is a condition of
         self.arr2_dynamic   = False # true if arr2 refers to an array
+        self.is_declared = False # true if it is declared in the class, if false, this field is calculated somehow
         # cpp names
         self.update_cnames()
 
@@ -445,14 +464,17 @@ class Attrib:
         self.carr2_ref = [cpp_attr_name(n) for n in self.arr2_ref]
         self.ccond_ref = [cpp_attr_name(n) for n in self.cond_ref]
  
-    def declare(self, calculated = False):
+    def declare(self):
+        # !! should be called on all attributes before anything else,
+        #    to set the is_declared field, the valcname field, and cpp_declare
+        
         # don't declare array sizes and calculated data
         if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
-            if calculated == False:
-                return None
+            self.is_declared = False
+            self.valcname = self.cname
         else:
-            if calculated == True:
-                return None
+            self.is_declared = True
+            self.valcname = "val.%s"%self.cname
         
         result = self.ctype
         if self.ctemplate:
@@ -463,11 +485,12 @@ class Attrib:
             if self.arr2.lhs: result = "vector<%s >"%result
 
         result += " " + self.cname + ";"
+        self.cpp_declare = result
         return result
 
     def construct(self):
-        # don't construct array sizes and calculated data
-        if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
+        # don't construct anything that hasn't been declared
+        if not self.is_declared:
             return None
 
         # don't construct if it has no default
@@ -476,17 +499,40 @@ class Attrib:
 
         return "%s(%s)"%(self.cname, self.default)
 
-    def calculate(self):
+    def calculate(self, block_attrs):
         # handle calculated data; used when writing
         if self.cond_ref:
+            assert(self.is_declared) # bug check
             return None
         elif self.arr1_ref:
-            return '%s = %s.size();'%(self.cname, self.carr1_ref[0])
+            assert(not self.is_declared) # bug check
+            return '%s = %s.size();'%(self.cname, block_attrs[self.arr1_ref[0]].cname)
         elif self.arr2_ref:
-            return '%s = %s.size();'%(self.cname, self.carr2_ref[0])
+            assert(not self.is_declared) # bug check
+            return '%s = %s.size();'%(self.cname, block_attrs[self.arr2_ref[0]].cname)
         elif self.func:
+            assert(not self.is_declared) # bug check
             return '%s = %s();'%(self.cname, self.func)
         else:
+            assert(self.is_declared) # bug check
+            return None
+
+    def val_calculate(self, block_attrs):
+        # handle calculated data; used when writing
+        if self.cond_ref:
+            assert(self.is_declared) # bug check
+            return None
+        elif self.arr1_ref:
+            assert(not self.is_declared) # bug check
+            return '%s = %s.size();'%(self.valcname, block_attrs[self.arr1_ref[0]].valcname)
+        elif self.arr2_ref:
+            assert(not self.is_declared) # bug check
+            return '%s = %s.size();'%(self.valcname, block_attrs[self.arr2_ref[0]].valcname)
+        elif self.func:
+            assert(not self.is_declared) # bug check
+            return '%s = val.%s();'%(self.cname, self.func)
+        else:
+            assert(self.is_declared) # bug check
             return None
 
     def read(self):
@@ -497,7 +543,7 @@ class Attrib:
 
     def lshift(self):
         # don't print array sizes and calculated data
-        if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
+        if not self.is_declared:
             return None
         
         return 'out << "%20s: " << %s << endl;'%(self.name, self.cname)
@@ -581,7 +627,7 @@ class SAXtracer(ContentHandler):
             assert(self.current_attr == None) # debug
             
             # read the raw values
-            attrib = Attrib(attrs)
+            attrib = Attrib(attrs, self.block_attrs)
 
             # update current attribute
             self.current_attr = attrib.name
@@ -633,6 +679,15 @@ class SAXtracer(ContentHandler):
             hdr += " {"
             self.h_code(hdr)
 
+            # members
+            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+                attr.declare()
+                if attr.is_declared:
+                    self.h_comment(attr.description.strip())
+                    self.h_code(attr.cpp_declare)
+            self.h_code("};")
+            self.file_h.write("\n")
+            
             # constructor
             construct_first = True
             construct_string = "%s()"%self.block_cname
@@ -647,22 +702,12 @@ class SAXtracer(ContentHandler):
             construct_string += ' {};'
             self.h_code(construct_string)
             
-            # members
-            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare()
-                if declare:
-                    self.h_comment(attr.description.strip())
-                    self.h_code(declare)
-            self.h_code("};")
-            self.file_h.write("\n")
-            
             # istream
             self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
             self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare(calculated = True)
-                if declare:
-                    self.cpp_code(declare)
+                if not attr.is_declared:
+                    self.cpp_code(attr.cpp_declare)
             lastver1 = None
             lastver2 = None
             lastcond = None
@@ -687,18 +732,18 @@ class SAXtracer(ContentHandler):
                     # start new condition block
                     if lastcond != attr.cond.cpp_string():
                         if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.cpp_string())
+                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string())
                 else:
                     # we remain in the same version block
                     # check condition block
-                    if lastcond != attr.cond.cpp_string():
+                    if lastcond != attr.cond.val_cpp_string():
                         if lastcond:
                             self.cpp_code("};")
                         if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.cpp_string())
+                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string())
                 if attr.arr1.lhs:
-                    self.cpp_code("%s.resize(%s);"%(attr.cname, attr.arr1.cpp_string()))
-                self.cpp_code("NifStream( %s, in, version );"%attr.cname)
+                    self.cpp_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string()))
+                self.cpp_code("NifStream( %s, in, version );"%attr.valcname)
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
                 lastcond = attr.cond.cpp_string()
@@ -714,13 +759,11 @@ class SAXtracer(ContentHandler):
             self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_cname)
             self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare(calculated = True)
-                if declare:
-                    self.cpp_code(declare)
+                if not attr.is_declared:
+                    self.cpp_code(attr.cpp_declare)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                calculate = attr.calculate()
-                if calculate:
-                    self.cpp_code(calculate)
+                if not attr.is_declared:
+                    self.cpp_code(attr.val_calculate(self.block_attrs))
             lastver1 = None
             lastver2 = None
             lastcond = None
@@ -745,21 +788,21 @@ class SAXtracer(ContentHandler):
                     # start new condition block
                     if lastcond != attr.cond.cpp_string():
                         if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.cpp_string())
+                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string())
                 else:
                     # we remain in the same version block
                     # check condition block
-                    if lastcond != attr.cond.cpp_string():
+                    if lastcond != attr.cond.val_cpp_string():
                         if lastcond:
                             self.cpp_code("};")
                         if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.cpp_string())
+                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string())
                 if attr.arr1.lhs:
-                    self.cpp_code("%s.resize(%s);"%(attr.cname, attr.arr1.cpp_string()))
-                self.cpp_code("NifStream( %s, out, version );"%attr.cname)
+                    self.cpp_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string()))
+                self.cpp_code("NifStream( %s, out, version );"%attr.valcname)
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
-                lastcond = attr.cond.cpp_string()
+                lastcond = attr.cond.val_cpp_string()
             # close version condition block
             if lastver1 or lastver2:
                 self.cpp_code("};")
