@@ -64,10 +64,54 @@ typedef unsigned short ushort;
 typedef unsigned char byte;
 typedef string HeaderString; // TODO: implement
 
+void NifStream( int & x, istream & in, uint version ) {
+  NifStream( x, in );
+};
+void NifStream( int const & x, ostream & out, uint version ) {
+  NifStream( x, out );
+};
+
 void NifStream( uint & x, istream & in, uint version ) {
   NifStream( x, in );
 };
 void NifStream( uint const & x, ostream & out, uint version ) {
+  NifStream( x, out );
+};
+
+void NifStream( ushort & x, istream & in, uint version ) {
+  NifStream( x, in );
+};
+void NifStream( ushort const & x, ostream & out, uint version ) {
+  NifStream( x, out );
+};
+
+void NifStream( byte & x, istream & in, uint version ) {
+  NifStream( x, in );
+};
+void NifStream( byte const & x, ostream & out, uint version ) {
+  NifStream( x, out );
+};
+
+void NifStream( float & x, istream & in, uint version ) {
+  NifStream( x, in );
+};
+void NifStream( float const & x, ostream & out, uint version ) {
+  NifStream( x, out );
+};
+
+void NifStream( IBlock * x, istream & in, uint version ) {
+  int n;
+  NifStream( n, in );
+  // TODO: SET THE BLOCK NUMBER!
+};
+void NifStream( IBlock const * const x, ostream & out, uint version ) {
+  NifStream( x->GetBlockNum(), out );
+};
+
+void NifStream( string & x, istream & in, uint version ) {
+  NifStream( x, in );
+};
+void NifStream( string const & x, ostream & out, uint version ) {
   NifStream( x, out );
 };
 
@@ -86,6 +130,22 @@ void NifStream( vector<T> const & val, ostream& file, uint version ) {
   };
 };
 
+void NifStream( bool & x, istream & in, uint version ) {
+  byte x1(x);
+  uint x4(x);
+  if ( version == 0x04000002 )
+    NifStream( x4, in );
+  else
+    NifStream( x1, in );
+};
+void NifStream( bool const & x, ostream & out, uint version ) {
+  byte x1(x);
+  uint x4(x);
+  if ( version == 0x04000002 )
+    NifStream( x4, out );
+  else
+    NifStream( x1, out );
+};
 
 """
 
