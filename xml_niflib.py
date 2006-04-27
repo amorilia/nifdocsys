@@ -698,8 +698,6 @@ class SAXtracer(ContentHandler):
                 if attr.is_declared:
                     self.h_comment(attr.description.strip())
                     self.h_code(attr.cpp_declare)
-            self.h_code("};")
-            self.file_h.write("\n")
             
             # constructor
             construct_first = True
@@ -714,6 +712,8 @@ class SAXtracer(ContentHandler):
                         construct_first = False
             construct_string += ' {};'
             self.h_code(construct_string)
+            self.h_code("};")
+            self.file_h.write("\n")
             
             # istream
             self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
