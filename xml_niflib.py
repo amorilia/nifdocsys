@@ -571,8 +571,8 @@ class SAXtracer(ContentHandler):
         self.current_attr = None # index into the attrib table
         self.indent_h = 0
         self.indent_cpp = 0
-        self.file_h = open("xml_extract.h", "w")
-        self.file_cpp = open("xml_extract.cpp", "w")
+        self.file_h = open("../niflib/xml_extract.h", "w")
+        self.file_cpp = open("../niflib/xml_extract.cpp", "w")
 
     def startDocument(self):
         self.file_h.write(H_HEADER)
