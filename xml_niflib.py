@@ -372,10 +372,6 @@ class Expr:
         if not x:
             self.lhs = n.strip()
             self.clhs = cpp_attr_name(self.lhs)
-            if block_attrs.has_key(self.lhs) and block_attrs[self.lhs].is_declared:
-                self.valclhs = "val.%s"%self.clhs
-            else:
-                self.valclhs = self.clhs
             self.op = None
             self.rhs = None
         elif len(x) == 2:
@@ -398,11 +394,17 @@ class Expr:
         else:
             return '%s %s %s'%(self.clhs, self.op, self.rhs)
 
-    def val_cpp_string(self):
+    def val_cpp_string(self, block_attrs):
         if not self.op:
-            return self.valclhs
+            if block_attrs.has_key(self.lhs) and block_attrs[self.lhs].is_declared:
+                return block_attrs[self.lhs].valcname
+            else:
+                return self.clhs
         else:
-            return '%s %s %s'%(self.valclhs, self.op, self.rhs)
+            if block_attrs.has_key(self.lhs) and block_attrs[self.lhs].is_declared:
+                return '%s %s %s'%(block_attrs[self.lhs].valcname, self.op, self.rhs)
+            else:
+                return '%s %s %s'%(self.clhs, self.op, self.rhs)
 
 class Attrib:
     def __init__(self):
@@ -544,9 +546,20 @@ class Attrib:
     def lshift(self):
         # don't print array sizes and calculated data
         if not self.is_declared:
-            return None
-        
-        return 'out << "%20s: " << %s << endl;'%(self.name, self.cname)
+            return "out << \"%20s:  -- calculated --\" << endl;"%self.name
+        elif not self.arr1.lhs:
+            return "out << \"%20s:  \" << %s << endl;"%(self.name, self.cname)
+        else:
+            return "out << \"%20s:  -- data not shown --\" << endl;"%self.name
+
+    def val_lshift(self):
+        # don't print array sizes and calculated data
+        if not self.is_declared:
+            return "out << \"%20s:  -- calculated --\" << endl;"%self.name
+        elif not self.arr1.lhs:
+            return "out << \"%20s:  \" << %s << endl;"%(self.name, self.valcname)
+        else:
+            return "out << \"%20s:  -- data not shown --\" << endl;"%self.name
 
 
 
@@ -730,23 +743,23 @@ class SAXtracer(ContentHandler):
                     elif attr.ver1 and attr.ver2:
                         self.cpp_code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(attr.ver1, attr.ver2))
                     # start new condition block
-                    if lastcond != attr.cond.cpp_string():
-                        if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string())
+                    if lastcond != attr.cond.val_cpp_string(self.block_attrs):
+                        if attr.cond.val_cpp_string(self.block_attrs):
+                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 else:
                     # we remain in the same version block
                     # check condition block
-                    if lastcond != attr.cond.val_cpp_string():
+                    if lastcond != attr.cond.val_cpp_string(self.block_attrs):
                         if lastcond:
                             self.cpp_code("};")
-                        if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string())
+                        if attr.cond.val_cpp_string(self.block_attrs):
+                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 if attr.arr1.lhs:
-                    self.cpp_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string()))
+                    self.cpp_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string(self.block_attrs)))
                 self.cpp_code("NifStream( %s, in, version );"%attr.valcname)
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
-                lastcond = attr.cond.cpp_string()
+                lastcond = attr.cond.val_cpp_string(self.block_attrs)
             # close version condition block
             if lastver1 or lastver2:
                 self.cpp_code("};")
@@ -786,23 +799,23 @@ class SAXtracer(ContentHandler):
                     elif attr.ver1 and attr.ver2:
                         self.cpp_code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(attr.ver1, attr.ver2))
                     # start new condition block
-                    if lastcond != attr.cond.cpp_string():
+                    if lastcond != attr.cond.val_cpp_string(self.block_attrs):
                         if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string())
+                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 else:
                     # we remain in the same version block
                     # check condition block
-                    if lastcond != attr.cond.val_cpp_string():
+                    if lastcond != attr.cond.val_cpp_string(self.block_attrs):
                         if lastcond:
                             self.cpp_code("};")
                         if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string())
+                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 if attr.arr1.lhs:
-                    self.cpp_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string()))
+                    self.cpp_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string(self.block_attrs)))
                 self.cpp_code("NifStream( %s, out, version );"%attr.valcname)
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
-                lastcond = attr.cond.val_cpp_string()
+                lastcond = attr.cond.val_cpp_string(self.block_attrs)
             # close version condition block
             if lastver1 or lastver2:
                 self.cpp_code("};")
@@ -812,11 +825,10 @@ class SAXtracer(ContentHandler):
             self.file_cpp.write("\n")
 
             # operator<< (meant for stdout)
-            self.h_code('ostream & operator<<( ostream & lh, %s const & rh );'%self.block_cname)
-            self.cpp_code('ostream & operator<<( ostream & lh, %s const & rh ) {'%self.block_cname)
+            self.h_code('ostream & operator<<( ostream & out, %s const & val );'%self.block_cname)
+            self.cpp_code('ostream & operator<<( ostream & out, %s const & val ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                if attr.declare():
-                    self.cpp_code("lh << \"%s:  \" << rh.%s << endl;"%(attr.name, attr.cname))
+                self.cpp_code(attr.val_lshift())
             self.cpp_code("};")
             self.file_cpp.write("\n")
             self.file_h.write("\n")
@@ -833,14 +845,13 @@ class SAXtracer(ContentHandler):
             # members
             self.h_comment("\n" + self.block_comment.strip() + "\n")
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare()
-                if declare:
+                attr.declare()
+                if attr.is_declared:
                     self.h_comment("- " + attr.description.strip())
             self.h_code('#define %s_MEMBERS'%cpp_define_name(self.block_cname), append_backslash = True)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare()
-                if declare:
-                    self.h_code(declare + " \\")
+                if attr.is_declared:
+                    self.h_code(attr.cpp_declare + " \\")
             # methods (declaration)
             # (disabled for now)
             #self.h_code('void Read(istream & in, uint version ); \\')
@@ -858,7 +869,7 @@ class SAXtracer(ContentHandler):
                 self.h_code("attr_ref attr = %s::GetAttr( attr_name ); \\"%self.block_cinherit)
                 self.h_code("if ( attr.is_null() == false ) return attr; \\")
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                if attr.declare():
+                if attr.is_declared:
                     if native_types.has_key(attr.type) and (not attr.arr1.lhs) and (not attr.arr2.lhs) and (not attr.func):
                         self.h_code("if ( attr_name == \"%s\" ) \\"%attr.name)
                         self.h_code("return attr_ref(%s); \\"%attr.cname, extra_indent = True)
@@ -891,9 +902,8 @@ class SAXtracer(ContentHandler):
             # read
             self.h_code("#define %s_READ \\"%cpp_define_name(self.block_cname))
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare(calculated = True)
-                if declare:
-                    self.h_code(declare + ' \\')
+                if not attr.is_declared:
+                    self.h_code(attr.cpp_declare + ' \\')
             if self.block_cinherit:
                 self.h_code("%s::Read( in, version ); \\"%self.block_cinherit)
             lastver1 = None
@@ -945,13 +955,12 @@ class SAXtracer(ContentHandler):
             # write
             self.h_code("#define %s_WRITE \\"%cpp_define_name(self.block_cname))
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                declare = attr.declare(calculated = True)
-                if declare:
-                    self.h_code(declare + ' \\')
+                if not attr.is_declared:
+                    self.h_code(attr.cpp_declare + ' \\')
             if self.block_cinherit:
                 self.h_code("%s::Write( out, version ); \\"%self.block_cinherit)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
-                calculate = attr.calculate()
+                calculate = attr.calculate(self.block_attrs)
                 if calculate:
                     self.h_code(calculate + ' \\')
             lastver1 = None
@@ -1063,6 +1072,7 @@ class SAXtracer(ContentHandler):
                     attr.cname, attr.ctype, attr.carr1, attr.carr1, attr.cname, attr.carr2, default) )
 
     def cpp_code(self, txt, extra_indent = False):
+        if not txt: return
         if txt[:1] == "}":
             self.indent_cpp -= 1
         if extra_indent: self.indent_cpp += 1
@@ -1072,6 +1082,7 @@ class SAXtracer(ContentHandler):
             self.indent_cpp += 1
     
     def h_code(self, txt, extra_indent = False, append_backslash = False):
+        if not txt: return
         if txt[:1] == "}":
             self.indent_h -= 1
         if txt[-1:] == ":":
