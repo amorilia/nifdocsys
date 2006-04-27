@@ -586,6 +586,11 @@ class SAXtracer(ContentHandler):
             # update current attribute
             self.current_attr = attrib.name
 
+            # check if we already have this attribute
+            if self.block_attrs.has_key(attrib.name):
+                self.current_attr = None # surpress comments
+                return
+
             # detect templates
             if attrib.type == '(TEMPLATE)':
                 self.block_template = True
