@@ -57,97 +57,6 @@ H_HEADER = """/* ---------------------------------------------------------------
 
 using namespace std;
 
-// this solves a few compilation errors... probably we want to put this somewhere else
-typedef blk_ref link_ref;
-typedef unsigned int uint;
-typedef unsigned short ushort;
-typedef unsigned char byte;
-typedef string HeaderString; // TODO: implement
-
-/*
-void NifStream( int & x, istream & in, uint version ) {
-  NifStream( x, in );
-};
-void NifStream( int const & x, ostream & out, uint version ) {
-  NifStream( x, out );
-};
-
-void NifStream( uint & x, istream & in, uint version ) {
-  NifStream( x, in );
-};
-void NifStream( uint const & x, ostream & out, uint version ) {
-  NifStream( x, out );
-};
-
-void NifStream( ushort & x, istream & in, uint version ) {
-  NifStream( x, in );
-};
-void NifStream( ushort const & x, ostream & out, uint version ) {
-  NifStream( x, out );
-};
-
-void NifStream( byte & x, istream & in, uint version ) {
-  NifStream( x, in );
-};
-void NifStream( byte const & x, ostream & out, uint version ) {
-  NifStream( x, out );
-};
-
-void NifStream( float & x, istream & in, uint version ) {
-  NifStream( x, in );
-};
-void NifStream( float const & x, ostream & out, uint version ) {
-  NifStream( x, out );
-};
-
-void NifStream( IBlock * x, istream & in, uint version ) {
-  int n;
-  NifStream( n, in );
-  // TODO: SET THE BLOCK NUMBER!
-};
-void NifStream( IBlock const * const x, ostream & out, uint version ) {
-  NifStream( x->GetBlockNum(), out );
-};
-
-void NifStream( string & x, istream & in, uint version ) {
-  NifStream( x, in );
-};
-void NifStream( string const & x, ostream & out, uint version ) {
-  NifStream( x, out );
-};
-
-template <class T>
-void NifStream( vector<T> & val, istream& file, uint version ) {
-  typename vector<T>::iterator it;
-  for ( it = val.begin(); it != val.end(); ++it ) {
-    NifStream( *it, file, version );
-  };
-};
-template <class T>
-void NifStream( vector<T> const & val, ostream& file, uint version ) {
-  typename vector<T>::iterator it;
-  for ( it = val.begin(); it != val.end(); ++it ) {
-    NifStream( *it, file, version );
-  };
-};
-
-void NifStream( bool & x, istream & in, uint version ) {
-  byte x1(x);
-  uint x4(x);
-  if ( version == 0x04000002 )
-    NifStream( x4, in );
-  else
-    NifStream( x1, in );
-};
-void NifStream( bool const & x, ostream & out, uint version ) {
-  byte x1(x);
-  uint x4(x);
-  if ( version == 0x04000002 )
-    NifStream( x4, out );
-  else
-    NifStream( x1, out );
-};
-*/
 """
 
 CPP_HEADER = """/* --------------------------------------------------------------------------
@@ -810,14 +719,12 @@ class SAXtracer(ContentHandler):
             
             # istream
             if not self.block_template:
-                self.h_code('void NifStream( %s & val, istream & in, uint version );'%self.block_cname)
-                self.cpp_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
+                self.h_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
             else:
-                self.h_code('template <class T >\nvoid NifStream( %s<T> & val, istream & in, uint version );'%self.block_cname)
-                self.cpp_code('template <class T >\nvoid NifStream( %s<T> & val, istream & in, uint version ) {'%self.block_cname)
+                self.h_code('template <class T >\nvoid NifStream( %s<T> & val, istream & in, uint version ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if not attr.is_declared:
-                    self.cpp_code(attr.cpp_declare)
+                    self.h_code(attr.cpp_declare)
             lastver1 = None
             lastver2 = None
             lastcond = None
@@ -827,57 +734,55 @@ class SAXtracer(ContentHandler):
                     # we must switch to a new version block
                     # close old version block
                     if lastver1 or lastver2:
-                        self.cpp_code("};")
+                        self.h_code("};")
                     # close old condition block as well
                     if lastcond:
-                        self.cpp_code("};")
+                        self.h_code("};")
                         lastcond = None
                     # start new version block
                     if attr.ver1 and not attr.ver2:
-                        self.cpp_code("if ( version >= 0x%08X ) {"%attr.ver1)
+                        self.h_code("if ( version >= 0x%08X ) {"%attr.ver1)
                     elif not attr.ver1 and attr.ver2:
-                        self.cpp_code("if ( version <= 0x%08X ) {"%attr.ver2)
+                        self.h_code("if ( version <= 0x%08X ) {"%attr.ver2)
                     elif attr.ver1 and attr.ver2:
-                        self.cpp_code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(attr.ver1, attr.ver2))
+                        self.h_code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(attr.ver1, attr.ver2))
                     # start new condition block
                     if lastcond != attr.cond.val_cpp_string(self.block_attrs):
                         if attr.cond.val_cpp_string(self.block_attrs):
-                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
+                            self.h_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 else:
                     # we remain in the same version block
                     # check condition block
                     if lastcond != attr.cond.val_cpp_string(self.block_attrs):
                         if lastcond:
-                            self.cpp_code("};")
+                            self.h_code("};")
                         if attr.cond.val_cpp_string(self.block_attrs):
-                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
+                            self.h_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 if attr.arr1.lhs:
-                    self.cpp_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string(self.block_attrs)))
-                self.cpp_code("NifStream( %s, in, version );"%attr.valcname)
+                    self.h_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string(self.block_attrs)))
+                self.h_code("NifStream( %s, in, version );"%attr.valcname)
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
                 lastcond = attr.cond.val_cpp_string(self.block_attrs)
             # close version condition block
             if lastver1 or lastver2:
-                self.cpp_code("};")
+                self.h_code("};")
             if lastcond:
-                self.cpp_code("};")
-            self.cpp_code("};")
-            self.file_cpp.write("\n")
+                self.h_code("};")
+            self.h_code("};")
+            self.file_h.write("\n")
 
             # ostream
             if not self.block_template:
-                self.h_code('void NifStream( %s const & val, ostream & out, uint version );'%self.block_cname)
-                self.cpp_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
+                self.h_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
             else:
-                self.h_code('template <class T >\nvoid NifStream( %s<T> const & val, ostream & out, uint version );'%self.block_cname)
-                self.cpp_code('template <class T >\nvoid NifStream( %s<T> const & val, ostream & out, uint version ) {'%self.block_cname)
+                self.h_code('template <class T >\nvoid NifStream( %s<T> const & val, ostream & out, uint version ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if not attr.is_declared:
-                    self.cpp_code(attr.cpp_declare)
+                    self.h_code(attr.cpp_declare)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if not attr.is_declared:
-                    self.cpp_code(attr.val_calculate(self.block_attrs))
+                    self.h_code(attr.val_calculate(self.block_attrs))
             lastver1 = None
             lastver2 = None
             lastcond = None
@@ -887,41 +792,41 @@ class SAXtracer(ContentHandler):
                     # we must switch to a new version block
                     # close old version block
                     if lastver1 or lastver2:
-                        self.cpp_code("};")
+                        self.h_code("};")
                     # close old condition block as well
                     if lastcond:
-                        self.cpp_code("};")
+                        self.h_code("};")
                         lastcond = None
                     # start new version block
                     if attr.ver1 and not attr.ver2:
-                        self.cpp_code("if ( version >= 0x%08X ) {"%attr.ver1)
+                        self.h_code("if ( version >= 0x%08X ) {"%attr.ver1)
                     elif not attr.ver1 and attr.ver2:
-                        self.cpp_code("if ( version <= 0x%08X ) {"%attr.ver2)
+                        self.h_code("if ( version <= 0x%08X ) {"%attr.ver2)
                     elif attr.ver1 and attr.ver2:
-                        self.cpp_code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(attr.ver1, attr.ver2))
+                        self.h_code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(attr.ver1, attr.ver2))
                     # start new condition block
                     if lastcond != attr.cond.val_cpp_string(self.block_attrs):
                         if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
+                            self.h_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 else:
                     # we remain in the same version block
                     # check condition block
                     if lastcond != attr.cond.val_cpp_string(self.block_attrs):
                         if lastcond:
-                            self.cpp_code("};")
+                            self.h_code("};")
                         if attr.cond.cpp_string():
-                            self.cpp_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
-                self.cpp_code("NifStream( %s, out, version );"%attr.valcname)
+                            self.h_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
+                self.h_code("NifStream( %s, out, version );"%attr.valcname)
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
                 lastcond = attr.cond.val_cpp_string(self.block_attrs)
             # close version condition block
             if lastver1 or lastver2:
-                self.cpp_code("};")
+                self.h_code("};")
             if lastcond:
-                self.cpp_code("};")
-            self.cpp_code("};")
-            self.file_cpp.write("\n")
+                self.h_code("};")
+            self.h_code("};")
+            self.file_h.write("\n")
 
             # operator<< (meant for stdout)
             if not self.block_template:
