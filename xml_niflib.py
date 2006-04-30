@@ -837,6 +837,7 @@ class SAXtracer(ContentHandler):
                 self.cpp_code('template <class T >\nostream & operator<<( ostream & out, %s<T> const & val ) {'%self.block_cname)
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 self.cpp_code(attr.val_lshift())
+            self.cpp_code("return out;")
             self.cpp_code("};")
             self.file_cpp.write("\n")
             self.file_h.write("\n")
@@ -1026,6 +1027,7 @@ class SAXtracer(ContentHandler):
                 lshift = attr.lshift()
                 if lshift:
                     self.h_code(lshift + ' \\')
+            self.h_code("return out.str(); \\")
             self.file_h.write("\n")
 
             # done!
