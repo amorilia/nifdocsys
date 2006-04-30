@@ -336,6 +336,7 @@ def cpp_define_name(n):
 
 def cpp_attr_name(n):
     if n == None: return None
+    if n == '(ARG)': return 'attr_arg'
     return n.strip().lower().replace(' ', '_').replace('?', '_')
 
 def version2number(s):
@@ -444,6 +445,7 @@ class Attrib:
         self.ver1      = version2number(attrs.get('ver1'))
         self.ver2      = version2number(attrs.get('ver2'))
         # other flags: set them to their defaults
+        self.uses_argument = (self.cond.lhs == '(ARG)' or self.arr1.lhs == '(ARG)' or self.arr2.lhs == '(ARG)')
         self.type_is_native = native_types.has_key(self.name) # true if the type is implemented natively
         self.arr1_ref = [] # names of the attributes it is a (unmasked) size of
         self.arr2_ref = [] # names of the attributes it is a (unmasked) size of
@@ -672,6 +674,12 @@ class SAXtracer(ContentHandler):
                 self.block_attrs[attrib.cond.lhs].cond_ref.append(attrib.name)
                 self.block_attrs[attrib.cond.lhs].ccond_ref.append(attrib.cname)
             
+            # detect argument
+            if attrib.uses_argument:
+                self.block_has_argument = True
+            else:
+                self.block_has_argument = False
+
             # store it
             self.block_attr_names.append(self.current_attr)
             self.block_attrs[self.current_attr] = attrib
@@ -718,10 +726,14 @@ class SAXtracer(ContentHandler):
             self.file_h.write("\n")
             
             # istream
-            if not self.block_template:
-                self.h_code('void NifStream( %s & val, istream & in, uint version ) {'%self.block_cname)
+            if self.block_has_argument:
+                extra_args = ', uint attr_arg' # TODO support more argument types (we should extend the XML with an <argument /> tag)
             else:
-                self.h_code('template <class T >\nvoid NifStream( %s<T> & val, istream & in, uint version ) {'%self.block_cname)
+                extra_args = ''
+            if not self.block_template:
+                self.h_code('void NifStream( %s & val, istream & in, uint version%s ) {'%(self.block_cname,extra_args))
+            else:
+                self.h_code('template <class T >\nvoid NifStream( %s<T> & val, istream & in, uint version%s ) {'%(self.block_cname,extra_args))
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if not attr.is_declared:
                     self.h_code(attr.cpp_declare)
@@ -760,7 +772,13 @@ class SAXtracer(ContentHandler):
                             self.h_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 if attr.arr1.lhs:
                     self.h_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string(self.block_attrs)))
-                self.h_code("NifStream( %s, in, version );"%attr.valcname)
+                if not attr.arg:
+                    self.h_code("NifStream( %s, in, version );"%attr.valcname)
+                else:
+                    if self.block_attrs.has_key(attr.arg):
+                        self.h_code("NifStream( %s, in, version, %s );"%(attr.valcname, self.block_attrs[attr.arg].valcname))
+                    else:
+                        self.h_code("NifStream( %s, in, version, %s );"%(attr.valcname, attr.carg))
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
                 lastcond = attr.cond.val_cpp_string(self.block_attrs)
@@ -773,10 +791,14 @@ class SAXtracer(ContentHandler):
             self.file_h.write("\n")
 
             # ostream
-            if not self.block_template:
-                self.h_code('void NifStream( %s const & val, ostream & out, uint version ) {'%self.block_cname)
+            if self.block_has_argument:
+                extra_args = ', uint attr_arg' # TODO support more argument types (we should extend the XML with an <argument /> tag)
             else:
-                self.h_code('template <class T >\nvoid NifStream( %s<T> const & val, ostream & out, uint version ) {'%self.block_cname)
+                extra_args = ''
+            if not self.block_template:
+                self.h_code('void NifStream( %s const & val, ostream & out, uint version%s ) {'%(self.block_cname, extra_args))
+            else:
+                self.h_code('template <class T >\nvoid NifStream( %s<T> const & val, ostream & out, uint version%s ) {'%(self.block_cname, extra_args))
             for attr in [self.block_attrs[n] for n in self.block_attr_names]:
                 if not attr.is_declared:
                     self.h_code(attr.cpp_declare)
@@ -816,7 +838,13 @@ class SAXtracer(ContentHandler):
                             self.h_code("};")
                         if attr.cond.cpp_string():
                             self.h_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
-                self.h_code("NifStream( %s, out, version );"%attr.valcname)
+                if not attr.arg:
+                    self.h_code("NifStream( %s, out, version );"%attr.valcname)
+                else:
+                    if self.block_attrs.has_key(attr.arg):
+                        self.h_code("NifStream( %s, out, version, %s );"%(attr.valcname, self.block_attrs[attr.arg].valcname))
+                    else:
+                        self.h_code("NifStream( %s, out, version, %s );"%(attr.valcname, attr.carg))
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
                 lastcond = attr.cond.val_cpp_string(self.block_attrs)
@@ -950,7 +978,10 @@ class SAXtracer(ContentHandler):
                             self.h_code("if ( %s ) { \\"%attr.cond.cpp_string())
                 if attr.arr1.lhs:
                     self.h_code("%s.resize(%s); \\"%(attr.cname, attr.arr1.cpp_string()))
-                self.h_code("NifStream( %s, in, version ); \\"%attr.cname)
+                if not attr.arg:
+                    self.h_code("NifStream( %s, in, version ); \\"%attr.cname)
+                else:
+                    self.h_code("NifStream( %s, in, version, %s ); \\"%(attr.cname, attr.carg))
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
                 lastcond = attr.cond.cpp_string()
@@ -1005,7 +1036,10 @@ class SAXtracer(ContentHandler):
                             self.h_code("}; \\")
                         if attr.cond.cpp_string():
                             self.h_code("if ( %s ) { \\"%attr.cond.cpp_string())
-                self.h_code("NifStream( %s, out, version ); \\"%attr.cname)
+                if not attr.arg:
+                    self.h_code("NifStream( %s, out, version ); \\"%attr.cname)
+                else:
+                    self.h_code("NifStream( %s, out, version, %s ); \\"%(attr.cname, attr.carg))
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
                 lastcond = attr.cond.cpp_string()
