@@ -599,10 +599,10 @@ class Attrib:
             return None
         elif self.arr1_ref:
             assert(not self.is_declared) # bug check
-            return '%s = %s.size();'%(self.cname, block_attrs[self.arr1_ref[0]].cname)
+            return '%s = %s(%s.size());'%(self.cname, self.ctype, block_attrs[self.arr1_ref[0]].cname)
         elif self.arr2_ref:
             assert(not self.is_declared) # bug check
-            return '%s = %s.size();'%(self.cname, block_attrs[self.arr2_ref[0]].cname)
+            return '%s = %s(%s.size());'%(self.cname, self.ctype, block_attrs[self.arr2_ref[0]].cname)
         elif self.func:
             assert(not self.is_declared) # bug check
             return '%s = %s();'%(self.cname, self.func)
@@ -757,6 +757,8 @@ class SAXtracer(ContentHandler):
                 if not attrib.arr2.op:
                     self.block_attrs[attrib.arr2.lhs].arr2_ref.append(attrib.name)
                     self.block_attrs[attrib.arr2.lhs].carr2_ref.append(attrib.cname)
+                if self.block_attrs[attrib.arr2.lhs].arr1.lhs != None:
+                    self.arr2_dynamic = True
             if attrib.cond.lhs in self.block_attr_names:
                 self.block_attrs[attrib.cond.lhs].cond_ref.append(attrib.name)
                 self.block_attrs[attrib.cond.lhs].ccond_ref.append(attrib.cname)
@@ -1134,43 +1136,6 @@ class SAXtracer(ContentHandler):
             self.block_attrs[self.current_attr].description += content
         elif self.current_block:
             self.block_comment += content
-
-    def h_construct(self, attr):
-        # first handle the case of a string
-        if attr.type == "char" and attr.arr1.lhs and not attr.arr2.lhs:
-            self.h_code( "%s = string(%s, ' ');"%(attr.cname, attr.carr1))
-            return
-    
-        # other cases
-        if not attr.arr1.lhs:
-            # no array
-            if attr.default:
-                self.h_code( "%s = %s"%(attr.cname, attr.default) )
-            else:
-                pass
-                # no need to construct
-                #self.h_code( "%s = %s;"%(attr.cname, result))
-        elif not attr.arr2:
-            # 1-dim array
-            if attr.default:
-                self.h_code( "%s = vector<%s>(%s, %s);"%(attr.cname, attr.ctype, attr.carr1, attr.default) )
-            else:
-                self.h_code( "%s = vector<%s>(%s);"%(attr.cname, attr.ctype, attr.carr1) )
-        elif not attr.arr2_dynamic:
-            # 2-dim array, non-dynamic
-            if attr.default:
-                self.h_code(\
-                    "%s = vector<vector<%s> >(%s, vector<%s>(%s, %s));"%(\
-                    attr.cname, attr.ctype, attr.carr1, attr.ctype, attr.carr2, attr.default) )
-            else:
-                self.h_code(\
-                    "%s = vector<vector<%s> >(%s, vector<%s>(%s));"%(\
-                    attr.cname, attr.ctype, attr.carr1, attr.ctype, attr.carr2) )
-        else:
-            # 2-dim array, dynamic
-            self.h_code(\
-                "%s = vector<vector<%s> >(%s);\nfor (int i; i<%s, i++)\n\t%s[i] = vector<%s(%s[i], %s))>;"%(\
-                    attr.cname, attr.ctype, attr.carr1, attr.carr1, attr.cname, attr.carr2, default) )
 
     def cpp_code(self, txt, extra_indent = False):
         if not txt: return
