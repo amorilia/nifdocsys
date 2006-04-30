@@ -528,10 +528,10 @@ class Attrib:
             return None
         elif self.arr1_ref:
             assert(not self.is_declared) # bug check
-            return '%s = %s.size();'%(self.valcname, block_attrs[self.arr1_ref[0]].valcname)
+            return '%s = %s(%s.size());'%(self.valcname, self.ctype, block_attrs[self.arr1_ref[0]].valcname)
         elif self.arr2_ref:
             assert(not self.is_declared) # bug check
-            return '%s = %s.size();'%(self.valcname, block_attrs[self.arr2_ref[0]].valcname)
+            return '%s = %s(%s.size());'%(self.valcname, self.ctype, block_attrs[self.arr2_ref[0]].valcname)
         elif self.func:
             assert(not self.is_declared) # bug check
             return '%s = val.%s();'%(self.cname, self.func)
