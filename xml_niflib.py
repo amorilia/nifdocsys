@@ -637,6 +637,7 @@ class SAXtracer(ContentHandler):
             self.block_cname = cpp_type_name(self.block_name)
             self.block_cinherit = None
             self.block_attrs = {}
+            self.block_all_attrs = []
             self.block_template = False
             self.block_comment = ''
             self.block_attr_names = [] # sorts the names
@@ -664,11 +665,6 @@ class SAXtracer(ContentHandler):
 
             # update current attribute
             self.current_attr = attrib.name
-
-            # check if we already have this attribute
-            if self.block_attrs.has_key(attrib.name):
-                self.current_attr = None # surpress comments
-                return
 
             # detect templates
             if attrib.type == '(TEMPLATE)':
@@ -698,9 +694,16 @@ class SAXtracer(ContentHandler):
             else:
                 self.block_has_argument = False
 
-            # store it
-            self.block_attr_names.append(self.current_attr)
-            self.block_attrs[self.current_attr] = attrib
+            # check if we already have this attribute
+            if self.block_attrs.has_key(attrib.name):
+                self.current_attr = None # surpress comments
+            else:
+                # store it in the normal list
+                self.block_attr_names.append(self.current_attr)
+                self.block_attrs[self.current_attr] = attrib
+
+            # store it in the complete list
+            self.block_all_attrs.append(attrib)
 
     def endElement(self, name):
         if name == "compound":
@@ -758,7 +761,8 @@ class SAXtracer(ContentHandler):
             lastver1 = None
             lastver2 = None
             lastcond = None
-            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+            for attr in self.block_all_attrs:
+                attr_declared = self.block_attrs[attr.name]
                 if attr.func: continue # skip calculated stuff
                 if lastver1 != attr.ver1 or lastver2 != attr.ver2:
                     # we must switch to a new version block
@@ -789,14 +793,14 @@ class SAXtracer(ContentHandler):
                         if attr.cond.val_cpp_string(self.block_attrs):
                             self.h_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 if attr.arr1.lhs:
-                    self.h_code("%s.resize(%s);"%(attr.valcname, attr.arr1.val_cpp_string(self.block_attrs)))
+                    self.h_code("%s.resize(%s);"%(attr_declared.valcname, attr.arr1.val_cpp_string(self.block_attrs)))
                 if not attr.arg:
-                    self.h_code("NifStream( %s, in, version );"%attr.valcname)
+                    self.h_code("NifStream( %s, in, version );"%attr_declared.valcname)
                 else:
                     if self.block_attrs.has_key(attr.arg):
-                        self.h_code("NifStream( %s, in, version, %s );"%(attr.valcname, self.block_attrs[attr.arg].valcname))
+                        self.h_code("NifStream( %s, in, version, %s );"%(attr_declared.valcname, self.block_attrs[attr.arg].valcname))
                     else:
-                        self.h_code("NifStream( %s, in, version, %s );"%(attr.valcname, attr.carg))
+                        self.h_code("NifStream( %s, in, version, %s );"%(attr_declared.valcname, attr.carg))
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
                 lastcond = attr.cond.val_cpp_string(self.block_attrs)
@@ -826,7 +830,8 @@ class SAXtracer(ContentHandler):
             lastver1 = None
             lastver2 = None
             lastcond = None
-            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+            for attr in self.block_all_attrs:
+                attr_declared = self.block_attrs[attr.name]
                 if attr.func: continue # skip calculated stuff
                 if lastver1 != attr.ver1 or lastver2 != attr.ver2:
                     # we must switch to a new version block
@@ -857,12 +862,12 @@ class SAXtracer(ContentHandler):
                         if attr.cond.cpp_string():
                             self.h_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 if not attr.arg:
-                    self.h_code("NifStream( %s, out, version );"%attr.valcname)
+                    self.h_code("NifStream( %s, out, version );"%attr_declared.valcname)
                 else:
                     if self.block_attrs.has_key(attr.arg):
-                        self.h_code("NifStream( %s, out, version, %s );"%(attr.valcname, self.block_attrs[attr.arg].valcname))
+                        self.h_code("NifStream( %s, out, version, %s );"%(attr_declared.valcname, self.block_attrs[attr.arg].valcname))
                     else:
-                        self.h_code("NifStream( %s, out, version, %s );"%(attr.valcname, attr.carg))
+                        self.h_code("NifStream( %s, out, version, %s );"%(attr_declared.valcname, attr.carg))
                 lastver1 = attr.ver1
                 lastver2 = attr.ver2
                 lastcond = attr.cond.val_cpp_string(self.block_attrs)
@@ -964,7 +969,7 @@ class SAXtracer(ContentHandler):
             lastver1 = None
             lastver2 = None
             lastcond = None
-            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+            for attr in self.block_all_attrs:
                 if attr.func: continue # skip calculated stuff
                 if lastver1 != attr.ver1 or lastver2 != attr.ver2:
                     # we must switch to a new version block
@@ -1024,7 +1029,7 @@ class SAXtracer(ContentHandler):
             lastver1 = None
             lastver2 = None
             lastcond = None
-            for attr in [self.block_attrs[n] for n in self.block_attr_names]:
+            for attr in self.block_all_attrs:
                 if attr.func: continue # skip calculated stuff
                 if lastver1 != attr.ver1 or lastver2 != attr.ver2:
                     # we must switch to a new version block
