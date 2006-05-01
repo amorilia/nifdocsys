@@ -683,7 +683,7 @@ class SAXtracer(ContentHandler):
                     self.block_attrs[attrib.arr2.lhs].arr2_ref.append(attrib.name)
                     self.block_attrs[attrib.arr2.lhs].carr2_ref.append(attrib.cname)
                 if self.block_attrs[attrib.arr2.lhs].arr1.lhs != None:
-                    self.arr2_dynamic = True
+                    attrib.arr2_dynamic = True
             if attrib.cond.lhs in self.block_attr_names:
                 self.block_attrs[attrib.cond.lhs].cond_ref.append(attrib.name)
                 self.block_attrs[attrib.cond.lhs].ccond_ref.append(attrib.cname)
@@ -794,6 +794,15 @@ class SAXtracer(ContentHandler):
                             self.h_code("if ( %s ) {"%attr.cond.val_cpp_string(self.block_attrs))
                 if attr.arr1.lhs:
                     self.h_code("%s.resize(%s);"%(attr_declared.valcname, attr.arr1.val_cpp_string(self.block_attrs)))
+                    if attr.arr2.lhs:
+                        if not attr_declared.arr2_dynamic:
+                            self.h_code("for (uint i = 0; i < %s; i++) {"%attr.arr1.val_cpp_string(self.block_attrs))
+                            self.h_code("%s[i].resize(%s);"%(attr_declared.valcname, attr.arr2.val_cpp_string(self.block_attrs)))
+                            self.h_code("};")
+                        else:
+                            self.h_code("for (uint i = 0; i < %s; i++) {"%attr.arr1.val_cpp_string(self.block_attrs))
+                            self.h_code("%s[i].resize(%s[i]);"%(attr_declared.valcname, attr.arr2.val_cpp_string(self.block_attrs)))
+                            self.h_code("};")
                 if not attr.arg:
                     self.h_code("NifStream( %s, in, version );"%attr_declared.valcname)
                 else:
