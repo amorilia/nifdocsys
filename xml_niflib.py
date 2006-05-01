@@ -373,6 +373,10 @@ class Expr:
         if not x:
             self.lhs = n.strip()
             self.clhs = cpp_attr_name(self.lhs)
+            if block_attrs.has_key(self.lhs) and block_attrs[self.lhs].is_declared:
+                self.valclhs = "val.%s"%self.clhs
+            else:
+                self.valclhs = self.clhs
             self.op = None
             self.rhs = None
         elif len(x) == 2:
@@ -513,7 +517,14 @@ class Attrib:
             return '%s = %s(%s.size());'%(self.cname, self.ctype, block_attrs[self.arr1_ref[0]].cname)
         elif self.arr2_ref:
             assert(not self.is_declared) # bug check
-            return '%s = %s(%s.size());'%(self.cname, self.ctype, block_attrs[self.arr2_ref[0]].cname)
+            if not self.arr1.lhs:
+                return '%s = %s(%s.size());'%(self.cname, self.ctype, block_attrs[self.arr2_ref[0]].cname)
+            else:
+                # index of dynamically sized array
+                result = '%s.resize(%s); '%(self.cname, block_attrs[self.arr2_ref[0]].arr1.clhs)
+                result += 'for (uint i = 0; i < %s.size(); i++) '%block_attrs[self.arr2_ref[0]].cname
+                result += '%s[i] = %s(%s[i].size());'%(self.cname, self.ctype, block_attrs[self.arr2_ref[0]].cname)
+                return result
         elif self.func:
             assert(not self.is_declared) # bug check
             return '%s = %s();'%(self.cname, self.func)
@@ -531,7 +542,14 @@ class Attrib:
             return '%s = %s(%s.size());'%(self.valcname, self.ctype, block_attrs[self.arr1_ref[0]].valcname)
         elif self.arr2_ref:
             assert(not self.is_declared) # bug check
-            return '%s = %s(%s.size());'%(self.valcname, self.ctype, block_attrs[self.arr2_ref[0]].valcname)
+            if not self.arr1.lhs:
+                return '%s = %s(%s.size());'%(self.valcname, self.ctype, block_attrs[self.arr2_ref[0]].valcname)
+            else:
+                # index of dynamically sized array
+                result = '%s.resize(%s.size()); '%(self.valcname, block_attrs[self.arr2_ref[0]].valcname)
+                result += 'for (uint i = 0; i < %s.size(); i++) '%block_attrs[self.arr2_ref[0]].valcname
+                result += '%s[i] = %s(%s[i].size());'%(self.valcname, self.ctype, block_attrs[self.arr2_ref[0]].valcname)
+                return result
         elif self.func:
             assert(not self.is_declared) # bug check
             return '%s = val.%s();'%(self.cname, self.func)
