@@ -50,6 +50,7 @@ H_HEADER = """/* ---------------------------------------------------------------
 
 #include "niflib.h"
 #include "NIF_IO.h"
+#include "NIF_Blocks.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -140,157 +141,6 @@ def cpp_resolve(objectname):
 
     return objectname
 
-##function cpp_code_construct($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn)
-##{
-##  $some_type_arg = cpp_resolve($some_type_arg);
-##  $sizevar = cpp_resolve($sizevar);
-##  $sizevarbis = cpp_resolve($sizevarbis);
-##
-##  $result = "";
-##
-##  // first handle the case of a string
-##  if ( ( $some_type == "char" ) and ( $sizevar != null ) and ( $sizevarbis == null ) )
-##    return python_code( "$var = string($sizevar, ' ');" );
-##
-##  // other cases
-##  if ( ( $some_type == "byte" )
-##       or ( $some_type == "short" )
-##       or ( $some_type == "int" )
-##       or ( $some_type == "bool" ) )
-##    $result = "0";
-##  elseif ( $some_type == "flags" )
-##    $result = "0x0008";
-##  elseif ( $some_type == "alphaformat" )
-##    $result = "3";
-##  elseif ( $some_type == "applymode" )
-##    $result = "2";
-##  elseif ( $some_type == "lightmode" )
-##    $result = "1";
-##  elseif ( $some_type == "mipmapformat" )
-##    $result = "2";
-##  elseif ( $some_type == "pixellayout" )
-##    $result = "5";
-##  elseif ( $some_type == "vertmode" )
-##    $result = "2";
-##    // byte, short, int => 32 bit signed integer
-##  elseif ( ( $some_type == "link" )
-##           or ( $some_type == "nodeancestor" )
-##           or ( $some_type == "skeletonroot" ) )
-##    // index -1 refers to nothing
-##    $result = "-1";
-##  elseif ( $some_type == "char" )
-##    // character
-##    $result = "' '";
-##  elseif ( $some_type == "float" )
-##    // float => C-style "double"
-##    $result = "0.0";
-##  else
-##    // standard constructor
-##    if ($some_type_arg)
-##	$result = cpp_type($some_type) . "(version, $some_type_arg)";
-##    else
-##      $result = cpp_type($some_type) . "(version)";
-##  if ( ! $sizevar ) return python_code( "$var = " . $result . ";" );
-##  else
-##    if ( ! $sizevarbis )
-##      return python_code( "$var = vector<" . cpp_type($some_type) . ">(${sizevar}, $result);" );
-##    else {
-##      if ( ! $sizevarbisdyn )
-##        return python_code( "$var = vector<vector<" . cpp_type($some_type) . "> >(${sizevar}, vector<" . cpp_type($some_type) . ">(${sizevarbis}, $result));" );
-##      else
-##        return python_code( "$var = vector<vector<" . cpp_type($some_type) . "> >(${sizevar});\nfor (int i; i<${sizevar}, i++)\n\t${var}[i] = vector<" . cpp_type($some_type) . "(${sizevarbis}[i], $result));>" );
-##    };
-##  
-##  return $result;
-##}
-##
-##function cpp_code_destruct($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn)
-##{
-##  $some_type_arg = cpp_resolve($some_type_arg);
-##  $sizevar = cpp_resolve($sizevar);
-##  $sizevarbis = cpp_resolve($sizevarbis);
-##
-##  return; # nothing to do
-##}
-##
-##function cpp_code_read($var, $some_type, $some_type_arg, $sizevar, $sizevarbis, $sizevarbisdyn, $condvar, $condval, $condtype, $ver_from, $ver_to)
-##{
-##  global $indent;
-##  $result = "";
-##  $some_type_arg = cpp_resolve($some_type_arg);
-##  $sizevar = cpp_resolve($sizevar);
-##  $sizevarbis = cpp_resolve($sizevarbis);
-##  $condvar = cpp_resolve($condvar);
-##
-##  // check version
-##  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) {
-##    $version_str = '';
-##    if ( $ver_from !== null ) $version_str .= "(self.version >= 0x" . dechex($ver_from) . ") and ";
-##    if ( $ver_to !== null ) $version_str .= "(self.version <= 0x" . dechex($ver_to) . ") and ";
-##    if ( $ver_from === $ver_to ) $version_str = "(self.version == 0x" . dechex($ver_from) . ") and ";
-##    $version_str = substr($version_str, 0, -5); // remove trailing " and "
-##    $result .= python_code( "if ($version_str) {" );
-##    $indent++;
-##  };
-##
-##  // array size check
-##  if ( $sizevar ) {
-##    $result .= cpp_code( "if ($sizevar > MAX_ARRAYSIZE) throw NIFException(\"array size unreasonably large\");" );
-##    if ( $sizevarbis )
-##      $result .= cpp_code( "if ($sizevarbis > MAX_ARRAYSIZE) throw NIFException(\"array size unreasonably large\");" );
-##  }
-##
-##  // first, initialise the variable
-##  $result .= cpp_code_destruct( $var, $some_type, $some_type_arg, $sizevar, $sizevarbis );
-##  $result .= cpp_code_construct( $var, $some_type, $some_type_arg, $sizevar, $sizevarbis );
-##
-##  // conditional: if statement
-##  if ( $condvar ) {
-##    if ( $condval === null )
-##      $result .= python_code( "if ($condvar != 0) {" );
-##    else {
-##      if ( ( $condtype === null ) or ( $condtype === 0 ) )
-##        $result .= python_code( "if ($condvar == $condval) {" );
-##      else
-##        $result .= python_code( "if ($condvar != $condval) {" );
-##    };
-##    $indent++;
-##  }
-##
-##  // array: for loop
-##  if ( $sizevar ) {
-##    $result .= cpp_code( "for (int i; i < $sizevar; i++)" );
-##    $indent++;
-##    $var .= "[i]"; // this is now the variable that we shall read
-##    // arraybis: for loop
-##    if ( $sizevarbis ) {
-##      if ( ! $sizevarbisdyn )
-##	$result .= cpp_code( "for (int j; j < $sizevarbis; j++)" );
-##      else
-##	$result .= cpp_code( "for (int j; j < ${sizevarbis}[i]; j++)" );
-##      $indent++;
-##      $var .= "[j]"; // this is now the variable that we shall read
-##    }
-##  }
-##
-##  // main
-##  $type_size = cpp_type_size($some_type);
-##  if ( $type_size != -1 )
-##    $result .= cpp_code( "file.read((char *)&$var, $type_size);" );
-##  else
-##    $result .= cpp_code( "$var.read(file);" );
-##
-##  // restore indentation
-##  if ( $sizevar ) {
-##    $indent--;
-##    if ( $sizevarbis ) $indent--;
-##  }
-##  if ( $condvar ) { $indent--; $result .= python_code("};"); };
-##  if ( ( $ver_from !== null ) or ( $ver_to !== null ) ) { $indent--; $result .= python_code("};"); };
-##
-##  return $result;
-##};
-
 native_types = {}
 native_types['(TEMPLATE)'] = 'T'
 
@@ -301,7 +151,6 @@ def cpp_type_name(n):
     except KeyError:
         return n.replace(' ', '_')
 
-    # old code
     if n == None: return None
     try:
         return native_types[n]
@@ -337,7 +186,21 @@ def cpp_define_name(n):
 def cpp_attr_name(n):
     if n == None: return None
     if n == '(ARG)': return 'attr_arg'
-    return n.strip().lower().replace(' ', '_').replace('?', '_')
+    n2 = ''
+    lower = True
+    for i, c in enumerate(n):
+        if c == ' ':
+            lower = False
+        elif (('A' <= c) and (c <= 'Z')) or (('a' <= c) and (c <= 'z')) or (('0' <= c) and (c <= '9')):
+            if lower:
+                n2 += c.lower()
+            else:
+                n2 += c.upper()
+                lower = True
+        else:
+            n2 += '_'
+            lower = True
+    return n2
 
 def version2number(s):
     if s == None: return None
