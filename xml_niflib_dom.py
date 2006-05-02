@@ -221,8 +221,8 @@ class Member:
             else:
                 # index of dynamically sized array
                 result = '%s%s.resize(%s%s.size()); '%(prefix, self.cname, prefix, self.carr2_ref[0])
-                result += 'for (uint i = 0; i < %s%s.size(); i++) '%(prefix, self.carr2_ref[0])
-                result += '%s%s[i] = %s(%s%s[i].size());'%(prefix, self.cname, self.ctype, prefix, self.carr2_ref[0])
+                result += 'for (uint i%i = 0; i < %s%s.size(); i++) '%(indent, prefix, self.carr2_ref[0])
+                result += '%s%s[i%i] = %s(%s%s[i%i].size());'%(prefix, self.cname, indent, self.ctype, prefix, self.carr2_ref[0], indent)
                 return result
         elif self.func:
             assert(not self.is_declared) # bug check
@@ -290,41 +290,41 @@ class Member:
                 result += "\t"*indent + "%s%s.resize(%s);\n"%(prefix, self.cname, self.arr1.code(prefix))
                 if self.arr2.lhs:
                     if not self.arr2_dynamic:
-                        result += "\t"*indent + "for (uint i = 0; i < %s; i++)\n"%self.arr1.code(prefix)
-                        result += "\t"*indent + "\t%s%s[i].resize(%s);\n"%(prefix, self.cname, self.arr2.code(prefix))
+                        result += "\t"*indent + "for (uint i%i = 0; i%i < %s; i%i++)\n"%(indent, indent, self.arr1.code(prefix), indent)
+                        result += "\t"*indent + "\t%s%s[i%i].resize(%s);\n"%(prefix, self.cname, indent, self.arr2.code(prefix))
                     else:
-                        result += "\t"*indent + "for (uint i = 0; i < %s; i++)\n"%self.arr1.code(prefix)
-                        result += "\t"*indent + "\t%s%s[i].resize(%s[i]);\n"%(prefix, self.cname, self.arr2.code(prefix))
+                        result += "\t"*indent + "for (uint i%i = 0; i%i < %s; i%i++)\n"%(indent, indent, self.arr1.code(prefix), indent)
+                        result += "\t"*indent + "\t%s%s[i%i].resize(%s[i%i]);\n"%(prefix, self.cname, indent, self.arr2.code(prefix), indent)
 
         # nifstreaming
         # (TODO: handle arguments)
         if self.arr1.lhs:
-            result += "\t"*indent + "for (uint i = 0; i < %s; i++)\n"%self.arr1.code(prefix)
+            result += "\t"*indent + "for (uint i%i = 0; i%i < %s; i%i++)\n"%(indent, indent, self.arr1.code(prefix), indent)
             indent += 1
             if self.arr2.lhs:
                 if not self.arr2_dynamic:
-                    result += "\t"*indent + "for (uint j = 0; j < %s; j++) {\n"%self.arr2.code(prefix)
+                    result += "\t"*indent + "for (uint i%i = 0; i%i < %s; i%i++) {\n"%(indent, indent, self.arr2.code(prefix), indent)
                 else:
-                    result += "\t"*indent + "for (uint j = 0; j < %s[i]; j++) {\n"%self.arr2.code(prefix)
+                    result += "\t"*indent + "for (uint i%i = 0; i%i < %s[i%i]; i%i++) {\n"%(indent, indent, indent-1, self.arr2.code(prefix), indent)
                 indent += 1
 
         if native_types.has_key(self.type):
             if not self.arr1.lhs:
                 result += "\t"*indent + "NifStream( %s%s, in, version );\n"%(prefix, self.cname)
             elif not self.arr2.lhs:
-                result += "\t"*indent + "NifStream( %s%s[i], in, version );\n"%(prefix, self.cname)
+                result += "\t"*indent + "NifStream( %s%s[i%i], in, version );\n"%(prefix, self.cname, indent-1)
             else:
-                result += "\t"*indent + "NifStream( %s%s[i][j], in, version );\n"%(prefix, self.cname)
+                result += "\t"*indent + "NifStream( %s%s[i%i][i%i], in, version );\n"%(prefix, self.cname, indent-2, indent-1)
         else:
             compound = compound_types[self.type]
             if not self.arr1.lhs:
                 result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s.'%(prefix, self.cname), reading, lastver1, lastver2, lastcond, indent)
                 result += result2
             elif not self.arr2.lhs:
-                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s[i].'%(prefix, self.cname), reading, lastver1, lastver2, lastcond, indent)
+                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s[i%i].'%(prefix, self.cname, indent-1), reading, lastver1, lastver2, lastcond, indent)
                 result += result2
             else:
-                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s[i][j].'%(prefix, self.cname), reading, lastver1, lastver2, lastcond, indent)
+                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s[i%i][i%i].'%(prefix, self.cname, indent-2, indent-1), reading, lastver1, lastver2, lastcond, indent)
                 result += result2
 
         if self.arr1.lhs:
@@ -442,3 +442,5 @@ for element in doc.getElementsByTagName("ancestor"):
 for element in doc.getElementsByTagName("niblock"):
     x = Block(element)
     block_types[x.name] = x
+    print x.name
+    print x.code_nifstream('', True)[0]
