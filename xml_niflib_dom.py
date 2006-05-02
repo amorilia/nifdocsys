@@ -244,7 +244,7 @@ class Member:
     # read & write
     def code_nifstream(self, prefix, reading, lastver1 = None, lastver2 = None, lastcond = None, indent = 0):
         result = ''
-        if self.func: return # skip calculated stuff
+        if self.func: return '', lastver1, lastver2, lastcond, indent # skip calculated stuff
         
         # conditioning
         if lastver1 != self.ver1 or lastver2 != self.ver2:
@@ -432,8 +432,6 @@ for element in doc.getElementsByTagName('basic'):
 for element in doc.getElementsByTagName("compound"):
     x = Compound(element)
     compound_types[x.name] = x
-    print x.name
-    print x.code_nifstream('', True)[0]
 
 for element in doc.getElementsByTagName("ancestor"):
     x = Block(element)
