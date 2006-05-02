@@ -121,7 +121,8 @@ class Member:
         self.cond      = Expr(element.getAttribute('cond'))
         self.func      = element.getAttribute('function')
         self.default   = element.getAttribute('default')
-        self.description = '' # got to look this up: element.get????
+        assert element.firstChild.nodeType == Node.TEXT_NODE
+        self.description = element.firstChild.nodeValue.strip()
         self.ver1      = version2number(element.getAttribute('ver1'))
         self.ver2      = version2number(element.getAttribute('ver2'))
         
@@ -176,16 +177,6 @@ class Member:
         self.carr2_ref = [member_name(n) for n in self.arr2_ref]
         self.ccond_ref = [member_name(n) for n in self.cond_ref]
 
-        # declaration
-        self.code_declare = self.ctype
-        if self.ctemplate:
-            self.code_declare += "<%s >"%self.ctemplate        
-        if self.arr1.lhs:
-            self.code_declare = "vector<%s >"%self.code_declare
-            if self.arr2.lhs:
-                self.code_declare = "vector<%s >"%self.code_declare
-        self.code_declare += " " + self.cname + ";"
-
         # construction
         # don't construct anything that hasn't been declared
         # don't construct if it has no default
@@ -194,7 +185,19 @@ class Member:
         else:
             self.code_construct = None
 
-    def calculate(self, prefix):
+    # declaration
+    def code_declare(self, prefix): # prefix is used to tag local variables only
+        result = self.ctype
+        if self.ctemplate:
+            result += "<%s >"%self.ctemplate        
+        if self.arr1.lhs:
+            result = "vector<%s >"%result
+            if self.arr2.lhs:
+                result = "vector<%s >"%result
+        result += " " + prefix + self.cname + ";"
+        return result
+
+    def code_calculate(self, prefix):
         # handle calculated data; used when writing
         if self.cond_ref:
             assert(self.is_declared) # bug check
@@ -219,13 +222,7 @@ class Member:
             assert(self.is_declared) # bug check
             return None
 
-    def read(self):
-        pass
-
-    def write(self):
-        pass
-
-    def lshift(self, prefix):
+    def code_out(self, prefix):
         # don't print array sizes and calculated data
         if not self.is_declared:
             return "out << \"%20s:  -- calculated --\" << endl;"%self.name
@@ -244,6 +241,8 @@ class Basic:
         assert(self.name) # debug
         self.cname = cpp_type_name(self.name)
         self.niflibtype = element.getAttribute('niflibtype')
+        assert element.firstChild.nodeType == Node.TEXT_NODE
+        self.description = element.firstChild.nodeValue.strip()
 
         if self.niflibtype:
             native_types[self.name] = self.niflibtype
@@ -254,14 +253,28 @@ class Compound(Basic):
     # create a compound type from the XML <compound /> attributes
     def __init__(self, element):
         Basic.__init__(self, element)
-        
+
         self.members = []     # list of all members (list of Member)
         self.template = False # does it use templates?
+        self.argument = False # does it use an argument?
 
-        # store all attribute data
+        # store all attribute data & calculate stuff
         for member in element.getElementsByTagName('add'):
             x = Member(member)
             self.members.append(x)
+            
+            # detect templates
+            if x.type == '(TEMPLATE)':
+                self.template = True
+            if x.template == '(TEMPLATE)':
+                self.template = True
+
+            # detect argument
+            if x.uses_argument:
+                self.argument = True
+            else:
+                self.argument = False
+
 
     def declare(self, prefix):
         pass
