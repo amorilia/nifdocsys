@@ -1,6 +1,7 @@
 from xml.dom.minidom import *
 
 native_types = {}
+native_types['(TEMPLATE)'] = 'T'
 basic_types = {}
 compound_types = {}
 
@@ -100,11 +101,18 @@ class Expr:
             print x
             raise str('"%s" is an invalid expression'%n)
 
-    def code(self):
+    def code(self, prefix):
         if not self.op:
-            return self.clhs
+            if not self.clhs: return None
+            if self.clhs[0] >= '0' and self.clhs[0] <= '9':
+                return self.clhs
+            else:
+                return prefix + self.clhs
         else:
-            return '%s %s %s'%(self.clhs, self.op, self.rhs)
+            if self.clhs[0] >= '0' and self.clhs[0] <= '9':
+                return '%s %s %s'%(self.clhs, self.op, self.rhs)
+            else:
+                return '%s%s %s %s'%(prefix, self.clhs, self.op, self.rhs)
 
 class Member:
     def __init__(self, element):
@@ -177,7 +185,8 @@ class Member:
         self.carr2_ref = [member_name(n) for n in self.arr2_ref]
         self.ccond_ref = [member_name(n) for n in self.cond_ref]
 
-        # construction
+        # construction: should never be prefixed,
+        # so we can make it a member instead of a method
         # don't construct anything that hasn't been declared
         # don't construct if it has no default
         if self.is_declared and self.default:
@@ -197,8 +206,8 @@ class Member:
         result += " " + prefix + self.cname + ";"
         return result
 
+    # handle calculated data; used when writing
     def code_calculate(self, prefix):
-        # handle calculated data; used when writing
         if self.cond_ref:
             assert(self.is_declared) # bug check
             return None
@@ -222,6 +231,7 @@ class Member:
             assert(self.is_declared) # bug check
             return None
 
+    # send to "out" stream
     def code_out(self, prefix):
         # don't print array sizes and calculated data
         if not self.is_declared:
@@ -230,6 +240,105 @@ class Member:
             return "out << \"%20s:  \" << %s%s << endl;"%(self.name, prefix, self.cname)
         else:
             return "out << \"%20s:  -- data not shown --\" << endl;"%self.name
+
+    # read & write
+    def code_nifstream(self, prefix, reading, lastver1 = None, lastver2 = None, lastcond = None, indent = 0):
+        result = ''
+        if self.func: return # skip calculated stuff
+        
+        # conditioning
+        if lastver1 != self.ver1 or lastver2 != self.ver2:
+            # we must switch to a new version block
+            # close old version block
+            if lastver1 or lastver2:
+                indent -= 1
+                result += "\t"*indent + "};\n"
+            # close old condition block as well
+            if lastcond:
+                indent -= 1
+                result += "\t"*indent + "};\n"
+                lastcond = None
+            # start new version block
+            if self.ver1 and not self.ver2:
+                result += "\t"*indent + "if ( version >= 0x%08X ) {\n"%self.ver1
+                indent += 1
+            elif not self.ver1 and self.ver2:
+                result += "\t"*indent + "if ( version <= 0x%08X ) {\n"%self.ver2
+                indent += 1
+            elif self.ver1 and self.ver2:
+                result += "\t"*indent + "if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {\n"%(self.ver1, self.ver2)
+                indent += 1
+            # start new condition block
+            if lastcond != self.cond.code(prefix):
+                if self.cond.code(prefix):
+                    result += "\t"*indent + "if ( %s ) {\n"%self.cond.code(prefix)
+                    indent += 1
+        else:
+            # we remain in the same version block
+            # check condition block
+            if lastcond != self.cond.code(prefix):
+                if lastcond:
+                    indent -= 1
+                    result += "\t"*indent + "};\n"
+                if self.cond.code(prefix):
+                    result += "\t"*indent + "if ( %s ) {\n"%self.cond.code(prefix)
+                    indent += 1
+
+        # calculating
+        if reading:
+            if self.arr1.lhs:
+                result += "\t"*indent + "%s%s.resize(%s);\n"%(prefix, self.cname, self.arr1.code(prefix))
+                if self.arr2.lhs:
+                    if not self.arr2_dynamic:
+                        result += "\t"*indent + "for (uint i = 0; i < %s; i++)\n"%self.arr1.code(prefix)
+                        result += "\t"*indent + "\t%s%s[i].resize(%s);\n"%(prefix, self.cname, self.arr2.code(prefix))
+                    else:
+                        result += "\t"*indent + "for (uint i = 0; i < %s; i++)\n"%self.arr1.code(prefix)
+                        result += "\t"*indent + "\t%s%s[i].resize(%s[i]);\n"%(prefix, self.cname, self.arr2.code(prefix))
+
+        # nifstreaming
+        # (TODO: handle arguments)
+        if self.arr1.lhs:
+            result += "\t"*indent + "for (uint i = 0; i < %s; i++)\n"%self.arr1.code(prefix)
+            indent += 1
+            if self.arr2.lhs:
+                if not self.arr2_dynamic:
+                    result += "\t"*indent + "for (uint j = 0; j < %s; j++) {\n"%self.arr2.code(prefix)
+                else:
+                    result += "\t"*indent + "for (uint j = 0; j < %s[i]; j++) {\n"%self.arr2.code(prefix)
+                indent += 1
+
+        if native_types.has_key(self.type):
+            if not self.arr1.lhs:
+                result += "\t"*indent + "NifStream( %s%s, in, version );\n"%(prefix, self.cname)
+            elif not self.arr2.lhs:
+                result += "\t"*indent + "NifStream( %s%s[i], in, version );\n"%(prefix, self.cname)
+            else:
+                result += "\t"*indent + "NifStream( %s%s[i][j], in, version );\n"%(prefix, self.cname)
+        else:
+            compound = compound_types[self.type]
+            if not self.arr1.lhs:
+                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s.'%(prefix, self.cname), reading, lastver1, lastver2, lastcond, indent)
+                result += result2
+            elif not self.arr2.lhs:
+                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s[i].'%(prefix, self.cname), reading, lastver1, lastver2, lastcond, indent)
+                result += result2
+            else:
+                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s[i][j].'%(prefix, self.cname), reading, lastver1, lastver2, lastcond, indent)
+                result += result2
+
+        if self.arr1.lhs:
+            indent -= 1
+            result += "\t"*indent + "};\n"
+            if self.arr2.lhs:
+                indent -= 1
+                result += "\t"*indent + "};\n"
+
+        lastver1 = self.ver1
+        lastver2 = self.ver2
+        lastcond = self.cond.code(prefix)
+
+        return result, lastver1, lastver2, lastcond, indent
 
 
 
@@ -275,6 +384,21 @@ class Compound(Basic):
             else:
                 self.argument = False
 
+    def code_nifstream(self, prefix, reading, lastver1 = None, lastver2 = None, lastcond = None, indent = 0):
+        result = ''
+        for member in self.members:
+            result2, lastver1, lastver2, lastcond, indent = member.code_nifstream(prefix, reading, lastver1, lastver2, lastcond, indent)
+            result += result2
+        if lastver1 or lastver2:
+            indent -= 1
+            result += "\t"*indent + "};\n"
+            lastver1 = None
+            lastver2 = None
+        if lastcond:
+            indent -= 1
+            result += "\t"*indent + "};\n"
+            lastcond = None
+        return result, lastver1, lastver2, lastcond, indent
 
     def declare(self, prefix):
         pass
@@ -290,13 +414,17 @@ class Block(Compound):
         
         self.inherit = None   # ancestor name
         self.cinherit = None  # ancestor C++ name
-        self.interface = None # does it have a special interface? (not used)
+        
+        for inherit in element.getElementsByTagName('inherit'):
+            self.inherit = inherit.getAttribute('name')
+            self.cinherit = class_name(self.inherit)
+            break
 
 
 
 doc = parse("nif.xml")
 
-# parse elements
+# import elements into our code generating classes
 for element in doc.getElementsByTagName('basic'):
     x = Basic(element)
     basic_types[x.name] = x
@@ -304,10 +432,14 @@ for element in doc.getElementsByTagName('basic'):
 for element in doc.getElementsByTagName("compound"):
     x = Compound(element)
     compound_types[x.name] = x
+    print x.name
+    print x.code_nifstream('', True)[0]
 
 for element in doc.getElementsByTagName("ancestor"):
     x = Block(element)
     block_types[x.name] = x
+    print x.name
+    print x.code_nifstream('', True)[0]
 
 for element in doc.getElementsByTagName("niblock"):
     x = Block(element)
