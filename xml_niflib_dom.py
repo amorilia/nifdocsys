@@ -4,6 +4,7 @@ native_types = {}
 native_types['(TEMPLATE)'] = 'T'
 basic_types = {}
 compound_types = {}
+block_types = {}
 
 def class_name(n):
     if n == None: return None
@@ -348,7 +349,7 @@ class Basic:
 
         self.name = element.getAttribute('name')
         assert(self.name) # debug
-        self.cname = cpp_type_name(self.name)
+        self.cname = class_name(self.name)
         self.niflibtype = element.getAttribute('niflibtype')
         assert element.firstChild.nodeType == Node.TEXT_NODE
         self.description = element.firstChild.nodeValue.strip()
