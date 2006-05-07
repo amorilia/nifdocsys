@@ -16,6 +16,10 @@ block_names = []
 
 ACTION_READ = 0
 ACTION_WRITE = 1
+ACTION_OUT = 2
+ACTION_FIXLINKS = 3
+ACTION_REMOVECROSSLINK = 4
+ACTION_GETLINKS = 5
 
 #
 # C++ code formatting functions
@@ -102,11 +106,9 @@ class CFile(file):
             stream = "in"
         elif action == ACTION_WRITE:
             stream = "out"
-        # read + write: declare local variables
-        for y in block.members:
-            if not y.is_declared and not y.is_duplicate:
-                #self.comment(y.description)
-                self.code(y.code_declare(localprefix))
+        elif action == ACTION_OUT:
+            stream = "out"
+
         # stream the ancestor
         if isinstance(block, Block):
             if block.inherit:
@@ -114,6 +116,37 @@ class CFile(file):
                     self.code("%s::Read( %s, version );"%(block.inherit.cname, stream))
                 elif action == ACTION_WRITE:
                     self.code("%s::Write( %s, version );"%(block.inherit.cname, stream))
+                elif action == ACTION_OUT:
+                    self.code("%s << %s::asString();"%(stream, block.inherit.cname))
+
+        # declare and calculate local variables
+        if action in [ACTION_READ, ACTION_WRITE]:
+            for y in block.members:
+                # read + write: declare
+                if not y.is_declared and not y.is_duplicate:
+                    self.code(y.code_declare(localprefix))
+                    # write: calculate
+                    if action == ACTION_WRITE:
+                        if y.cond_ref:
+                            assert(y.is_declared) # bug check
+                        elif y.arr1_ref:
+                            assert(not y.is_declared) # bug check
+                            self.code('%s%s = %s(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr1_ref[0]))
+                        elif y.arr2_ref:
+                            assert(not y.is_declared) # bug check
+                            if not y.arr1.lhs:
+                                self.code('%s%s = %s(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr2_ref[0]))
+                            else:
+                                # index of dynamically sized array
+                                self.code('%s%s.resize(%s%s.size());'%(localprefix, y.cname, prefix, y.carr2_ref[0]))
+                                self.code('for (uint i%i = 0; i < %s%s.size(); i++)'%(self.indent, prefix, y.carr2_ref[0]))
+                                self.code('\t%s%s[i%i] = %s(%s%s[i%i].size());'%(localprefix, y.cname, self.indent, y.ctype, prefix, y.carr2_ref[0], self.indent))
+                        elif y.func:
+                            assert(not y.is_declared) # bug check
+                            return '%s%s = %s%s();'%(localprefix, y.cname, prefix, y.func)
+                        else:
+                            assert(y.is_declared) # bug check
+                            
         # now comes the difficult part: processing all members recursively
         for y in block.members:
             # resolve array & cond references
@@ -153,26 +186,34 @@ class CFile(file):
                 y_prefix = localprefix
             # conditioning
             y_cond = y.cond.code(y_cond_prefix)
-            if lastver1 != y.ver1 or lastver2 != y.ver2:
-                # we must switch to a new version block    
-                # close old version block
-                if lastver1 or lastver2: self.code("};")
-                # close old condition block as well    
-                if lastcond:
-                    self.code("};")
-                    lastcond = None
-                # start new version block
-                if y.ver1 and not y.ver2:
-                    self.code("if ( version >= 0x%08X ) {"%y.ver1)
-                elif not y.ver1 and y.ver2:
-                    self.code("if ( version <= 0x%08X ) {"%y.ver2)
-                elif y.ver1 and y.ver2:
-                    self.code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(y.ver1, y.ver2))
-                # start new condition block
-                if lastcond != y_cond and y_cond:
+            if action in [ACTION_READ, ACTION_WRITE]:
+                if lastver1 != y.ver1 or lastver2 != y.ver2:
+                    # we must switch to a new version block    
+                    # close old version block
+                    if lastver1 or lastver2: self.code("};")
+                    # close old condition block as well    
+                    if lastcond:
+                        self.code("};")
+                        lastcond = None
+                    # start new version block
+                    if y.ver1 and not y.ver2:
+                        self.code("if ( version >= 0x%08X ) {"%y.ver1)
+                    elif not y.ver1 and y.ver2:
+                        self.code("if ( version <= 0x%08X ) {"%y.ver2)
+                    elif y.ver1 and y.ver2:
+                        self.code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(y.ver1, y.ver2))
+                    # start new condition block
+                    if lastcond != y_cond and y_cond:
                         self.code("if ( %s ) {"%y_cond)
-            else:
-                # we remain in the same version block    
+                else:
+                    # we remain in the same version block    
+                    # check condition block
+                    if lastcond != y_cond:
+                        if lastcond:
+                            self.code("};")
+                        if y_cond:
+                            self.code("if ( %s ) {"%y_cond)
+            elif action == ACTION_OUT:
                 # check condition block
                 if lastcond != y_cond:
                     if lastcond:
@@ -180,7 +221,7 @@ class CFile(file):
                     if y_cond:
                         self.code("if ( %s ) {"%y_cond)
     
-            # read: resize arrays
+            # read: also resize arrays
             if action == ACTION_READ:
                 if y.arr1.lhs:
                     self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
@@ -195,10 +236,16 @@ class CFile(file):
             # TODO handle arguments
             
             # loop over arrays
-            if y.arr1.lhs:                self.code(\
+            # and resolve variable name
+            if not y.arr1.lhs:
+                z = "%s%s"%(y_prefix, y.cname)
+            else:
+                self.code(\
                     "for (uint i%i = 0; i%i < %s; i%i++) {"\
                     %(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
-                if y.arr2.lhs:
+                if not y.arr2.lhs:
+                    z = "%s%s[i%i]"%(y_prefix, y.cname, self.indent-1)
+                else:
                     if not y.arr2_dynamic:
                         self.code(\
                             "for (uint i%i = 0; i%i < %s; i%i++) {"\
@@ -207,29 +254,27 @@ class CFile(file):
                         self.code(\
                             "for (uint i%i = 0; i%i < %s[i%i]; i%i++) {"\
                             %(self.indent, self.indent, self.indent-1, y.arr2.code(y_arr2_prefix), self.indent))
+                    z = "%s%s[i%i][i%i]"%(y_prefix, y.cname, self.indent-2, self.indent-1)
     
             if native_types.has_key(y.type):
+                # resolve variable name
                 if action in [ACTION_READ, ACTION_WRITE]:
+                    self.code("NifStream( %s, %s, version );"%(z, stream))
+                elif action == ACTION_OUT:
                     if not y.arr1.lhs:
-                        self.code(\
-                            "NifStream( %s%s, %s, version );"\
-                            %(y_prefix, y.cname, stream))
+                        self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
                     elif not y.arr2.lhs:
-                        self.code(\
-                            "NifStream( %s%s[i%i], %s, version );"\
-                            %(y_prefix, y.cname, self.indent-1, stream))
+                        self.code('%s << "%*s%s[" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-1, z))
                     else:
-                        self.code(\
-                            "NifStream( %s%s[i%i][i%i], %s, version );"\
-                            %(y_prefix, y.cname, self.indent-2, self.indent-1, stream))
+                        self.code('%s << "%*s%s[" << i%i << "][" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-2, self.indent-1, z))
             else:
                 subblock = compound_types[y.type]
                 if not y.arr1.lhs:
-                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s%s."%(y_prefix, y.cname))
+                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s."%z)
                 elif not y.arr2.lhs:
-                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s%s[i%i]."%(y_prefix, y.cname, self.indent-1))
+                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s."%z)
                 else:
-                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s%s[i%i][i%i]."%(y_prefix, y.cname, self.indent-2, self.indent-1))
+                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s."%z)
 
             # close array loops
             if y.arr1.lhs:
@@ -241,8 +286,10 @@ class CFile(file):
             lastver2 = y.ver2
             lastcond = y_cond
 
-        if lastver1 or lastver2:
-            self.code("};")
+        if action in [ACTION_READ, ACTION_WRITE]:
+            if lastver1 or lastver2:
+                self.code("};")
+                
         if lastcond:
             self.code("};")
             
@@ -569,7 +616,8 @@ class Block(Compound):
 
 
 #
-# import elements into our code generating classes#
+# import elements into our code generating classes
+#
 
 doc = parse("nif.xml")
 
@@ -688,17 +736,6 @@ for n in compound_names:
     # done
     h.code("};")
     h.code()
-
-    # operator<< (meant for stdout)
-    if not x.template:
-        h.code('ostream & operator<<( ostream & out, %s const & val ) {'%x.cname)
-    else:
-        h.code('template <class T >\nostream & operator<<( ostream & out, %s<T> const & val ) {'%x.cname)
-    for y in x.members:
-        h.code(y.code_out("val."))
-    h.code("return out;")
-    h.code("};")
-    h.code()
     
 # generate block code
 for n in block_names:
@@ -745,6 +782,6 @@ for n in block_names:
     # as string
     h.code("#define %s_STRING"%x_define_name)
     h.code("stringstream out;")
-    h.out(x)
+    h.stream(x, ACTION_OUT)
     h.code("return out.str();")
     h.code()
