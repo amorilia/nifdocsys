@@ -601,7 +601,6 @@ for element in doc.getElementsByTagName("niblock"):
 #
 
 h = CFile("xml_extract.h", "w")
-c = CFile("xml_extract.cpp", "w")
 
 # generate compound code
 for n in compound_names:
