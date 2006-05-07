@@ -632,6 +632,14 @@ for n in block_names:
     h.get_attr(x)
     h.code()
 
+    # parents
+    if not x.inherit:
+        par = "ABlock"
+    else:
+        par = x.inherit.cname
+    h.code('#define %s_PARENTS %s'%(x_define_name, par))
+    h.code()
+
     # istream
     h.code("#define %s_READ"%x_define_name)
     h.stream(x, ACTION_READ)
