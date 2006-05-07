@@ -1,10 +1,189 @@
 from xml.dom.minidom import *
+from textwrap import wrap
+
+#
+# global data
+#
 
 native_types = {}
 native_types['(TEMPLATE)'] = 'T'
 basic_types = {}
 compound_types = {}
 block_types = {}
+
+compound_names = []
+block_names = []
+
+ACTION_READ = 0
+ACTION_WRITE = 1
+
+#
+# C++ code formatting functions
+#
+
+class CFile(file):
+    def __init__(self, filename, mode):
+        file.__init__(self, filename, mode)
+        self.indent = 0
+        self.backslash_mode = False
+    
+    # format C++ code; the returned result always ends with a newline
+    # if txt starts with "}", indent is decreased
+    # if txt ends with "{", indent is increased
+    def code(self, txt = None):
+        # txt None means just a line break
+        # this will also break the backslash, which is kind of handy
+        # call code("\n") if you want a backslashed newline in backslash mode
+        if txt == None:
+            self.write("\n")
+            return
+    
+        # block end
+        if txt[:1] == "}": self.indent -= 1    
+        # endline string
+        if self.backslash_mode:
+            endl = " \\\n"
+        else:
+            endl = "\n"
+        # indent string
+        prefix = "  " * self.indent
+        # strip trailing whitespace, including newlines
+        txt = txt.rstrip()
+        # replace tabs
+        txt = txt.replace("\t", "  ");
+        # indent, and add newline
+        result = prefix + txt.replace("\n", endl + prefix) + endl
+        # block start
+        if txt[-1:] == "{": self.indent += 1
+    
+        self.write(result)
+    
+    # create C++-style comments (handle multilined comments as well)
+    # result always ends with a newline
+    def comment(self, txt):
+        if self.backslash_mode: return # skip comments when we are in backslash mode
+        self.code("// " + "\n".join(wrap(txt)).replace("\n", "\n// "))
+    
+    # C++ member declaration
+    def declare(self, block):
+        for y in block.members:
+            if y.is_declared and not y.is_duplicate:
+                self.comment(y.description)
+                self.code(y.code_declare())
+
+    def stream(self, block, action, prefix = ""):
+        lastver1 = None
+        lastver2 = None
+        lastcond = None
+        # stream name
+        if action == ACTION_READ:
+            stream = "in"
+        elif action == ACTION_WRITE:
+            stream = "out"
+        # read + write: declare local variables
+        for y in block.members:
+            if not y.is_declared and not y.is_duplicate:
+                #self.comment(y.description)
+                self.code(y.code_declare())
+        # stream the ancestor
+        if isinstance(block, Block):
+            if block.cinherit:
+                if action == ACTION_READ:
+                    self.code("%s::Read( %s, version );"%(block.cinherit, stream))
+                elif action == ACTION_WRITE:
+                    self.code("%s::Write( %s, version );"%(block.cinherit, stream))
+        # now comes the difficult part: processing all members recursively
+        for y in block.members:
+            # conditioning
+            y_cond = y.cond.code(prefix)
+            if lastver1 != y.ver1 or lastver2 != y.ver2:
+                # we must switch to a new version block    
+                # close old version block
+                if lastver1 or lastver2: self.code("};")
+                # close old condition block as well    
+                if lastcond:
+                    self.code("};")
+                    lastcond = None
+                # start new version block
+                if y.ver1 and not y.ver2:
+                    self.code("if ( version >= 0x%08X ) {"%y.ver1)
+                elif not y.ver1 and y.ver2:
+                    self.code("if ( version <= 0x%08X ) {"%y.ver2)
+                elif y.ver1 and y.ver2:
+                    self.code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(y.ver1, y.ver2))
+                # start new condition block
+                if lastcond != y_cond and y_cond:
+                        self.code("if ( %s ) {"%y_cond)
+            else:
+                # we remain in the same version block    
+                # check condition block
+                if lastcond != y_cond:
+                    if lastcond:
+                        self.code("};")
+                    if y_cond:
+                        self.code("if ( %s ) {"%y_cond)
+    
+            # read: calculate array sizes
+            if action == ACTION_READ:
+                if y.arr1.lhs:
+                    self.code("%s%s.resize(%s);"%(prefix, y.cname, y.arr1.code(prefix)))
+                    if y.arr2.lhs:
+                        if not y.arr2_dynamic:
+                            self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(prefix), self.indent))
+                            self.code("\t%s%s[i%i].resize(%s);"%(prefix, y.cname, self.indent, y.arr2.code(prefix)))
+                        else:
+                            self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(prefix), self.indent))
+                            self.code("\t%s%s[i%i].resize(%s[i%i]);"%(prefix, y.cname, self.indent, y.arr2.code(prefix), self.indent))
+            
+            # TODO handle arguments
+            # loop over arrays
+            if y.arr1.lhs:                self.code(\
+                    "for (uint i%i = 0; i%i < %s; i%i++) {"\
+                    %(self.indent, self.indent, y.arr1.code(prefix), self.indent))
+                if y.arr2.lhs:
+                    if not y.arr2_dynamic:
+                        self.code(\
+                            "for (uint i%i = 0; i%i < %s; i%i++) {"\
+                            %(self.indent, self.indent, y.arr2.code(prefix), self.indent))
+                    else:
+                        self.code(\
+                            "for (uint i%i = 0; i%i < %s[i%i]; i%i++) {"\
+                            %(self.indent, self.indent, self.indent-1, y.arr2.code(prefix), self.indent))
+    
+            if native_types.has_key(y.type):
+                if action in [ACTION_READ, ACTION_WRITE]:
+                    if not y.arr1.lhs:
+                        self.code(\
+                            "NifStream( %s%s, %s, version );"\
+                            %(prefix, y.cname, stream))
+                    elif not y.arr2.lhs:
+                        self.code(\
+                            "NifStream( %s%s[i%i], %s, version );"\
+                            %(prefix, y.cname, self.indent-1, stream))
+                    else:
+                        self.code(\
+                            "NifStream( %s%s[i%i][i%i], %s, version );"\
+                            %(prefix, y.cname, self.indent-2, self.indent-1, stream))
+            else:
+                subblock = compound_types[y.type]
+                if not y.arr1.lhs:
+                    self.stream(subblock, action, "%s%s."%(prefix, y.cname))
+                elif not y.arr2.lhs:
+                    self.stream(subblock, action, "%s%s[i%i]."%(prefix, y.cname, self.indent-1))
+                else:
+                    self.stream(subblock, action, "%s%s[i%i][i%i]."%(prefix, y.cname, self.indent-2, self.indent-1))
+    
+            # close array loops
+            if y.arr1.lhs:
+                self.code("};")
+                if y.arr2.lhs:
+                    self.code("};")
+    
+            lastver1 = y.ver1
+            lastver2 = y.ver2
+            lastcond = y_cond
+
+
 
 def class_name(n):
     if n == None: return None
@@ -186,17 +365,15 @@ class Member:
         self.carr2_ref = [member_name(n) for n in self.arr2_ref]
         self.ccond_ref = [member_name(n) for n in self.cond_ref]
 
-        # construction: should never be prefixed,
-        # so we can make it a member instead of a method
-        # don't construct anything that hasn't been declared
-        # don't construct if it has no default
-        if self.is_declared and self.default:
-            self.code_construct = "%s(%s)"%(self.cname, self.default)
-        else:
-            self.code_construct = None
+    # construction
+    # don't construct anything that hasn't been declared
+    # don't construct if it has no default
+    def code_construct(self):
+        if self.is_declared and self.default and not self.is_duplicate:
+            return "%s(%s)"%(self.cname, self.default)
 
     # declaration
-    def code_declare(self, prefix): # prefix is used to tag local variables only
+    def code_declare(self, prefix = ''): # prefix is used to tag local variables only
         result = self.ctype
         if self.ctemplate:
             result += "<%s >"%self.ctemplate        
@@ -208,7 +385,7 @@ class Member:
         return result
 
     # handle calculated data; used when writing
-    def code_calculate(self, prefix):
+    def code_calculate(self, prefix = ''):
         if self.cond_ref:
             assert(self.is_declared) # bug check
             return None
@@ -233,7 +410,7 @@ class Member:
             return None
 
     # send to "out" stream
-    def code_out(self, prefix):
+    def code_out(self, prefix = ''):
         # don't print array sizes and calculated data
         if not self.is_declared:
             return "out << \"%20s:  -- calculated --\" << endl;"%self.name
@@ -241,105 +418,6 @@ class Member:
             return "out << \"%20s:  \" << %s%s << endl;"%(self.name, prefix, self.cname)
         else:
             return "out << \"%20s:  -- data not shown --\" << endl;"%self.name
-
-    # read & write
-    def code_nifstream(self, prefix, reading, lastver1 = None, lastver2 = None, lastcond = None, indent = 0):
-        result = ''
-        if self.func: return '', lastver1, lastver2, lastcond, indent # skip calculated stuff
-        
-        # conditioning
-        if lastver1 != self.ver1 or lastver2 != self.ver2:
-            # we must switch to a new version block
-            # close old version block
-            if lastver1 or lastver2:
-                indent -= 1
-                result += "\t"*indent + "};\n"
-            # close old condition block as well
-            if lastcond:
-                indent -= 1
-                result += "\t"*indent + "};\n"
-                lastcond = None
-            # start new version block
-            if self.ver1 and not self.ver2:
-                result += "\t"*indent + "if ( version >= 0x%08X ) {\n"%self.ver1
-                indent += 1
-            elif not self.ver1 and self.ver2:
-                result += "\t"*indent + "if ( version <= 0x%08X ) {\n"%self.ver2
-                indent += 1
-            elif self.ver1 and self.ver2:
-                result += "\t"*indent + "if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {\n"%(self.ver1, self.ver2)
-                indent += 1
-            # start new condition block
-            if lastcond != self.cond.code(prefix):
-                if self.cond.code(prefix):
-                    result += "\t"*indent + "if ( %s ) {\n"%self.cond.code(prefix)
-                    indent += 1
-        else:
-            # we remain in the same version block
-            # check condition block
-            if lastcond != self.cond.code(prefix):
-                if lastcond:
-                    indent -= 1
-                    result += "\t"*indent + "};\n"
-                if self.cond.code(prefix):
-                    result += "\t"*indent + "if ( %s ) {\n"%self.cond.code(prefix)
-                    indent += 1
-
-        # calculating
-        if reading:
-            if self.arr1.lhs:
-                result += "\t"*indent + "%s%s.resize(%s);\n"%(prefix, self.cname, self.arr1.code(prefix))
-                if self.arr2.lhs:
-                    if not self.arr2_dynamic:
-                        result += "\t"*indent + "for (uint i%i = 0; i%i < %s; i%i++)\n"%(indent, indent, self.arr1.code(prefix), indent)
-                        result += "\t"*indent + "\t%s%s[i%i].resize(%s);\n"%(prefix, self.cname, indent, self.arr2.code(prefix))
-                    else:
-                        result += "\t"*indent + "for (uint i%i = 0; i%i < %s; i%i++)\n"%(indent, indent, self.arr1.code(prefix), indent)
-                        result += "\t"*indent + "\t%s%s[i%i].resize(%s[i%i]);\n"%(prefix, self.cname, indent, self.arr2.code(prefix), indent)
-
-        # nifstreaming
-        # (TODO: handle arguments)
-        if self.arr1.lhs:
-            result += "\t"*indent + "for (uint i%i = 0; i%i < %s; i%i++)\n"%(indent, indent, self.arr1.code(prefix), indent)
-            indent += 1
-            if self.arr2.lhs:
-                if not self.arr2_dynamic:
-                    result += "\t"*indent + "for (uint i%i = 0; i%i < %s; i%i++) {\n"%(indent, indent, self.arr2.code(prefix), indent)
-                else:
-                    result += "\t"*indent + "for (uint i%i = 0; i%i < %s[i%i]; i%i++) {\n"%(indent, indent, indent-1, self.arr2.code(prefix), indent)
-                indent += 1
-
-        if native_types.has_key(self.type):
-            if not self.arr1.lhs:
-                result += "\t"*indent + "NifStream( %s%s, in, version );\n"%(prefix, self.cname)
-            elif not self.arr2.lhs:
-                result += "\t"*indent + "NifStream( %s%s[i%i], in, version );\n"%(prefix, self.cname, indent-1)
-            else:
-                result += "\t"*indent + "NifStream( %s%s[i%i][i%i], in, version );\n"%(prefix, self.cname, indent-2, indent-1)
-        else:
-            compound = compound_types[self.type]
-            if not self.arr1.lhs:
-                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s.'%(prefix, self.cname), reading, lastver1, lastver2, lastcond, indent)
-                result += result2
-            elif not self.arr2.lhs:
-                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s[i%i].'%(prefix, self.cname, indent-1), reading, lastver1, lastver2, lastcond, indent)
-                result += result2
-            else:
-                result2, lastver1, lastver2, lastcond, indent = compound.code_nifstream('%s%s[i%i][i%i].'%(prefix, self.cname, indent-2, indent-1), reading, lastver1, lastver2, lastcond, indent)
-                result += result2
-
-        if self.arr1.lhs:
-            indent -= 1
-            result += "\t"*indent + "};\n"
-            if self.arr2.lhs:
-                indent -= 1
-                result += "\t"*indent + "};\n"
-
-        lastver1 = self.ver1
-        lastver2 = self.ver2
-        lastcond = self.cond.code(prefix)
-
-        return result, lastver1, lastver2, lastcond, indent
 
 
 
@@ -385,10 +463,10 @@ class Compound(Basic):
             else:
                 self.argument = False
 
-    def code_nifstream(self, prefix, reading, lastver1 = None, lastver2 = None, lastcond = None, indent = 0):
+    def code_stream(self, prefix, action, lastver1 = None, lastver2 = None, lastcond = None, indent = 0):
         result = ''
         for member in self.members:
-            result2, lastver1, lastver2, lastcond, indent = member.code_nifstream(prefix, reading, lastver1, lastver2, lastcond, indent)
+            result2, lastver1, lastver2, lastcond, indent = member.code_stream(prefix, action, lastver1, lastver2, lastcond, indent)
             result += result2
         if lastver1 or lastver2:
             indent -= 1
@@ -401,11 +479,19 @@ class Compound(Basic):
             lastcond = None
         return result, lastver1, lastver2, lastcond, indent
 
-    def declare(self, prefix):
-        pass
-
-    def construct(self, prefix):
-        pass
+    def code_construct(self):
+        # constructor
+        result = ''
+        first = True
+        for y in self.members:
+            y_code_construct = y.code_construct()
+            if y_code_construct:
+                if not first:
+                    result += ', ' + y_code_construct
+                else:
+                    result += ' : ' + y_code_construct
+                    first = False
+        return result
 
 
 
@@ -423,25 +509,77 @@ class Block(Compound):
 
 
 
+#
+# import elements into our code generating classes#
+
 doc = parse("nif.xml")
 
-# import elements into our code generating classes
 for element in doc.getElementsByTagName('basic'):
     x = Basic(element)
+    assert not basic_types.has_key(x.name)
     basic_types[x.name] = x
 
 for element in doc.getElementsByTagName("compound"):
     x = Compound(element)
+    assert not compound_types.has_key(x.name)
     compound_types[x.name] = x
+    compound_names.append(x.name)
 
 for element in doc.getElementsByTagName("ancestor"):
     x = Block(element)
+    assert not block_types.has_key(x.name)
     block_types[x.name] = x
-    print x.name
-    print x.code_nifstream('', True)[0]
+    block_names.append(x.name)
 
 for element in doc.getElementsByTagName("niblock"):
     x = Block(element)
+    assert not block_types.has_key(x.name)
     block_types[x.name] = x
-    print x.name
-    print x.code_nifstream('', True)[0]
+    block_names.append(x.name)
+
+#
+# generate header code
+#
+
+h = CFile("xml_extract.h", "w")
+c = CFile("xml_extract.cpp", "w")
+
+# generate compound code
+for n in compound_names:
+    x = compound_types[n]
+    
+    # skip natively implemented types
+    if x.niflibtype: continue
+    
+    # header
+    h.comment("\n" + x.description + "\n")
+    hdr = "struct %s"%x.cname
+    if x.template: hdr = "template <class T >\n%s"%hdr
+    hdr += " {"
+    h.code(hdr)
+
+    # declaration
+    h.declare(x)
+    
+    # constructor
+    h.code("%s()"%x.cname + x.code_construct() + " {};")
+    
+    # done
+    h.code("};")
+    h.code()
+
+# generate block code
+for n in block_names:
+    x = block_types[n]
+    x_define_name = define_name(x.cname)
+    
+    # declaration
+    h.backslash_mode = True
+    h.code('#define %s_MEMBERS'%x_define_name)
+    h.declare(x)
+    h.code()
+    
+    # istream
+    h.code("#define %s_READ"%x_define_name)
+    h.stream(x, ACTION_READ)
+    
