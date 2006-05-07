@@ -363,6 +363,9 @@ class Member:
         self.cond      = Expr(element.getAttribute('cond'))
         self.func      = element.getAttribute('function')
         self.default   = element.getAttribute('default')
+        if self.default:
+            if self.default[0] < "0" or self.default[0] > "9":
+                self.default = "\"" + self.default + "\""
         assert element.firstChild.nodeType == Node.TEXT_NODE
         self.description = element.firstChild.nodeValue.strip()
         self.ver1      = version2number(element.getAttribute('ver1'))
@@ -640,6 +643,13 @@ for n in block_names:
     h.code('#define %s_PARENTS %s'%(x_define_name, par))
     h.code()
 
+    # constructor
+    h.code("#define %s_CONSTRUCT "%x_define_name)
+    x_code_construct = x.code_construct()
+    if x_code_construct:
+        h.code(x_code_construct)
+    h.code()
+    
     # istream
     h.code("#define %s_READ"%x_define_name)
     h.stream(x, ACTION_READ)
