@@ -18,7 +18,7 @@ ACTION_READ = 0
 ACTION_WRITE = 1
 ACTION_OUT = 2
 ACTION_FIXLINKS = 3
-ACTION_REMOVECROSSLINK = 4
+ACTION_REMOVECROSSREF = 4
 ACTION_GETLINKS = 5
 
 #
@@ -109,6 +109,13 @@ class CFile(file):
         elif action == ACTION_OUT:
             stream = "out"
 
+        # preperation
+        if isinstance(block, Block):
+            if action == ACTION_OUT:
+                self.code("stringstream out;")
+            if action == ACTION_GETLINKS:
+                self.code("list<blk_ref> links;")
+
         # stream the ancestor
         if isinstance(block, Block):
             if block.inherit:
@@ -118,6 +125,12 @@ class CFile(file):
                     self.code("%s::Write( %s, version );"%(block.inherit.cname, stream))
                 elif action == ACTION_OUT:
                     self.code("%s << %s::asString();"%(stream, block.inherit.cname))
+                elif action == ACTION_FIXLINKS:
+                    self.code("%s::FixLinks(blocks);"%block.inherit.cname)
+                elif action == ACTION_REMOVECROSSREF:
+                    self.code("%s::RemoveCrossRef(block_to_remove);"%block.inherit.cname)
+                elif action == ACTION_GETLINKS:
+                    self.code("links.extend(%s::GetLinks());"%block.inherit.cname)
 
         # declare and calculate local variables
         if action in [ACTION_READ, ACTION_WRITE]:
@@ -292,8 +305,15 @@ class CFile(file):
                 
         if lastcond:
             self.code("};")
-            
-            
+
+        # the end
+        if isinstance(block, Block):
+            if action == ACTION_OUT:
+                self.code("return out.str();")
+            if action == ACTION_GETLINKS:
+                self.code("return links;")
+
+
 
 def class_name(n):
     if n == None: return None
@@ -781,7 +801,20 @@ for n in block_names:
     
     # as string
     h.code("#define %s_STRING"%x_define_name)
-    h.code("stringstream out;")
     h.stream(x, ACTION_OUT)
-    h.code("return out.str();")
+    h.code()
+
+    # fix links
+    h.code("#define %s_FIXLINKS"%x_define_name)
+    h.stream(x, ACTION_FIXLINKS)
+    h.code()
+
+    # remove cross reference
+    h.code("#define %s_REMOVECROSSREF"%x_define_name)
+    h.stream(x, ACTION_REMOVECROSSREF)
+    h.code()
+
+    # get links
+    h.code("#define %s_GETLINKS"%x_define_name)
+    h.stream(x, ACTION_GETLINKS)
     h.code()
