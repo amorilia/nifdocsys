@@ -71,7 +71,7 @@ class CFile(file):
                 self.comment(y.description)
                 self.code(y.code_declare())
 
-    def stream(self, block, action, prefix = ""):
+    def stream(self, block, action, localprefix = "", prefix = ""):
         lastver1 = None
         lastver2 = None
         lastcond = None
@@ -84,18 +84,53 @@ class CFile(file):
         for y in block.members:
             if not y.is_declared and not y.is_duplicate:
                 #self.comment(y.description)
-                self.code(y.code_declare())
+                self.code(y.code_declare(localprefix))
         # stream the ancestor
         if isinstance(block, Block):
-            if block.cinherit:
+            if block.inherit:
                 if action == ACTION_READ:
-                    self.code("%s::Read( %s, version );"%(block.cinherit, stream))
+                    self.code("%s::Read( %s, version );"%(block.inherit.cname, stream))
                 elif action == ACTION_WRITE:
-                    self.code("%s::Write( %s, version );"%(block.cinherit, stream))
+                    self.code("%s::Write( %s, version );"%(block.inherit.cname, stream))
         # now comes the difficult part: processing all members recursively
         for y in block.members:
+            # resolve array & cond references
+            y_arr1_lmember = None
+            y_arr2_lmember = None
+            y_cond_lmember = None
+            y_arr1_prefix = ""
+            y_arr2_prefix = ""
+            y_cond_prefix = ""
+            if y.arr1.lhs or y.arr2.lhs or y.cond.lhs:
+                for z in block.members:
+                    if not y_arr1_lmember and y.arr1.lhs == z.name:
+                        y_arr1_lmember = z
+                    if not y_arr2_lmember and y.arr2.lhs == z.name:
+                        y_arr2_lmember = z
+                    if not y_cond_lmember and y.cond.lhs == z.name:
+                        y_cond_lmember = z
+                if y_arr1_lmember:
+                    if y_arr1_lmember.is_declared:
+                        y_arr1_prefix = prefix
+                    else:
+                        y_arr1_prefix = localprefix
+                if y_arr2_lmember:
+                    if y_arr2_lmember.is_declared:
+                        y_arr2_prefix = prefix
+                    else:
+                        y_arr2_prefix = localprefix
+                if y_cond_lmember:
+                    if y_cond_lmember.is_declared:
+                        y_cond_prefix = prefix
+                    else:
+                        y_cond_prefix = localprefix
+            # resolve this prefix
+            if y.is_declared:
+                y_prefix = prefix
+            else:
+                y_prefix = localprefix
             # conditioning
-            y_cond = y.cond.code(prefix)
+            y_cond = y.cond.code(y_cond_prefix)
             if lastver1 != y.ver1 or lastver2 != y.ver2:
                 # we must switch to a new version block    
                 # close old version block
@@ -126,64 +161,69 @@ class CFile(file):
             # read: calculate array sizes
             if action == ACTION_READ:
                 if y.arr1.lhs:
-                    self.code("%s%s.resize(%s);"%(prefix, y.cname, y.arr1.code(prefix)))
+                    self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
                     if y.arr2.lhs:
                         if not y.arr2_dynamic:
-                            self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(prefix), self.indent))
-                            self.code("\t%s%s[i%i].resize(%s);"%(prefix, y.cname, self.indent, y.arr2.code(prefix)))
+                            self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
+                            self.code("\t%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix)))
                         else:
-                            self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(prefix), self.indent))
-                            self.code("\t%s%s[i%i].resize(%s[i%i]);"%(prefix, y.cname, self.indent, y.arr2.code(prefix), self.indent))
+                            self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
+                            self.code("\t%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
             
             # TODO handle arguments
             # loop over arrays
             if y.arr1.lhs:                self.code(\
                     "for (uint i%i = 0; i%i < %s; i%i++) {"\
-                    %(self.indent, self.indent, y.arr1.code(prefix), self.indent))
+                    %(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
                 if y.arr2.lhs:
                     if not y.arr2_dynamic:
                         self.code(\
                             "for (uint i%i = 0; i%i < %s; i%i++) {"\
-                            %(self.indent, self.indent, y.arr2.code(prefix), self.indent))
+                            %(self.indent, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
                     else:
                         self.code(\
                             "for (uint i%i = 0; i%i < %s[i%i]; i%i++) {"\
-                            %(self.indent, self.indent, self.indent-1, y.arr2.code(prefix), self.indent))
+                            %(self.indent, self.indent, self.indent-1, y.arr2.code(y_arr2_prefix), self.indent))
     
             if native_types.has_key(y.type):
                 if action in [ACTION_READ, ACTION_WRITE]:
                     if not y.arr1.lhs:
                         self.code(\
                             "NifStream( %s%s, %s, version );"\
-                            %(prefix, y.cname, stream))
+                            %(y_prefix, y.cname, stream))
                     elif not y.arr2.lhs:
                         self.code(\
                             "NifStream( %s%s[i%i], %s, version );"\
-                            %(prefix, y.cname, self.indent-1, stream))
+                            %(y_prefix, y.cname, self.indent-1, stream))
                     else:
                         self.code(\
                             "NifStream( %s%s[i%i][i%i], %s, version );"\
-                            %(prefix, y.cname, self.indent-2, self.indent-1, stream))
+                            %(y_prefix, y.cname, self.indent-2, self.indent-1, stream))
             else:
                 subblock = compound_types[y.type]
                 if not y.arr1.lhs:
-                    self.stream(subblock, action, "%s%s."%(prefix, y.cname))
+                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s%s."%(y_prefix, y.cname))
                 elif not y.arr2.lhs:
-                    self.stream(subblock, action, "%s%s[i%i]."%(prefix, y.cname, self.indent-1))
+                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s%s[i%i]."%(y_prefix, y.cname, self.indent-1))
                 else:
-                    self.stream(subblock, action, "%s%s[i%i][i%i]."%(prefix, y.cname, self.indent-2, self.indent-1))
-    
+                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s%s[i%i][i%i]."%(y_prefix, y.cname, self.indent-2, self.indent-1))
+
             # close array loops
             if y.arr1.lhs:
                 self.code("};")
                 if y.arr2.lhs:
                     self.code("};")
-    
+
             lastver1 = y.ver1
             lastver2 = y.ver2
             lastcond = y_cond
 
-
+        if lastver1 or lastver2:
+            self.code("};")
+        if lastcond:
+            self.code("};")
+            
+            
 
 def class_name(n):
     if n == None: return None
@@ -283,20 +323,20 @@ class Expr:
 
     def code(self, prefix):
         if not self.op:
-            if not self.clhs: return None
-            if self.clhs[0] >= '0' and self.clhs[0] <= '9':
-                return self.clhs
+            if not self.lhs: return None
+            if self.lhs[0] >= '0' and self.lhs[0] <= '9':
+                return self.lhs
             else:
                 return prefix + self.clhs
         else:
-            if self.clhs[0] >= '0' and self.clhs[0] <= '9':
-                return '%s %s %s'%(self.clhs, self.op, self.rhs)
+            if self.lhs[0] >= '0' and self.lhs[0] <= '9':
+                return '%s %s %s'%(self.lhs, self.op, self.rhs)
             else:
                 return '%s%s %s %s'%(prefix, self.clhs, self.op, self.rhs)
 
 class Member:
     def __init__(self, element):
-        assert(element.tagName == 'add')
+        assert element.tagName == 'add'
         parent = element.parentNode
         sisters = parent.getElementsByTagName('add')
         # member attributes
@@ -351,9 +391,17 @@ class Member:
                     self.arr2_dynamic = True
             sis = sis.nextSibling
         # true if it is declared in the class, if false, this field is calculated somehow
-        if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
-            self.is_declared = False
+        if True: #parent.tagName == "compound": ### DISABLED FOR NOW... TRY TO FIND OTHER SOLUTION
+            # compounds don't have inheritance
+            # so don't declare variables that can be calculated
+            if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
+                self.is_declared = False
+            else:
+                self.is_declared = True
         else:
+            # always declare block fields, to avoid issues with inheritance
+            # a calculated field might still be used by a child
+            # in case we need to keep track of it
             self.is_declared = True
 
         # C++ names
@@ -373,7 +421,7 @@ class Member:
             return "%s(%s)"%(self.cname, self.default)
 
     # declaration
-    def code_declare(self, prefix = ''): # prefix is used to tag local variables only
+    def code_declare(self, prefix = ""): # prefix is used to tag local variables only
         result = self.ctype
         if self.ctemplate:
             result += "<%s >"%self.ctemplate        
@@ -385,22 +433,22 @@ class Member:
         return result
 
     # handle calculated data; used when writing
-    def code_calculate(self, prefix = ''):
+    def code_calculate(self, localprefix = '', prefix = ''):
         if self.cond_ref:
             assert(self.is_declared) # bug check
             return None
         elif self.arr1_ref:
             assert(not self.is_declared) # bug check
-            return '%s%s = %s(%s%s.size());'%(prefix, self.cname, self.ctype, prefix, self.carr1_ref[0])
+            return '%s%s = %s(%s%s.size());'%(localprefix, self.cname, self.ctype, prefix, self.carr1_ref[0])
         elif self.arr2_ref:
             assert(not self.is_declared) # bug check
             if not self.arr1.lhs:
-                return '%s%s = %s(%s%s.size());'%(prefix, self.cname, self.ctype, prefix, self.carr2_ref[0])
+                return '%s%s = %s(%s%s.size());'%(localprefix, self.cname, self.ctype, prefix, self.carr2_ref[0])
             else:
                 # index of dynamically sized array
-                result = '%s%s.resize(%s%s.size()); '%(prefix, self.cname, prefix, self.carr2_ref[0])
+                result = '%s%s.resize(%s%s.size()); '%(localprefix, self.cname, prefix, self.carr2_ref[0])
                 result += 'for (uint i%i = 0; i < %s%s.size(); i++) '%(indent, prefix, self.carr2_ref[0])
-                result += '%s%s[i%i] = %s(%s%s[i%i].size());'%(prefix, self.cname, indent, self.ctype, prefix, self.carr2_ref[0], indent)
+                result += '%s%s[i%i] = %s(%s%s[i%i].size());'%(localprefix, self.cname, indent, self.ctype, prefix, self.carr2_ref[0], indent)
                 return result
         elif self.func:
             assert(not self.is_declared) # bug check
@@ -463,22 +511,6 @@ class Compound(Basic):
             else:
                 self.argument = False
 
-    def code_stream(self, prefix, action, lastver1 = None, lastver2 = None, lastcond = None, indent = 0):
-        result = ''
-        for member in self.members:
-            result2, lastver1, lastver2, lastcond, indent = member.code_stream(prefix, action, lastver1, lastver2, lastcond, indent)
-            result += result2
-        if lastver1 or lastver2:
-            indent -= 1
-            result += "\t"*indent + "};\n"
-            lastver1 = None
-            lastver2 = None
-        if lastcond:
-            indent -= 1
-            result += "\t"*indent + "};\n"
-            lastcond = None
-        return result, lastver1, lastver2, lastcond, indent
-
     def code_construct(self):
         # constructor
         result = ''
@@ -496,15 +528,13 @@ class Compound(Basic):
 
 
 class Block(Compound):
-    def __init__(self, attrs):
-        Compound.__init__(self, attrs)
+    def __init__(self, element):
+        Compound.__init__(self, element)
         
-        self.inherit = None   # ancestor name
-        self.cinherit = None  # ancestor C++ name
+        self.inherit = None   # ancestor block
         
         for inherit in element.getElementsByTagName('inherit'):
-            self.inherit = inherit.getAttribute('name')
-            self.cinherit = class_name(self.inherit)
+            self.inherit = block_types[inherit.getAttribute('name')]
             break
 
 
@@ -562,7 +592,9 @@ for n in compound_names:
     h.declare(x)
     
     # constructor
-    h.code("%s()"%x.cname + x.code_construct() + " {};")
+    x_code_construct = x.code_construct()
+    if x_code_construct:
+        h.code("%s()"%x.cname + x_code_construct + " {};")
     
     # done
     h.code("};")
@@ -582,4 +614,10 @@ for n in block_names:
     # istream
     h.code("#define %s_READ"%x_define_name)
     h.stream(x, ACTION_READ)
+    h.code()
+
+    # ostream
+    h.code("#define %s_WRITE"%x_define_name)
+    h.stream(x, ACTION_WRITE)
+    h.code()
     
