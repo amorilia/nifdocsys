@@ -71,6 +71,20 @@ class CFile(file):
                 self.comment(y.description)
                 self.code(y.code_declare())
 
+    def get_attr(self, block):
+        # get the attributes whose type is implemented natively by Niflib
+        if block.inherit:
+            self.code("attr_ref attr = %s::GetAttr( attr_name );"%block.inherit.cname)
+            self.code("if ( attr.is_null() == false ) return attr;")
+        for y in block.members:
+            if y.is_declared and not y.is_duplicate:
+                if native_types.has_key(y.type) and (not y.arr1.lhs) and (not y.arr2.lhs) and (not y.func):
+                    self.code('if ( attr_name == "%s" )'%y.name)
+                    self.code("\treturn attr_ref(%s);"%y.cname)
+        if not block.is_ancestor:
+            self.code('throw runtime_error("The attribute you requested does not exist in this block, or cannot be accessed.");')
+        self.code("return attr_ref();")
+
     def stream(self, block, action, localprefix = "", prefix = ""):
         lastver1 = None
         lastver2 = None
@@ -531,6 +545,8 @@ class Block(Compound):
     def __init__(self, element):
         Compound.__init__(self, element)
         
+        self.is_ancestor = (element.tagName == "ancestor")
+        
         self.inherit = None   # ancestor block
         
         for inherit in element.getElementsByTagName('inherit'):
@@ -611,6 +627,11 @@ for n in block_names:
     h.declare(x)
     h.code()
     
+    # get attribute
+    h.code("#define %s_GETATTR"%x_define_name)
+    h.get_attr(x)
+    h.code()
+
     # istream
     h.code("#define %s_READ"%x_define_name)
     h.stream(x, ACTION_READ)
