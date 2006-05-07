@@ -85,6 +85,14 @@ class CFile(file):
             self.code('throw runtime_error("The attribute you requested does not exist in this block, or cannot be accessed.");')
         self.code("return attr_ref();")
 
+    def out(self, block):
+        if block.inherit:
+            self.code("out << %s::asString();"%block.inherit.cname)
+        for y in block.members:
+            out = y.code_out()
+            if out:
+                self.code(out)
+
     def stream(self, block, action, localprefix = "", prefix = ""):
         lastver1 = None
         lastver2 = None
@@ -172,7 +180,7 @@ class CFile(file):
                     if y_cond:
                         self.code("if ( %s ) {"%y_cond)
     
-            # read: calculate array sizes
+            # read: resize arrays
             if action == ACTION_READ:
                 if y.arr1.lhs:
                     self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
@@ -185,6 +193,7 @@ class CFile(file):
                             self.code("\t%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
             
             # TODO handle arguments
+            
             # loop over arrays
             if y.arr1.lhs:                self.code(\
                     "for (uint i%i = 0; i%i < %s; i%i++) {"\
@@ -475,8 +484,9 @@ class Member:
             return None
 
     # send to "out" stream
-    def code_out(self, prefix = ''):
+    def code_out(self, prefix = ""): # prefix used for like "val." in operator<<
         # don't print array sizes and calculated data
+        if self.is_duplicate: return
         if not self.is_declared:
             return "out << \"%20s:  -- calculated --\" << endl;"%self.name
         elif not self.arr1.lhs:
@@ -619,13 +629,25 @@ for n in compound_names:
     h.code("};")
     h.code()
 
+    # operator<< (meant for stdout)
+    if not x.template:
+        h.code('ostream & operator<<( ostream & out, %s const & val ) {'%x.cname)
+    else:
+        h.code('template <class T >\nostream & operator<<( ostream & out, %s<T> const & val ) {'%x.cname)
+    for y in x.members:
+        h.code(y.code_out("val."))
+    h.code("return out;")
+    h.code("};")
+    h.code()
+    
 # generate block code
 for n in block_names:
     x = block_types[n]
     x_define_name = define_name(x.cname)
     
-    # declaration
     h.backslash_mode = True
+    
+    # declaration
     h.code('#define %s_MEMBERS'%x_define_name)
     h.declare(x)
     h.code()
@@ -660,3 +682,9 @@ for n in block_names:
     h.stream(x, ACTION_WRITE)
     h.code()
     
+    # as string
+    h.code("#define %s_STRING"%x_define_name)
+    h.code("stringstream out;")
+    h.out(x)
+    h.code("return out.str();")
+    h.code()
