@@ -11,6 +11,7 @@ basic_types = {}
 compound_types = {}
 block_types = {}
 
+basic_names = []
 compound_names = []
 block_names = []
 
@@ -574,8 +575,15 @@ class Basic:
         assert element.firstChild.nodeType == Node.TEXT_NODE
         self.description = element.firstChild.nodeValue.strip()
 
+        self.has_links = False
+        self.has_crossrefs = False
+
         if self.niflibtype:
             native_types[self.name] = self.niflibtype
+            if self.niflibtype == "Link":
+                self.has_links = True
+            if self.niflibtype == "CrossRef":
+                self.has_crossrefs = True
 
 
 
@@ -604,6 +612,21 @@ class Compound(Basic):
                 self.argument = True
             else:
                 self.argument = False
+
+            # detect links & crossrefs
+            y = None
+            try:
+                y = basic_types[x.type]
+            except KeyError:
+                try:
+                    y = compound_types[x.type]
+                except KeyError:
+                    pass
+            if y:
+                if y.has_links:
+                    self.has_links = True
+                if y.has_crossrefs:
+                    self.has_crossrefs = True
 
     def code_construct(self):
         # constructor
@@ -645,6 +668,7 @@ for element in doc.getElementsByTagName('basic'):
     x = Basic(element)
     assert not basic_types.has_key(x.name)
     basic_types[x.name] = x
+    basic_names.append(x.name)
 
 for element in doc.getElementsByTagName("compound"):
     x = Compound(element)
