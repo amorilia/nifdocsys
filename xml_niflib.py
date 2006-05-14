@@ -203,7 +203,7 @@ class CFile(file):
                 y_prefix = localprefix
             # conditioning
             y_cond = y.cond.code(y_cond_prefix)
-            if action in [ACTION_READ, ACTION_WRITE]:
+            if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
                 if lastver1 != y.ver1 or lastver2 != y.ver2:
                     # we must switch to a new version block    
                     # close old version block
@@ -279,15 +279,19 @@ class CFile(file):
                     subblock = basic_types[y.type]
                 except KeyError:
                     subblock = compound_types[y.type]
-                if action in [ACTION_READ, ACTION_WRITE]:
+                if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
                     if (not subblock.is_link) and (not subblock.is_crossref):
-                        self.code("NifStream( %s, %s, version );"%(z, stream))
+                        if action in [ACTION_READ, ACTION_WRITE]:
+                            self.code("NifStream( %s, %s, version );"%(z, stream))
                     else:
                         if action == ACTION_READ:
                             self.code("NifStream( block_num, %s, version );"%stream)
-                            self.code("link_stack.push( block_num );")
+                            self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
                             self.code("NifStream( link_map[%s], %s, version );"%(z, stream))
+                        elif action == ACTION_FIXLINKS:
+                            self.code("%s = blocks[link_stack.front()];"%z)
+                            self.code("link_stack.pop_front();")
                 elif action == ACTION_OUT:
                     if not y.arr1.lhs:
                         self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
@@ -314,7 +318,7 @@ class CFile(file):
             lastver2 = y.ver2
             lastcond = y_cond
 
-        if action in [ACTION_READ, ACTION_WRITE]:
+        if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
             if lastver1 or lastver2:
                 self.code("};")
                 
