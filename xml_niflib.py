@@ -112,6 +112,9 @@ class CFile(file):
 
         # preperation
         if isinstance(block, Block):
+            if action == ACTION_READ:
+                if block.has_links:
+                    self.code("uint block_num;")
             if action == ACTION_OUT:
                 self.code("stringstream out;")
             if action == ACTION_GETLINKS:
@@ -121,13 +124,13 @@ class CFile(file):
         if isinstance(block, Block):
             if block.inherit:
                 if action == ACTION_READ:
-                    self.code("%s::Read( %s, version );"%(block.inherit.cname, stream))
+                    self.code("%s::Read( %s, link_stack, version );"%(block.inherit.cname, stream))
                 elif action == ACTION_WRITE:
-                    self.code("%s::Write( %s, version );"%(block.inherit.cname, stream))
+                    self.code("%s::Write( %s, link_map, version );"%(block.inherit.cname, stream))
                 elif action == ACTION_OUT:
                     self.code("%s << %s::asString();"%(stream, block.inherit.cname))
                 elif action == ACTION_FIXLINKS:
-                    self.code("%s::FixLinks(blocks);"%block.inherit.cname)
+                    self.code("%s::FixLinks( objects, link_stack, version );"%block.inherit.cname)
                 elif action == ACTION_REMOVECROSSREF:
                     self.code("%s::RemoveCrossRef(block_to_remove);"%block.inherit.cname)
                 elif action == ACTION_GETLINKS:
@@ -272,8 +275,19 @@ class CFile(file):
     
             if native_types.has_key(y.type):
                 # resolve variable name
+                try:
+                    subblock = basic_types[y.type]
+                except KeyError:
+                    subblock = compound_types[y.type]
                 if action in [ACTION_READ, ACTION_WRITE]:
-                    self.code("NifStream( %s, %s, version );"%(z, stream))
+                    if (not subblock.is_link) and (not subblock.is_crossref):
+                        self.code("NifStream( %s, %s, version );"%(z, stream))
+                    else:
+                        if action == ACTION_READ:
+                            self.code("NifStream( block_num, %s, version );"%(z, stream))
+                            self.code("link_stack.push( block_num );")
+                        elif action == ACTION_WRITE:
+                            self.code("NifStream( link_map[%s], %s, version );"%(z, stream))
                 elif action == ACTION_OUT:
                     if not y.arr1.lhs:
                         self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
@@ -575,14 +589,18 @@ class Basic:
         assert element.firstChild.nodeType == Node.TEXT_NODE
         self.description = element.firstChild.nodeValue.strip()
 
+        self.is_link = False
+        self.is_crossref = False
         self.has_links = False
         self.has_crossrefs = False
 
         if self.niflibtype:
             native_types[self.name] = self.niflibtype
             if self.niflibtype == "Link":
+                self.is_link = True
                 self.has_links = True
             if self.niflibtype == "CrossRef":
+                self.is_crossref = True
                 self.has_crossrefs = True
 
 
@@ -648,7 +666,7 @@ class Block(Compound):
     def __init__(self, element):
         Compound.__init__(self, element)
         
-        self.is_ancestor = (element.tagName == "ancestor")
+        self.is_ancestor = (element.getElementsByTagName('abstract') == "1")
         
         self.inherit = None   # ancestor block
         
@@ -675,12 +693,6 @@ for element in doc.getElementsByTagName("compound"):
     assert not compound_types.has_key(x.name)
     compound_types[x.name] = x
     compound_names.append(x.name)
-
-for element in doc.getElementsByTagName("ancestor"):
-    x = Block(element)
-    assert not block_types.has_key(x.name)
-    block_types[x.name] = x
-    block_names.append(x.name)
 
 for element in doc.getElementsByTagName("niblock"):
     x = Block(element)
@@ -794,9 +806,9 @@ for n in block_names:
     h.code()
     
     # get attribute
-    h.code("#define %s_GETATTR"%x_define_name)
-    h.get_attr(x)
-    h.code()
+    #h.code("#define %s_GETATTR"%x_define_name)
+    #h.get_attr(x)
+    #h.code()
 
     # parents
     if not x.inherit:
@@ -834,11 +846,11 @@ for n in block_names:
     h.code()
 
     # remove cross reference
-    h.code("#define %s_REMOVECROSSREF"%x_define_name)
-    h.stream(x, ACTION_REMOVECROSSREF)
-    h.code()
+    #h.code("#define %s_REMOVECROSSREF"%x_define_name)
+    #h.stream(x, ACTION_REMOVECROSSREF)
+    #h.code()
 
     # get links
-    h.code("#define %s_GETLINKS"%x_define_name)
-    h.stream(x, ACTION_GETLINKS)
-    h.code()
+    #h.code("#define %s_GETLINKS"%x_define_name)
+    #h.stream(x, ACTION_GETLINKS)
+    #h.code()
