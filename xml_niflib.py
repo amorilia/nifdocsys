@@ -284,7 +284,7 @@ class CFile(file):
                         self.code("NifStream( %s, %s, version );"%(z, stream))
                     else:
                         if action == ACTION_READ:
-                            self.code("NifStream( block_num, %s, version );"%(z, stream))
+                            self.code("NifStream( block_num, %s, version );"%stream)
                             self.code("link_stack.push( block_num );")
                         elif action == ACTION_WRITE:
                             self.code("NifStream( link_map[%s], %s, version );"%(z, stream))
@@ -596,10 +596,10 @@ class Basic:
 
         if self.niflibtype:
             native_types[self.name] = self.niflibtype
-            if self.niflibtype == "Link":
+            if self.niflibtype == "Ref":
                 self.is_link = True
                 self.has_links = True
-            if self.niflibtype == "CrossRef":
+            if self.niflibtype == "*":
                 self.is_crossref = True
                 self.has_crossrefs = True
 
