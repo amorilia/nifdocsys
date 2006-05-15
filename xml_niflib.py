@@ -68,6 +68,7 @@ class CFile(file):
     def comment(self, txt):
         if self.backslash_mode: return # skip comments when we are in backslash mode
         self.code("// " + "\n".join(wrap(txt)).replace("\n", "\n// "))
+        #self.code("/*!\n * " + "\n".join(wrap(txt)).replace("\n", "\n * ") + "\n */")
     
     # C++ member declaration
     def declare(self, block):
@@ -459,8 +460,10 @@ class Member:
         self.func      = element.getAttribute('function')
         self.default   = element.getAttribute('default')
         if self.default:
-            if self.default[0] < "0" or self.default[0] > "9":
+            if self.type == "string":
                 self.default = "\"" + self.default + "\""
+            elif self.type == "float":
+                self.default += "f"
         assert element.firstChild.nodeType == Node.TEXT_NODE
         self.description = element.firstChild.nodeValue.strip()
         self.ver1      = version2number(element.getAttribute('ver1'))
@@ -536,7 +539,10 @@ class Member:
     def code_declare(self, prefix = ""): # prefix is used to tag local variables only
         result = self.ctype
         if self.ctemplate:
-            result += "<%s >"%self.ctemplate        
+            if result != "*":
+                result += "<%s >"%self.ctemplate
+            else:
+                result = "%s *"%self.ctemplate
         if self.arr1.lhs:
             result = "vector<%s >"%result
             if self.arr2.lhs:
@@ -759,9 +765,8 @@ h.write("""/* ------------------------------------------------------------------
 #ifndef _XML_EXTRACT_H_
 #define _XML_EXTRACT_H_
 
-#include "niflib.h"
 #include "NIF_IO.h"
-#include "NIF_Blocks.h"
+#include "nif_objects.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -858,3 +863,6 @@ for n in block_names:
     #h.code("#define %s_GETLINKS"%x_define_name)
     #h.stream(x, ACTION_GETLINKS)
     #h.code()
+
+h.code("#endif")
+
