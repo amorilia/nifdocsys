@@ -67,8 +67,7 @@ class CFile(file):
     # result always ends with a newline
     def comment(self, txt):
         if self.backslash_mode: return # skip comments when we are in backslash mode
-        self.code("// " + "\n".join(wrap(txt)).replace("\n", "\n// "))
-        #self.code("/*!\n * " + "\n".join(wrap(txt)).replace("\n", "\n * ") + "\n */")
+        self.code("/*!\n * " + "\n".join(wrap(txt)).replace("\n", "\n * ") + "\n */")
     
     # C++ member declaration
     def declare(self, block):
@@ -784,7 +783,7 @@ for n in compound_names:
     if x.niflibtype: continue
     
     # header
-    h.comment("\n" + x.description + "\n")
+    h.comment(x.description)
     hdr = "struct %s"%x.cname
     if x.template: hdr = "template <class T >\n%s"%hdr
     hdr += " {"
