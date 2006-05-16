@@ -775,6 +775,13 @@ using namespace std;
 
 """)
 
+# forward declaration of the block classes
+for n in block_names:
+    x = block_types[n]
+    h.code("class %s;"%x.cname)
+
+h.code()
+
 # generate compound code
 for n in compound_names:
     x = compound_types[n]
@@ -802,12 +809,13 @@ for n in compound_names:
     h.code()
     
 # generate block code
+
+h.backslash_mode = True
+
 for n in block_names:
     x = block_types[n]
     x_define_name = define_name(x.cname)
-    
-    h.backslash_mode = True
-    
+        
     # declaration
     h.code('#define %s_MEMBERS'%x_define_name)
     h.declare(x)
@@ -863,5 +871,8 @@ for n in block_names:
     #h.stream(x, ACTION_GETLINKS)
     #h.code()
 
+h.backslash_mode = False
+
 h.code("#endif")
 
+#c = CFile("test.cpp", "w")
