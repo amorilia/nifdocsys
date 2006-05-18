@@ -849,7 +849,7 @@ for n in block_names:
         par = ""
     else:
         par = x.inherit.cname
-    h.code('#define %s_PARENTS %s'%(x_define_name, par))
+    h.code('#define %s_PARENT %s'%(x_define_name, par))
     h.code()
 
     # constructor
