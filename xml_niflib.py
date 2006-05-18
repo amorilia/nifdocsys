@@ -410,6 +410,15 @@ class Expr:
             self.rhs = None
             return
         
+        if n.find('&&') != -1:
+            print n[n.find('(')+1:n.find(')')]
+            print n[n.rfind('(')+1:n.rfind(')')]
+            self.lhs = Expr(n[n.find('(')+1:n.find(')')])
+            self.clhs = None
+            self.op = '&&'
+            self.rhs = Expr(n[n.rfind('(')+1:n.rfind(')')])
+            return
+            
         x = None
         for op in [ '==', '!=', '&' ]:
             if n.find(op) != -1:
@@ -438,10 +447,13 @@ class Expr:
             else:
                 return prefix + self.clhs
         else:
-            if self.lhs[0] >= '0' and self.lhs[0] <= '9':
-                return '%s %s %s'%(self.lhs, self.op, self.rhs)
+            if self.op != '&&':
+                if self.lhs[0] >= '0' and self.lhs[0] <= '9':
+                    return '%s %s %s'%(self.lhs, self.op, self.rhs)
+                else:
+                    return '%s%s %s %s'%(prefix, self.clhs, self.op, self.rhs)
             else:
-                return '%s%s %s %s'%(prefix, self.clhs, self.op, self.rhs)
+                return '(%s) && (%s)'%(self.lhs.code(prefix), self.rhs.code(prefix))
 
 class Member:
     def __init__(self, element):
