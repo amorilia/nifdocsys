@@ -411,8 +411,6 @@ class Expr:
             return
         
         if n.find('&&') != -1:
-            print n[n.find('(')+1:n.find(')')]
-            print n[n.rfind('(')+1:n.rfind(')')]
             self.lhs = Expr(n[n.find('(')+1:n.find(')')])
             self.clhs = None
             self.op = '&&'
@@ -508,11 +506,11 @@ class Member:
                 sis_arr2 = Expr(sis.getAttribute('arr2'))
                 sis_cond = Expr(sis.getAttribute('cond'))
                 if sis_arr1.lhs == self.name and not sis_arr1.rhs:
-                    self.arr1_ref.append(sis_arr1.lhs)
+                    self.arr1_ref.append(sis_name)
                 if sis_arr2.lhs == self.name and not sis_arr2.rhs:
-                    self.arr2_ref.append(sis_arr2.lhs)
+                    self.arr2_ref.append(sis_name)
                 if sis_cond.lhs == self.name:
-                    self.cond_ref.append(sis_cond.lhs)
+                    self.cond_ref.append(sis_name)
                 if sis_name == self.arr2.lhs and sis_arr1.lhs:
                     self.arr2_dynamic = True
             sis = sis.nextSibling
