@@ -697,6 +697,8 @@ class Block(Compound):
             self.inherit = block_types[inherit.getAttribute('name')]
             break
 
+        self.has_interface = (element.getElementsByTagName('interface') != [])
+
 
 
 #
@@ -897,10 +899,16 @@ for n in block_names:
         
     # declaration
     h.comment(x.description)
-    if x.inherit:
-        h.code('class %s : %s {'%(x.cname, x.inherit.cname))
+    if not x.has_interface:
+        if x.inherit:
+            h.code('class %s : %s {'%(x.cname, x.inherit.cname))
+        else:
+            h.code('class %s {'%x.cname)
     else:
-        h.code('class %s {'%x.cname)
+        if x.inherit:
+            h.code('class _%s : %s {'%(x.cname, x.inherit.cname))
+        else:
+            h.code('class _%s {'%x.cname)
     h.code("private:")
     h.declare(x)
     
@@ -955,4 +963,8 @@ for n in block_names:
     h.code("};")
     h.code()
 
+    if x.has_interface:
+        h.code("#include \"%s.h\""%x.cname)
+        h.code()
+        
 h.code("#endif")
