@@ -117,7 +117,7 @@ class CFile(file):
         # preperation
         if isinstance(block, Block):
             if action == ACTION_READ:
-                if block.has_links:
+                if block.has_links or block.has_crossrefs:
                     self.code("uint block_num;")
             if action == ACTION_OUT:
                 self.code("stringstream out;")
@@ -895,3 +895,5 @@ for n in block_names:
 h.backslash_mode = False
         
 h.code("#endif")
+
+h.close()
