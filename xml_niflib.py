@@ -292,9 +292,9 @@ class CFile(file):
                             self.code("NifStream( block_num, %s, version );"%stream)
                             self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
-                            self.code("NifStream( link_map[%s], %s, version );"%(z, stream))
+                            self.code("NifStream( link_map[StaticCast<NiObject>(%s)], %s, version );"%(z, stream))
                         elif action == ACTION_FIXLINKS:
-                            self.code("%s = objects[link_stack.front()];"%z)
+                            self.code("%s = DynamicCast<%s>(objects[link_stack.front()]);"%(z,y.ctemplate))
                             self.code("link_stack.pop_front();")
                 elif action == ACTION_OUT:
                     if not y.arr1.lhs:
@@ -730,7 +730,8 @@ for element in doc.getElementsByTagName("niblock"):
 #
 
 h = CFile("xml_extract.h", "w")
-c = CFile("xml_extract.cpp", "w")
+# at the moment there is no C++ file; code is in #define's
+#c = CFile("xml_extract.cpp", "w")
 
 # file header
 
@@ -782,7 +783,7 @@ h.write("""/* ------------------------------------------------------------------
 #define _XML_EXTRACT_H_
 
 #include "NIF_IO.h"
-#include "nif_objects.h"
+#include "obj\Ref.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -830,7 +831,6 @@ for n in compound_names:
 h.backslash_mode = True
 
 for n in block_names:
-    continue # disabled
     x = block_types[n]
     x_define_name = define_name(x.cname)
         
@@ -849,6 +849,8 @@ for n in block_names:
         par = ""
     else:
         par = x.inherit.cname
+    # declaration
+    h.code('#define %s_INCLUDE #include \"%s.h\"'%(x_define_name, par))
     h.code('#define %s_PARENT %s'%(x_define_name, par))
     h.code()
 
@@ -890,81 +892,5 @@ for n in block_names:
     #h.code()
 
 h.backslash_mode = False
-
-# experimental code blocks
-
-for n in block_names:
-    x = block_types[n]
-    x_define_name = define_name(x.cname)
-        
-    # declaration
-    h.comment(x.description)
-    if not x.has_interface:
-        if x.inherit:
-            h.code('class %s : %s {'%(x.cname, x.inherit.cname))
-        else:
-            h.code('class %s {'%x.cname)
-    else:
-        if x.inherit:
-            h.code('class _%s : %s {'%(x.cname, x.inherit.cname))
-        else:
-            h.code('class _%s {'%x.cname)
-    h.code("private:")
-    h.declare(x)
-    
-    h.code("public:")
-
-    # get attribute
-    #h.code("#define %s_GETATTR"%x_define_name)
-    #h.get_attr(x)
-    #h.code()
-
-    # constructor
-    h.code('%s()%s {};'%(x.cname, x.code_construct()))
-    
-    # istream
-    h.code("virtual void Read( istream & in, list<uint> & link_stack, uint version );")
-    c.code("void %s::Read( istream & in, list<uint> & link_stack, uint version ) {"%x.cname)
-    c.stream(x, ACTION_READ)
-    c.code("};")
-    c.code()
-
-    # ostream
-    #h.code("#define %s_WRITE"%x_define_name)
-    h.code("virtual void Write( ostream & out, map<NiObjectRef,uint> const & link_map, uint version ) const;");
-    c.code("void %s::Write( ostream & out, map<NiObjectRef,uint> const & link_map, uint version ) const {"%x.cname);
-    c.stream(x, ACTION_WRITE)
-    c.code("};")
-
-    # fix links
-    h.code("virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, uint version );")
-    c.code("void %s::FixLinks( vector<NiObjectRef> const & objects, list<uint> & link_stack, uint version ) {"%x.cname)
-    c.stream(x, ACTION_FIXLINKS)
-    c.code("};")
-    c.code()
-
-      
-    
-    # as string
-    #h.code("#define %s_STRING"%x_define_name)
-    #h.stream(x, ACTION_OUT)
-    #h.code()
-
-    # remove cross reference
-    #h.code("#define %s_REMOVECROSSREF"%x_define_name)
-    #h.stream(x, ACTION_REMOVECROSSREF)
-    #h.code()
-
-    # get links
-    #h.code("#define %s_GETLINKS"%x_define_name)
-    #h.stream(x, ACTION_GETLINKS)
-    #h.code()
-
-    h.code("};")
-    h.code()
-
-    if x.has_interface:
-        h.code("#include \"%s.h\""%x.cname)
-        h.code()
         
 h.code("#endif")
