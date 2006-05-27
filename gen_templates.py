@@ -34,6 +34,7 @@ class SAXtracer(ContentHandler):
             out.write( '#ifndef _' + class_name.upper() + '_H_\n' )
             out.write( '#define _' + class_name.upper() + '_H_\n' )
             out.write( '\n' )
+            out.write( '#include \"xml_extract.h\"\n' )
             out.write( '#include ' + define + '_INCLUDE\n')
             out.write( '\n' )
             out.write( '/*\n' )
