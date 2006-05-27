@@ -850,7 +850,8 @@ for n in block_names:
     else:
         par = x.inherit.cname
     # declaration
-    h.code('#define %s_INCLUDE #include \"%s.h\"'%(x_define_name, par))
+    h.code('#define %s_INCLUDE \"%s.h\"'%(x_define_name, par))
+    h.code()
     h.code('#define %s_PARENT %s'%(x_define_name, par))
     h.code()
 
