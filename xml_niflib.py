@@ -454,11 +454,11 @@ class Expr:
         else:
             if self.op != '&&':
                 if self.lhs[0] >= '0' and self.lhs[0] <= '9':
-                    return '%s %s %s'%(self.lhs, self.op, self.rhs)
+                    return '(%s %s %s)'%(self.lhs, self.op, self.rhs)
                 else:
-                    return '%s%s %s %s'%(prefix, self.clhs, self.op, self.rhs)
+                    return '(%s%s %s %s)'%(prefix, self.clhs, self.op, self.rhs)
             else:
-                return '(%s) && (%s)'%(self.lhs.code(prefix), self.rhs.code(prefix))
+                return '((%s) && (%s))'%(self.lhs.code(prefix), self.rhs.code(prefix))
 
 class Member:
     def __init__(self, element):
