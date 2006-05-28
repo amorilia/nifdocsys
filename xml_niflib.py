@@ -521,8 +521,8 @@ class Member:
         # true if it is declared in the class, if false, this field is calculated somehow
         if True: #parent.tagName == "compound": ### DISABLED FOR NOW... TRY TO FIND OTHER SOLUTION
             # compounds don't have inheritance
-            # so don't declare variables that can be calculated
-            if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref:
+            # so don't declare variables that can be calculated; ("Num Vertices" is a dirty hack, it's used in derived classes as array size so we must declare it)
+            if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref and self.name != "Num Vertices":
                 self.is_declared = False
             else:
                 self.is_declared = True
