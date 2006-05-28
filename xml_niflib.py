@@ -502,6 +502,8 @@ class Member:
                 self.default = "\"" + self.default + "\""
             elif self.type == "float":
                 self.default += "f"
+            else:
+                self.default = "(%s)%s"%(class_name(self.type), self.default)
         assert element.firstChild.nodeType == Node.TEXT_NODE
         self.description = element.firstChild.nodeValue.strip()
         self.ver1      = version2number(element.getAttribute('ver1'))
