@@ -142,6 +142,7 @@ class CFile(file):
 
         # declare and calculate local variables
         if action in [ACTION_READ, ACTION_WRITE, ACTION_OUT, ACTION_FIXLINKS]:
+            block.members.reverse() # calculated data depends on data further down the structure
             for y in block.members:
                 # read + write + out + fixlinks: declare
                 if not y.is_declared and not y.is_duplicate:
@@ -167,6 +168,7 @@ class CFile(file):
                             self.code('%s%s = %s%s();'%(localprefix, y.cname, prefix, y.func))
                         else:
                             assert(y.is_declared) # bug check
+            block.members.reverse() # undo reverse
                             
         # now comes the difficult part: processing all members recursively
         for y in block.members:
