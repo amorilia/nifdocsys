@@ -141,13 +141,13 @@ class CFile(file):
                     self.code("links.extend(%s::GetLinks());"%block.inherit.cname)
 
         # declare and calculate local variables
-        if action in [ACTION_READ, ACTION_WRITE]:
+        if action in [ACTION_READ, ACTION_WRITE, ACTION_OUT, ACTION_FIXLINKS]:
             for y in block.members:
-                # read + write: declare
+                # read + write + out + fixlinks: declare
                 if not y.is_declared and not y.is_duplicate:
                     self.code(y.code_declare(localprefix))
-                    # write: calculate
-                    if action == ACTION_WRITE:
+                    # write + out + fixlinks: calculate
+                    if action in [ACTION_WRITE, ACTION_OUT, ACTION_FIXLINKS]:
                         if y.cond_ref:
                             assert(y.is_declared) # bug check
                         elif y.arr1_ref:
