@@ -164,7 +164,7 @@ class CFile(file):
                                 self.code('\t%s%s[i%i] = %s(%s%s[i%i].size());'%(localprefix, y.cname, self.indent, y.ctype, prefix, y.carr2_ref[0], self.indent))
                         elif y.func:
                             assert(not y.is_declared) # bug check
-                            return '%s%s = %s%s();'%(localprefix, y.cname, prefix, y.func)
+                            self.code('%s%s = %s%s();'%(localprefix, y.cname, prefix, y.func))
                         else:
                             assert(y.is_declared) # bug check
                             
