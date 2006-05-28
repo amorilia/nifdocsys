@@ -102,7 +102,7 @@ class CFile(file):
             if out:
                 self.code(out)
 
-    def stream(self, block, action, localprefix = "", prefix = ""):
+    def stream(self, block, action, localprefix = "", prefix = "", arg_prefix = "", arg_member = None):
         lastver1 = None
         lastver2 = None
         lastcond = None
@@ -174,10 +174,12 @@ class CFile(file):
             y_arr1_lmember = None
             y_arr2_lmember = None
             y_cond_lmember = None
+            y_arg = None
             y_arr1_prefix = ""
             y_arr2_prefix = ""
             y_cond_prefix = ""
-            if y.arr1.lhs or y.arr2.lhs or y.cond.lhs:
+            y_arg_prefix = ""
+            if y.arr1.lhs or y.arr2.lhs or y.cond.lhs or y.arg:
                 for z in block.members:
                     if not y_arr1_lmember and y.arr1.lhs == z.name:
                         y_arr1_lmember = z
@@ -185,6 +187,8 @@ class CFile(file):
                         y_arr2_lmember = z
                     if not y_cond_lmember and y.cond.lhs == z.name:
                         y_cond_lmember = z
+                    if not y_arg and y.arg == z.name:
+                        y_arg = z
                 if y_arr1_lmember:
                     if y_arr1_lmember.is_declared:
                         y_arr1_prefix = prefix
@@ -200,11 +204,29 @@ class CFile(file):
                         y_cond_prefix = prefix
                     else:
                         y_cond_prefix = localprefix
+                if y_arg:
+                    if y_arg.is_declared:
+                        y_arg_prefix = prefix
+                    else:
+                        y_arg_prefix = localprefix
             # resolve this prefix
             if y.is_declared:
                 y_prefix = prefix
             else:
                 y_prefix = localprefix
+            # resolve arguments
+            if y.arr1 and y.arr1.lhs == 'ARG':
+                y.arr1.lhs = arg_member.name
+                y.arr1.clhs = arg_member.cname
+                y_arr1_prefix = arg_prefix
+            if y.arr2 and y.arr2.lhs == 'ARG':
+                y.arr2.lhs = arg_member.name
+                y.arr2.clhs = arg_member.cname
+                y_arr2_prefix = arg_prefix
+            if y.cond and y.cond.lhs == 'ARG':
+                y.cond.lhs = arg_member.name
+                y.cond.clhs = arg_member.cname
+                y_cond_prefix = arg_prefix
             # conditioning
             y_cond = y.cond.code(y_cond_prefix)
             if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
@@ -309,11 +331,11 @@ class CFile(file):
             else:
                 subblock = compound_types[y.type]
                 if not y.arr1.lhs:
-                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s."%z)
+                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s."%z, y_arg_prefix,  y_arg)
                 elif not y.arr2.lhs:
-                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s."%z)
+                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s."%z, y_arg_prefix, y_arg)
                 else:
-                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s."%z)
+                    self.stream(subblock, action, "%s%s_"%(localprefix, y.cname), "%s."%z, y_arg_prefix, y_arg)
 
             # close array loops
             if y.arr1.lhs:
@@ -382,7 +404,7 @@ def define_name(n):
 
 def member_name(n):
     if n == None: return None
-    if n == '(ARG)': return 'attr_arg'
+    if n == 'ARG': return 'ARG'
     n2 = ''
     lower = True
     for i, c in enumerate(n):
