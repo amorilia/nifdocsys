@@ -286,7 +286,10 @@ class CFile(file):
                 if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
                     if (not subblock.is_link) and (not subblock.is_crossref):
                         if action in [ACTION_READ, ACTION_WRITE]:
-                            self.code("NifStream( %s, %s, version );"%(z, stream))
+                            if not y.arg:
+                                self.code("NifStream( %s, %s, version );"%(z, stream))
+                            else:
+                                self.code("NifStream( %s, %s, version, %s%s );"%(z, stream, y_prefix, y.carg))
                     else:
                         if action == ACTION_READ:
                             self.code("NifStream( block_num, %s, version );"%stream)
