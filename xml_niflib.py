@@ -160,7 +160,7 @@ class CFile(file):
                             else:
                                 # index of dynamically sized array
                                 self.code('%s%s.resize(%s%s.size());'%(localprefix, y.cname, prefix, y.carr2_ref[0]))
-                                self.code('for (uint i%i = 0; i < %s%s.size(); i++)'%(self.indent, prefix, y.carr2_ref[0]))
+                                self.code('for (uint i%i = 0; i%i < %s%s.size(); i%i++)'%(self.indent, self.indent, prefix, y.carr2_ref[0], self.indent))
                                 self.code('\t%s%s[i%i] = %s(%s%s[i%i].size());'%(localprefix, y.cname, self.indent, y.ctype, prefix, y.carr2_ref[0], self.indent))
                         elif y.func:
                             assert(not y.is_declared) # bug check
@@ -296,7 +296,7 @@ class CFile(file):
                     else:
                         self.code(\
                             "for (uint i%i = 0; i%i < %s[i%i]; i%i++) {"\
-                            %(self.indent, self.indent, self.indent-1, y.arr2.code(y_arr2_prefix), self.indent))
+                            %(self.indent, self.indent, y.arr2.code(y_arr2_prefix), self.indent-1, self.indent))
                     z = "%s%s[i%i][i%i]"%(y_prefix, y.cname, self.indent-2, self.indent-1)
     
             if native_types.has_key(y.type):
@@ -514,21 +514,25 @@ class Member:
         # calculate stuff from reference to previous members
         # true if this is a duplicate of a previously declared member
         self.is_duplicate = False
+        self.arr2_dynamic = False  # true if arr2 refers to an array
         sis = element.previousSibling
         while sis:
             if sis.nodeType == Node.ELEMENT_NODE:
-                if sis.getAttribute('name') == self.name:
+                sis_name = sis.getAttribute('name')
+                if sis_name == self.name:
                     self.is_duplicate = True
-                    break
+                sis_arr1 = Expr(sis.getAttribute('arr1'))
+                sis_arr2 = Expr(sis.getAttribute('arr2'))
+                if sis_name == self.arr2.lhs and sis_arr1.lhs:
+                    self.arr2_dynamic = True
             sis = sis.previousSibling
 
         # calculate stuff from reference to next members
         self.arr1_ref = [] # names of the attributes it is a (unmasked) size of
         self.arr2_ref = [] # names of the attributes it is a (unmasked) size of
         self.cond_ref = [] # names of the attributes it is a condition of
-        self.arr2_dynamic = False  # true if arr2 refers to an array
         sis = element.nextSibling
-        while sis:
+        while sis != None:
             if sis.nodeType == Node.ELEMENT_NODE:
                 sis_name = sis.getAttribute('name')
                 sis_arr1 = Expr(sis.getAttribute('arr1'))
@@ -540,8 +544,6 @@ class Member:
                     self.arr2_ref.append(sis_name)
                 if sis_cond.lhs == self.name:
                     self.cond_ref.append(sis_name)
-                if sis_name == self.arr2.lhs and sis_arr1.lhs:
-                    self.arr2_dynamic = True
             sis = sis.nextSibling
         # true if it is declared in the class, if false, this field is calculated somehow
         if True: #parent.tagName == "compound": ### DISABLED FOR NOW... TRY TO FIND OTHER SOLUTION
