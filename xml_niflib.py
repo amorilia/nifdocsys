@@ -901,6 +901,30 @@ h.code("#endif")
 
 h.close()
 
+# Factories
+
+f = CFile("docsys_extract.cpp", "w")
+f.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+f.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+f.code()
+f.code('#include "obj/NiObject.h"')
+f.code('typedef NiObject*(*blk_factory_func)();')
+f.code('extern map<string, blk_factory_func> global_block_map;')
+f.code()
+for n in block_names:
+    x = block_types[n]
+    if not x.is_ancestor:
+        f.code('#include "obj/%s.h"'%x.cname)
+        f.code('NiObject * Create%s() { return new %s; }'%(x.cname,x.cname))
+f.code()
+f.code('//This function registers the factory functions with global_block_map which is used by CreateBlock')
+f.code('void RegisterBlockFactories() {')
+for n in block_names:
+    x = block_types[n]
+    if not x.is_ancestor:
+        f.code('global_block_map["%s"] = Create%s;'%(x.cname, x.cname))
+f.code('}')
+
 # SConstruct file names
 
 scons = open("SConstruct", "w")
