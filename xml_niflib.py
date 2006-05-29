@@ -943,7 +943,7 @@ for n in block_names:
     scons.write('obj/' + n + '.cpp ')
 scons.write("'\n\n")
 
-scons.write("""niflib = env.StaticLibrary('niflib', Split('niflib.cpp nif_math.cpp NIF_IO.cpp kfm.cpp obj/Type.cpp ' + objfiles), CPPPATH = '.', CPPFLAGS = cppflags)
+scons.write("""niflib = env.StaticLibrary('niflib', Split('niflib.cpp nif_math.cpp NIF_IO.cpp kfm.cpp docsys_extract.cpp obj/Type.cpp ' + objfiles), CPPPATH = '.', CPPFLAGS = cppflags)
 #nifshlib = env.SharedLibrary('_niflib', 'pyniflib.i', LIBS=['niflib'] + python_lib, LIBPATH=['.'] + python_libpath, SWIGFLAGS = '-c++ -python', CPPPATH = ['.'] + python_include, CPPFLAGS = cppflags, SHLIBPREFIX='')
 # makes sure niflib.lib is built before trying to build _niflib.dll
 #env.Depends(nifshlib, niflib)
