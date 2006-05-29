@@ -886,7 +886,82 @@ h.code("#endif")
 
 h.close()
 
+# SConstruct file names
+
 scons = open("SConstruct.src", "w")
 for n in block_names:
     scons.write('obj/' + n + '.cpp ')
 scons.close()
+
+# Templates
+
+for n in block_names:
+    x = block_types[n]
+    x_define_name = define_name(x.cname)
+    
+    out = CFile('obj/' + x.cname + '.h', 'w')
+    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+    out.code()
+    out.code( '#ifndef _' + x.cname.upper() + '_H_' )
+    out.code( '#define _' + x.cname.upper() + '_H_' )
+    out.code()
+    out.code( '#include \"xml_extract.h\"' )
+    out.code( '#include ' + x_define_name + '_INCLUDE\n')
+    out.code()
+    out.code( '/*' )
+    out.code( ' * ' + x.cname)
+    out.code( ' */' )
+    out.code()
+    out.code( 'class ' + x.cname + ';' )
+    out.code( 'typedef Ref<' + x.cname + '> ' + x.cname + 'Ref;' )
+    out.code()
+    out.code( 'class ' + x.cname + ' : public ' + x_define_name + '_PARENT {' )
+    out.code( 'public:' )
+    out.code( x.cname + '();' )
+    out.code( '~' + x.cname + '();' )
+    out.code( '//Run-Time Type Information' )
+    out.code( 'static const Type TYPE;' )
+    out.code( 'virtual void Read( istream& in, list<uint> link_stack, unsigned int version );\n' )
+    out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version ) const;\n' )
+    out.code( 'virtual string asString( bool verbose = false ) const;\n' )
+    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> link_stack, unsigned int version );\n' );
+    out.code( 'protected:' )
+    out.code( x_define_name + '_MEMBERS' )
+    for y in x.members:
+        if y.func:
+            out.code
+    out.code( '};' );
+    out.code();
+    out.code( '#endif' );
+    out.close()
+
+    out = CFile('obj/' + x.cname + '.cpp', 'w')
+    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+    out.code()
+    out.code( '#include \"' + x.cname + '.h\"' )
+    out.code()
+    out.code( '//Definition of TYPE constant' )
+    out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
+    out.code()
+    out.code( x.cname + '::' + x.cname + '() ' + x_define_name + '_CONSTRUCT {}' )
+    out.code()
+    out.code( x.cname + '::' + '~' + x.cname + '() {}' )
+    out.code()
+    out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> link_stack, unsigned int version ) {' )
+    out.code( x_define_name + '_READ' )
+    out.code( '}' )
+    out.code()
+    out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version ) const {' )
+    out.code( x_define_name + '_WRITE' )
+    out.code( '}' )
+    out.code()
+    out.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
+    out.code( x_define_name + '_STRING' )
+    out.code( '}' )
+    out.code()
+    out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> link_stack, unsigned int version ) {' );
+    out.code( x_define_name + '_FIXLINKS' )
+    out.code( '}' )
+    out.code()
