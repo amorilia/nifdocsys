@@ -988,10 +988,11 @@ for n in block_names:
     out.code( '~' + x.cname + '();' )
     out.code( '//Run-Time Type Information' )
     out.code( 'static const Type TYPE;' )
-    out.code( 'virtual void Read( istream& in, list<uint> link_stack, unsigned int version );' )
-    out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version ) const;' )
+    out.code( 'virtual void Read( istream& in, list<uint> & link_stack, uint version );' )
+    out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, uint version ) const;' )
     out.code( 'virtual string asString( bool verbose = false ) const;\n' )
-    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> link_stack, unsigned int version );' );
+    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, uint version );' );
+    out.code( 'virtual const Type & GetType() const;' )
     out.code( 'protected:' )
     for y in x.members:
         if y.func:
@@ -1036,11 +1037,11 @@ for n in block_names:
     out.code()
     out.code( x.cname + '::' + '~' + x.cname + '() {}' )
     out.code()
-    out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> link_stack, unsigned int version ) {' )
+    out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, uint version ) {' )
     out.code( x_define_name + '_READ' )
     out.code( '}' )
     out.code()
-    out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version ) const {' )
+    out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, uint version ) const {' )
     out.code( x_define_name + '_WRITE' )
     out.code( '}' )
     out.code()
@@ -1048,9 +1049,13 @@ for n in block_names:
     out.code( x_define_name + '_STRING' )
     out.code( '}' )
     out.code()
-    out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> link_stack, unsigned int version ) {' );
+    out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, uint version ) {' );
     out.code( x_define_name + '_FIXLINKS' )
     out.code( '}' )
+    out.code()
+    out.code( 'virtual const Type & GetType() const {' )
+    out.code( 'return TYPE;' )
+    out.code( '};' )
     out.code()
     for y in x.members:
         if y.func:
