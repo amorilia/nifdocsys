@@ -141,14 +141,15 @@ class CFile(file):
                     self.code("links.extend(%s::GetLinks());"%block.inherit.cname)
 
         # declare and calculate local variables
-        if action in [ACTION_READ, ACTION_WRITE, ACTION_OUT, ACTION_FIXLINKS]:
+        if action in [ACTION_READ, ACTION_WRITE, ACTION_OUT]:
             block.members.reverse() # calculated data depends on data further down the structure
             for y in block.members:
                 # read + write + out + fixlinks: declare
                 if not y.is_declared and not y.is_duplicate:
+                    # declare it
                     self.code(y.code_declare(localprefix))
-                    # write + out + fixlinks: calculate
-                    if action in [ACTION_WRITE, ACTION_OUT, ACTION_FIXLINKS]:
+                    # write + out: calculate
+                    if action in [ACTION_WRITE, ACTION_OUT]:
                         if y.cond_ref:
                             assert(y.is_declared) # bug check
                         elif y.arr1_ref:
@@ -172,6 +173,15 @@ class CFile(file):
                             
         # now comes the difficult part: processing all members recursively
         for y in block.members:
+            # get block
+            try:
+                subblock = basic_types[y.type]
+            except KeyError:
+                subblock = compound_types[y.type]
+            # check for links
+            if action in [ACTION_FIXLINKS, ACTION_GETLINKS]:
+                if not subblock.has_links and not subblock.has_crossrefs:
+                    continue # contains no links, so skip this member!
             # resolve array & cond references
             y_arr1_lmember = None
             y_arr2_lmember = None
