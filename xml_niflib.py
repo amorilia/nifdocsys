@@ -1026,6 +1026,8 @@ for n in block_names:
             out.code( '#include "NiStringPalette.h"' )
         elif y.ctype == "AVObject":
             out.code( '#include "NiAVObject.h"' )
+        elif y.ctype in ["TexDesc", "ShaderTexDesc"]:
+            out.code( '#include "NiSourceTexture.h"' )
     out.code()
     out.code( '//Definition of TYPE constant' )
     out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
