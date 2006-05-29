@@ -6,7 +6,7 @@ from textwrap import wrap
 #
 
 native_types = {}
-native_types['(TEMPLATE)'] = 'T'
+native_types['TEMPLATE'] = 'T'
 basic_types = {}
 compound_types = {}
 block_types = {}
@@ -377,7 +377,7 @@ def class_name(n):
         return native_types[n]
     except KeyError:
         pass
-    if n == '(TEMPLATE)': return 'T'
+    if n == 'TEMPLATE': return 'T'
     n2 = ''
     for i, c in enumerate(n):
         if ('A' <= c) and (c <= 'Z'):
@@ -674,9 +674,9 @@ class Compound(Basic):
             self.members.append(x)
             
             # detect templates
-            if x.type == '(TEMPLATE)':
+            if x.type == 'TEMPLATE':
                 self.template = True
-            if x.template == '(TEMPLATE)':
+            if x.template == 'TEMPLATE':
                 self.template = True
 
             # detect argument
@@ -720,14 +720,12 @@ class Block(Compound):
     def __init__(self, element):
         Compound.__init__(self, element)
         
-        self.is_ancestor = (element.getElementsByTagName('abstract') == "1")
-        
-        self.inherit = None   # ancestor block
-        
-        for inherit in element.getElementsByTagName('inherit'):
-            self.inherit = block_types[inherit.getAttribute('name')]
-            break
-
+        self.is_ancestor = (element.getAttribute('abstract') == "1")
+        inherit = element.getAttribute('inherit')
+        if inherit:
+            self.inherit = block_types[inherit]
+        else:
+            self.inherit = None
         self.has_interface = (element.getElementsByTagName('interface') != [])
 
 
@@ -887,3 +885,8 @@ h.backslash_mode = False
 h.code("#endif")
 
 h.close()
+
+scons = open("SConstruct.src", "w")
+for n in block_names:
+    scons.write('obj/' + n + '.cpp ')
+scons.close()
