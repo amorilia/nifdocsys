@@ -927,10 +927,16 @@ for n in block_names:
     out.code( 'virtual string asString( bool verbose = false ) const;\n' )
     out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> link_stack, unsigned int version );\n' );
     out.code( 'protected:' )
-    out.code( x_define_name + '_MEMBERS' )
     for y in x.members:
         if y.func:
-            out.code
+            if not y.template:
+                out.code( '%s %s() const;'%(y.ctype, y.func) )
+            else:
+                if y.ctype != "*":
+                    out.code( '%s<%s > %s::%s() const;'%(y.ctype, y.ctemplate, x.cname, y.func) )
+                else:
+                    out.code( '%s * %s::%s() const;'%(y.ctemplate, x.cname, y.func ) )
+    out.code( x_define_name + '_MEMBERS' )
     out.code( '};' );
     out.code();
     out.code( '#endif' );
@@ -965,3 +971,12 @@ for n in block_names:
     out.code( x_define_name + '_FIXLINKS' )
     out.code( '}' )
     out.code()
+    for y in x.members:
+        if y.func:
+            if not y.template:
+                out.code( '%s %s::%s() const { return %s(); }'%(y.ctype, x.cname, y.func, y.ctype) )
+            else:
+                if y.ctype != "*":
+                    out.code( '%s<%s > %s::%s() const { return %s<%s >(); }'%(y.ctype, y.ctemplate, x.cname, y.func, y.ctype, y.ctemplate) )
+                else:
+                    out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
