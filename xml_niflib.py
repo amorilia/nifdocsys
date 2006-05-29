@@ -313,10 +313,6 @@ class CFile(file):
     
             if native_types.has_key(y.type):
                 # resolve variable name
-                try:
-                    subblock = basic_types[y.type]
-                except KeyError:
-                    subblock = compound_types[y.type]
                 if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
                     if (not subblock.is_link) and (not subblock.is_crossref):
                         if action in [ACTION_READ, ACTION_WRITE]:
@@ -327,15 +323,17 @@ class CFile(file):
                     else:
                         if action == ACTION_READ:
                             self.code("NifStream( block_num, %s, version );"%stream)
-                            self.code("link_stack.push_back( block_num );")
+                            if y.is_declared and not y.is_duplicate:
+                                self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
                             self.code("NifStream( link_map[StaticCast<NiObject>(%s)], %s, version );"%(z, stream))
                         elif action == ACTION_FIXLINKS:
-                            self.code("if (link_stack.front() != 0xffffffff)")
-                            self.code("\t%s = DynamicCast<%s>(objects[link_stack.front()]);"%(z,y.ctemplate))
-                            self.code("else")
-                            self.code("\t%s = NULL;"%z)
-                            self.code("link_stack.pop_front();")
+                            if y.is_declared and not y.is_duplicate:
+                                self.code("if (link_stack.front() != 0xffffffff)")
+                                self.code("\t%s = DynamicCast<%s>(objects[link_stack.front()]);"%(z,y.ctemplate))
+                                self.code("else")
+                                self.code("\t%s = NULL;"%z)
+                                self.code("link_stack.pop_front();")
                 elif action == ACTION_OUT:
                     if not y.arr1.lhs:
                         self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
@@ -563,18 +561,11 @@ class Member:
                     self.cond_ref.append(sis_name)
             sis = sis.nextSibling
         # true if it is declared in the class, if false, this field is calculated somehow
-        if True: #parent.tagName == "compound": ### DISABLED FOR NOW... TRY TO FIND OTHER SOLUTION
-            # compounds don't have inheritance
-            # so don't declare variables that can be calculated; ("Num Vertices" is a dirty hack, it's used in derived classes as array size so we must declare it)
-            if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref and self.name != "Num Vertices":
-                self.is_declared = False
-            else:
-                self.is_declared = True
-        else:
-            # always declare block fields, to avoid issues with inheritance
-            # a calculated field might still be used by a child
-            # in case we need to keep track of it
-            self.is_declared = True
+        # so don't declare variables that can be calculated; ("Num Vertices" is a dirty hack, it's used in derived classes as array size so we must declare it)
+        #if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref and self.name != "Num Vertices":
+        #    self.is_declared = False
+        #else:
+        self.is_declared = True
 
         # C++ names
         self.cname     = member_name(self.name)
