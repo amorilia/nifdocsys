@@ -1013,6 +1013,11 @@ for n in block_names:
     out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
     out.code()
     out.code( '#include \"' + x.cname + '.h\"' )
+    for y in x.members:
+        if y.ctype == "Ref" or y.ctype == "*":
+            out.code( '#include \"%s.h\"'%y.ctemplate )
+        elif y.ctype == "NodeGroup":
+            out.code( '#include "NiNode.h"' )
     out.code()
     out.code( '//Definition of TYPE constant' )
     out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
