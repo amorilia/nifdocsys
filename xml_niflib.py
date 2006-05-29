@@ -1,9 +1,19 @@
 from xml.dom.minidom import *
 from textwrap import wrap
 
+import sys
+import os
+
 #
 # global data
 #
+
+root_dir = "."
+prev = ""
+for i in sys.argv:
+    if prev == "-p":
+        root_dir = i
+    prev = i
 
 native_types = {}
 native_types['TEMPLATE'] = 'T'
@@ -28,7 +38,7 @@ ACTION_GETLINKS = 5
 
 class CFile(file):
     def __init__(self, filename, mode):
-        file.__init__(self, filename, mode)
+        file.__init__(self, root_dir + os.sep + filename, mode)
         self.indent = 0
         self.backslash_mode = False
     
@@ -775,7 +785,7 @@ All rights reserved.  Please see niflib.h for licence. */
 #define _XML_EXTRACT_H_
 
 #include "NIF_IO.h"
-#include "obj\Ref.h"
+#include "obj/Ref.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
