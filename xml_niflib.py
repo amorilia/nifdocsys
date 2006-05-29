@@ -1053,7 +1053,7 @@ for n in block_names:
     out.code( x_define_name + '_FIXLINKS' )
     out.code( '}' )
     out.code()
-    out.code( 'virtual const Type & GetType() const {' )
+    out.code( 'const Type & %s::GetType() const {'%(x.cname) )
     out.code( 'return TYPE;' )
     out.code( '};' )
     out.code()
