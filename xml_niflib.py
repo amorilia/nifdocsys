@@ -1018,6 +1018,14 @@ for n in block_names:
             out.code( '#include \"%s.h\"'%y.ctemplate )
         elif y.ctype == "NodeGroup":
             out.code( '#include "NiNode.h"' )
+        elif y.ctype in ["SkinShape", "SkinShapeGroup"]:
+            out.code( '#include "NiTriShape.h"' )
+            out.code( '#include "NiSkinInstance.h"' )
+        elif y.ctype == "ControllerLink":
+            out.code( '#include "NiInterpolator.h"' )
+            out.code( '#include "NiStringPalette.h"' )
+        elif y.ctype == "AVObject":
+            out.code( '#include "NiAVObject.h"' )
     out.code()
     out.code( '//Definition of TYPE constant' )
     out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
@@ -1051,3 +1059,5 @@ for n in block_names:
                     out.code( '%s<%s > %s::%s() const { return %s<%s >(); }'%(y.ctype, y.ctemplate, x.cname, y.func, y.ctype, y.ctemplate) )
                 else:
                     out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
+    out.close()
+    
