@@ -750,13 +750,46 @@ for element in doc.getElementsByTagName("niblock"):
     block_types[x.name] = x
     block_names.append(x.name)
 
-#
-# generate header code
-#
+# generate compound code
+
+for n in compound_names:
+    x = compound_types[n]
+    
+    # skip natively implemented types
+    if x.niflibtype: continue
+    if n[:3] == 'ns ': continue
+
+    h = CFile('obj/' + x.cname + '.h', 'w')
+    h.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    h.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+    h.code()
+    h.code( '#ifndef _' + x.cname.upper() + '_H_' )
+    h.code( '#define _' + x.cname.upper() + '_H_' )
+    h.code()
+    
+    # header
+    h.comment(x.description)
+    hdr = "struct %s"%x.cname
+    if x.template: hdr = "template <class T >\n%s"%hdr
+    hdr += " {"
+    h.code(hdr)
+
+    # declaration
+    h.declare(x)
+    
+    # constructor
+    x_code_construct = x.code_construct()
+    if x_code_construct:
+        h.code("%s()"%x.cname + x_code_construct + " {};")
+    
+    # done
+    h.code("};")
+    h.code()
+    h.code( '#endif' )
+    
+# generate block code
 
 h = CFile("xml_extract.h", "w")
-# at the moment there is no C++ file; code is in #define's
-#c = CFile("xml_extract.cpp", "w")
 
 # file header
 
@@ -783,34 +816,6 @@ for n in block_names:
     h.code("class %s;"%x.cname)
 
 h.code()
-
-# generate compound code
-for n in compound_names:
-    x = compound_types[n]
-    
-    # skip natively implemented types
-    if x.niflibtype: continue
-    
-    # header
-    h.comment(x.description)
-    hdr = "struct %s"%x.cname
-    if x.template: hdr = "template <class T >\n%s"%hdr
-    hdr += " {"
-    h.code(hdr)
-
-    # declaration
-    h.declare(x)
-    
-    # constructor
-    x_code_construct = x.code_construct()
-    if x_code_construct:
-        h.code("%s()"%x.cname + x_code_construct + " {};")
-    
-    # done
-    h.code("};")
-    h.code()
-    
-# generate block code
 
 h.backslash_mode = True
 
