@@ -184,6 +184,9 @@ class CFile(file):
             if action in [ACTION_FIXLINKS, ACTION_GETLINKS]:
                 if not subblock.has_links and not subblock.has_crossrefs:
                     continue # contains no links, so skip this member!
+            if action == ACTION_OUT:
+                if y.is_duplicate:
+                    continue # don't write variables twice
             # resolve array & cond references
             y_arr1_lmember = None
             y_arr2_lmember = None
@@ -290,8 +293,6 @@ class CFile(file):
                             self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
                             self.code("\t%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
             
-            # TODO handle arguments
-            
             # loop over arrays
             # and resolve variable name
             if not y.arr1.lhs:
@@ -338,12 +339,20 @@ class CFile(file):
                                 self.code("\t%s = NULL;"%z)
                                 self.code("link_stack.pop_front();")
                 elif action == ACTION_OUT:
-                    if not y.arr1.lhs:
-                        self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
-                    elif not y.arr2.lhs:
-                        self.code('%s << "%*s%s[" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-1, z))
+                    if (not subblock.is_link) and (not subblock.is_crossref):
+                        if not y.arr1.lhs:
+                            self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
+                        elif not y.arr2.lhs:
+                            self.code('%s << "%*s%s[" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-1, z))
+                        else:
+                            self.code('%s << "%*s%s[" << i%i << "][" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-2, self.indent-1, z))
                     else:
-                        self.code('%s << "%*s%s[" << i%i << "][" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-2, self.indent-1, z))
+                        if not y.arr1.lhs:
+                            self.code('%s << "%*s%s:  " << "%s" << endl;'%(stream, 2*self.indent, "", y.name, y.ctemplate))
+                        elif not y.arr2.lhs:
+                            self.code('%s << "%*s%s[" << i%i << "]:  " << "%s" << endl;'%(stream, 2*self.indent, "", y.name, self.indent-1, y.ctemplate))
+                        else:
+                            self.code('%s << "%*s%s[" << i%i << "][" << i%i << "]:  " << "%s" << endl;'%(stream, 2*self.indent, "", y.name, self.indent-2, self.indent-1, y.ctemplate))
             else:
                 subblock = compound_types[y.type]
                 if not y.arr1.lhs:
