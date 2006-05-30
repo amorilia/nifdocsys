@@ -104,14 +104,6 @@ class CFile(file):
             self.code('throw runtime_error("The attribute you requested does not exist in this block, or cannot be accessed.");')
         self.code("return attr_ref();")
 
-    def out(self, block):
-        if block.inherit:
-            self.code("out << %s::asString();"%block.inherit.cname)
-        for y in block.members:
-            out = y.code_out()
-            if out:
-                self.code(out)
-
     def stream(self, block, action, localprefix = "", prefix = "", arg_prefix = "", arg_member = None):
         lastver1 = None
         lastver2 = None
@@ -608,42 +600,6 @@ class Member:
                 result = "vector<%s >"%result
         result += " " + prefix + self.cname + ";"
         return result
-
-    # handle calculated data; used when writing
-    def code_calculate(self, localprefix = '', prefix = ''):
-        if self.cond_ref:
-            assert(self.is_declared) # bug check
-            return None
-        elif self.arr1_ref:
-            assert(not self.is_declared) # bug check
-            return '%s%s = %s(%s%s.size());'%(localprefix, self.cname, self.ctype, prefix, self.carr1_ref[0])
-        elif self.arr2_ref:
-            assert(not self.is_declared) # bug check
-            if not self.arr1.lhs:
-                return '%s%s = %s(%s%s.size());'%(localprefix, self.cname, self.ctype, prefix, self.carr2_ref[0])
-            else:
-                # index of dynamically sized array
-                result = '%s%s.resize(%s%s.size()); '%(localprefix, self.cname, prefix, self.carr2_ref[0])
-                result += 'for (uint i%i = 0; i < %s%s.size(); i++) '%(indent, prefix, self.carr2_ref[0])
-                result += '%s%s[i%i] = %s(%s%s[i%i].size());'%(localprefix, self.cname, indent, self.ctype, prefix, self.carr2_ref[0], indent)
-                return result
-        elif self.func:
-            assert(not self.is_declared) # bug check
-            return '%s%s = %s%s();'%(prefix, self.cname, prefix, self.func)
-        else:
-            assert(self.is_declared) # bug check
-            return None
-
-    # send to "out" stream
-    def code_out(self, prefix = ""): # prefix used for like "val." in operator<<
-        # don't print array sizes and calculated data
-        if self.is_duplicate: return
-        if not self.is_declared:
-            return "out << \"%20s:  -- calculated --\" << endl;"%self.name
-        elif not self.arr1.lhs:
-            return "out << \"%20s:  \" << %s%s << endl;"%(self.name, prefix, self.cname)
-        else:
-            return "out << \"%20s:  -- data not shown --\" << endl;"%self.name
 
 
 
