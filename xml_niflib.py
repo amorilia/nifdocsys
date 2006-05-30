@@ -332,7 +332,8 @@ class CFile(file):
                             self.code("NifStream( link_map[StaticCast<NiObject>(%s)], %s, version );"%(z, stream))
                         elif action == ACTION_FIXLINKS:
                             if y.is_declared and not y.is_duplicate:
-                                self.code("assert(!link_stack.empty());")
+                                self.code("if (!link_stack.empty())")
+                                self.code("\tthrow runtime_error(\"Trying to pop a link from empty stack. This is probably a bug.\");")
                                 self.code("if (link_stack.front() != 0xffffffff)")
                                 self.code("\t%s = DynamicCast<%s>(objects[link_stack.front()]);"%(z,y.ctemplate))
                                 self.code("else")
@@ -771,7 +772,6 @@ All rights reserved.  Please see niflib.h for licence. */
 #include <fstream>
 #include <vector>
 #include <string>
-#include <cassert>
 
 using namespace std;
 
