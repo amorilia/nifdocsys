@@ -114,7 +114,7 @@ class CFile(file):
         elif action == ACTION_WRITE:
             stream = "out"
         elif action == ACTION_OUT:
-            stream = "out"
+            stream = "cout" # CHEATING!!! turn this back to out when we're done debugging...
 
         # preperation
         if isinstance(block, Block):
