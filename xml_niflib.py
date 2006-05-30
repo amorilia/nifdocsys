@@ -522,11 +522,26 @@ class Member:
         self.cond      = Expr(element.getAttribute('cond'))
         self.func      = element.getAttribute('function')
         self.default   = element.getAttribute('default')
+        if not self.default and (not self.arr1.lhs and not self.arr2.lhs):
+            if self.type in ["uint", "ushort", "byte"]:
+                self.default = "0"
+            elif self.type == "bool":
+                self.default = "false"
+            elif self.type in ["Ref", "Ptr"]:
+                self.default = "NULL"
+            elif self.type in "float":
+                self.default = "0.0"
+            elif self.type == "HeaderString":
+                pass
+            elif self.type in basic_names:
+                self.default = "0"
         if self.default:
             if self.type == "string":
                 self.default = "\"" + self.default + "\""
             elif self.type == "float":
                 self.default += "f"
+            elif self.type in ["Ref", "Ptr", "bool"]:
+                pass
             else:
                 self.default = "(%s)%s"%(class_name(self.type), self.default)
         assert element.firstChild.nodeType == Node.TEXT_NODE
