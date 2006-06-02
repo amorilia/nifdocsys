@@ -114,7 +114,7 @@ class CFile(file):
         elif action == ACTION_WRITE:
             stream = "out"
         elif action == ACTION_OUT:
-            stream = "cout" # CHEATING!!! turn this back to out when we're done debugging...
+            stream = "out" # CHEATING!!! turn this back to out when we're done debugging...
 
         # preperation
         if isinstance(block, Block):
@@ -332,7 +332,7 @@ class CFile(file):
                             self.code("NifStream( link_map[StaticCast<NiObject>(%s)], %s, version );"%(z, stream))
                         elif action == ACTION_FIXLINKS:
                             if y.is_declared and not y.is_duplicate:
-                                self.code("if (!link_stack.empty())")
+                                self.code("if (link_stack.empty())")
                                 self.code("\tthrow runtime_error(\"Trying to pop a link from empty stack. This is probably a bug.\");")
                                 self.code("if (link_stack.front() != 0xffffffff)")
                                 self.code("\t%s = DynamicCast<%s>(objects[link_stack.front()]);"%(z,y.ctemplate))
@@ -798,10 +798,11 @@ for n in compound_names:
     h.code(hdr)
     
     #constructor/destructor
-    h.code( '/*! Default Constructor */' )
-    h.code( "%s()"%x.cname + ';' )
-    h.code( '/*! Default Destructor */' )
-    h.code( "~%s()"%x.cname + ';' )
+    if not x.template:
+        h.code( '/*! Default Constructor */' )
+        h.code( "%s()"%x.cname + ';' )
+        h.code( '/*! Default Destructor */' )
+        h.code( "~%s()"%x.cname + ';' )
 
     # declaration
     h.declare(x)
