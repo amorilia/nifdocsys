@@ -759,8 +759,7 @@ for n in compound_names:
     if x.niflibtype: continue
     if n[:3] == 'ns ': continue
 
-    h = CFile('gen/' + x.cname + '.h', 'w')
-    cpp = CFile('gen/' + x.cname + '.cpp', 'w')
+    h = CFile('gen/' + x.cname + '.h', 'w')  
     h.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     h.code( 'All rights reserved.  Please see niflib.h for licence. */' )
     h.code()
@@ -813,36 +812,30 @@ for n in compound_names:
     h.code()
     h.code( '#endif' )
 
-    cpp.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-    cpp.code( 'All rights reserved.  Please see niflib.h for licence. */' )
-    cpp.code()
-    cpp.code( '#include \"' + x.cname + '.h\"' )
-    
-    #additional includes
-    for y in x.members:
-        if y.ctype == "Ref" or y.ctype == "*":
-            cpp.code( '#include \"obj/%s.h\"'%y.ctemplate )
+    if not x.template:
+        cpp = CFile('gen/' + x.cname + '.cpp', 'w')
+        cpp.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+        cpp.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+        cpp.code()
+        cpp.code( '#include \"' + x.cname + '.h\"' )
         
-    cpp.code()
-    cpp.code( '//Constructor' )
-    
-    # constructor
-    x_code_construct = x.code_construct()
-    if x_code_construct:
-        if x.template:
-            cpp.code( "template <class T >" )
-            cpp.code("%s<T>::%s()"%(x.cname,x.cname) + x_code_construct + " {};")
-        else:
+        #additional includes
+        for y in x.members:
+            if y.ctype == "Ref" or y.ctype == "*":
+                cpp.code( '#include \"obj/%s.h\"'%y.ctemplate )
+            
+        cpp.code()
+        cpp.code( '//Constructor' )
+        
+        # constructor
+        x_code_construct = x.code_construct()
+        if x_code_construct:
             cpp.code("%s::%s()"%(x.cname,x.cname) + x_code_construct + " {};")
-    cpp.code()
+        cpp.code()
 
-    cpp.code( '//Destructor' )
-    
-    # destructor
-    if x.template:
-        cpp.code( "template <class T >" )
-        cpp.code("%s<T>::~%s()"%(x.cname,x.cname) + " {};")
-    else:
+        cpp.code( '//Destructor' )
+        
+        # destructor
         cpp.code("%s::~%s()"%(x.cname,x.cname) + " {};")
     
 # generate block code
