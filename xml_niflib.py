@@ -759,12 +759,36 @@ for n in compound_names:
     if x.niflibtype: continue
     if n[:3] == 'ns ': continue
 
-    h = CFile('obj/' + x.cname + '.h', 'w')
+    h = CFile('gen/' + x.cname + '.h', 'w')
+    cpp = CFile('gen/' + x.cname + '.cpp', 'w')
     h.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     h.code( 'All rights reserved.  Please see niflib.h for licence. */' )
     h.code()
     h.code( '#ifndef _' + x.cname.upper() + '_H_' )
     h.code( '#define _' + x.cname.upper() + '_H_' )
+    h.code()
+    h.code( '#include \"NIF_IO.h\"' )
+
+    #additional structure includes
+    for y in x.members:
+        if y.ctype in compound_names and compound_types[y.ctype].niflibtype == '':
+            h.code( '#include \"gen/%s.h\"'%y.ctype )
+    
+    l = [] #new empty list
+    
+
+    #detect need for ref inclusion/forward declarations
+    for y in x.members:
+        if y.ctype == "Ref" or y.ctype == "*":
+            l.append( 'class %s;'%y.ctemplate )
+
+    if len(l) > 0:
+        h.code( '#include \"Ref.h\"' )
+        h.code()
+        h.code( '//Forward Declarations' )
+        for y in l:
+            h.code( y )
+
     h.code()
     
     # header
@@ -773,34 +797,68 @@ for n in compound_names:
     if x.template: hdr = "template <class T >\n%s"%hdr
     hdr += " {"
     h.code(hdr)
+    
+    #constructor/destructor
+    h.code( '/*! Default Constructor */' )
+    h.code( "%s()"%x.cname + ';' )
+    h.code( '/*! Default Destructor */' )
+    h.code( "~%s()"%x.cname + ';' )
 
     # declaration
     h.declare(x)
-    
-    # constructor
-    x_code_construct = x.code_construct()
-    if x_code_construct:
-        h.code("%s()"%x.cname + x_code_construct + " {};")
-    
+
+
     # done
     h.code("};")
     h.code()
     h.code( '#endif' )
+
+    cpp.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    cpp.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+    cpp.code()
+    cpp.code( '#include \"' + x.cname + '.h\"' )
+    
+    #additional includes
+    for y in x.members:
+        if y.ctype == "Ref" or y.ctype == "*":
+            cpp.code( '#include \"obj/%s.h\"'%y.ctemplate )
+        
+    cpp.code()
+    cpp.code( '//Constructor' )
+    
+    # constructor
+    x_code_construct = x.code_construct()
+    if x_code_construct:
+        if x.template:
+            cpp.code( "template <class T >" )
+            cpp.code("%s<T>::%s()"%(x.cname,x.cname) + x_code_construct + " {};")
+        else:
+            cpp.code("%s::%s()"%(x.cname,x.cname) + x_code_construct + " {};")
+    cpp.code()
+
+    cpp.code( '//Destructor' )
+    
+    # destructor
+    if x.template:
+        cpp.code( "template <class T >" )
+        cpp.code("%s<T>::~%s()"%(x.cname,x.cname) + " {};")
+    else:
+        cpp.code("%s::~%s()"%(x.cname,x.cname) + " {};")
     
 # generate block code
 
-h = CFile("xml_extract.h", "w")
+h = CFile("gen/obj_defines.h", "w")
 
 # file header
 
 h.write("""/* Copyright (c) 2006, NIF File Format Library and Tools
 All rights reserved.  Please see niflib.h for licence. */
 
-#ifndef _XML_EXTRACT_H_
-#define _XML_EXTRACT_H_
+#ifndef _OBJ_DEFINES_H_
+#define _OBJ_DEFINES_H_
 
 #include "NIF_IO.h"
-#include "obj/Ref.h"
+#include "Ref.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -809,6 +867,12 @@ All rights reserved.  Please see niflib.h for licence. */
 using namespace std;
 
 """)
+
+# for now just include all the unimplimented structures
+for y in compound_names:
+    if compound_types[y].niflibtype == '' and y[:3] != 'ns ':
+        h.code( '#include \"gen/%s.h\"'%y )
+h.code()
 
 # forward declaration of the block classes
 for n in block_names:
@@ -889,7 +953,7 @@ h.close()
 
 # Factories
 
-f = CFile("docsys_extract.cpp", "w")
+f = CFile("gen/obj_factories.cpp", "w")
 f.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
 f.code( 'All rights reserved.  Please see niflib.h for licence. */' )
 f.code()
