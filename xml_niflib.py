@@ -284,14 +284,15 @@ class CFile(file):
             # read: also resize arrays
             if action == ACTION_READ:
                 if y.arr1.lhs:
-                    self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
-                    if y.arr2.lhs:
-                        if not y.arr2_dynamic:
-                            self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
-                            self.code("\t%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix)))
-                        else:
-                            self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
-                            self.code("\t%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
+                    if y.arr1.lhs.isdigit() == False:
+                        self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
+                    #if y.arr2.lhs:
+                        #if not y.arr2_dynamic:
+                            #self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
+                            #self.code("\t%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix)))
+                        #else:
+                            #self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
+                            #self.code("\t%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
             
             # loop over arrays
             # and resolve variable name
@@ -614,16 +615,28 @@ class Member:
     # declaration
     def code_declare(self, prefix = ""): # prefix is used to tag local variables only
         result = self.ctype
+        suffix1 = ""
+        suffix2 = ""
         if self.ctemplate:
             if result != "*":
                 result += "<%s >"%self.ctemplate
             else:
                 result = "%s *"%self.ctemplate
         if self.arr1.lhs:
-            result = "vector<%s >"%result
+            if self.arr1.lhs.isdigit():
+                suffix1 = "[%s]"%self.arr1.lhs
+            else:
+                if self.arr2.lhs and self.arr2.lhs.isdigit():
+                    result = "vector< array<%s,%s> >"%(result,self.arr2.lhs)
+                else:
+                    result = "vector<%s >"%result
             if self.arr2.lhs:
-                result = "vector<%s >"%result
-        result += " " + prefix + self.cname + ";"
+                if self.arr2.lhs.isdigit():
+                    if self.arr1.lhs.isdigit():
+                        suffix2 = "[%s]"%self.arr2.lhs
+                else:
+                    result = "vector<%s >"%result
+        result += " " + prefix + self.cname + suffix1 + suffix2 + ";"
         return result
 
 
