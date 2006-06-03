@@ -282,18 +282,18 @@ class CFile(file):
                         self.code("if ( %s ) {"%y_cond)
     
             # read: also resize arrays
-            if action == ACTION_READ:
-                if y.arr1.lhs:
-                    if y.arr1.lhs.isdigit() == False:
-                        self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
-                    if y.arr2.lhs:
-                        if y.arr2.lhs.isdigit() == False:
-                            if not y.arr2_dynamic:
-                                self.code("for (uint i%i = 0; i%i < %s%s.size(); i%i++)"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
-                                self.code("\t%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix)))
-                            else:
-                                self.code("for (uint i%i = 0; i%i < %s%s.size(); i%i++)"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
-                                self.code("\t%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
+            #if action == ACTION_READ:
+            #    if y.arr1.lhs:
+            #        if y.arr1.lhs.isdigit() == False:
+            #            self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
+            #        if y.arr2.lhs:
+            #            if y.arr2.lhs.isdigit() == False:
+            #                if not y.arr2_dynamic:
+            #                    self.code("for (uint i%i = 0; i%i < %s%s.size(); i%i++)"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
+            #                    self.code("\t%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix)))
+            #                else:
+            #                    self.code("for (uint i%i = 0; i%i < %s%s.size(); i%i++)"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
+            #                    self.code("\t%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
                 
             # loop over arrays
             # and resolve variable name
@@ -301,6 +301,8 @@ class CFile(file):
                 z = "%s%s"%(y_prefix, y.cname)
             else:
                 if y.arr1.lhs.isdigit() == False:
+                    if action == ACTION_READ:
+                        self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
                     self.code(\
                         "for (uint i%i = 0; i%i < %s%s.size(); i%i++) {"\
                         %(self.indent, self.indent, y_prefix, y.cname, self.indent))
@@ -313,6 +315,8 @@ class CFile(file):
                 else:
                     if not y.arr2_dynamic:
                         if y.arr2.lhs.isdigit() == False:
+                            if action == ACTION_READ:
+                                self.code("%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent-1, y.arr2.code(y_arr2_prefix)))
                             self.code(\
                                 "for (uint i%i = 0; i%i < %s%s[i%i].size(); i%i++) {"\
                                 %(self.indent, self.indent, y_arr2_prefix, y.cname, self.indent-1, self.indent))
@@ -321,6 +325,8 @@ class CFile(file):
                                 "for (uint i%i = 0; i%i < %s; i%i++) {"\
                                 %(self.indent, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
                     else:
+                        if action == ACTION_READ:
+                            self.code("%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent-1, y.arr2.code(y_arr2_prefix), self.indent-1))
                         self.code(\
                             "for (uint i%i = 0; i%i < %s[i%i]; i%i++) {"\
                             %(self.indent, self.indent, y.arr2.code(y_arr2_prefix), self.indent-1, self.indent))
