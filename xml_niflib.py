@@ -358,20 +358,12 @@ class CFile(file):
                                 self.code("\t%s = NULL;"%z)
                                 self.code("link_stack.pop_front();")
                 elif action == ACTION_OUT:
-                    if (not subblock.is_link) and (not subblock.is_crossref):
-                        if not y.arr1.lhs:
-                            self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
-                        elif not y.arr2.lhs:
-                            self.code('%s << "%*s%s[" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-1, z))
-                        else:
-                            self.code('%s << "%*s%s[" << i%i << "][" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-2, self.indent-1, z))
+                    if not y.arr1.lhs:
+                        self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
+                    elif not y.arr2.lhs:
+                        self.code('%s << "%*s%s[" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-1, z))
                     else:
-                        if not y.arr1.lhs:
-                            self.code('%s << "%*s%s:  " << "%s" << endl;'%(stream, 2*self.indent, "", y.name, y.ctemplate))
-                        elif not y.arr2.lhs:
-                            self.code('%s << "%*s%s[" << i%i << "]:  " << "%s" << endl;'%(stream, 2*self.indent, "", y.name, self.indent-1, y.ctemplate))
-                        else:
-                            self.code('%s << "%*s%s[" << i%i << "][" << i%i << "]:  " << "%s" << endl;'%(stream, 2*self.indent, "", y.name, self.indent-2, self.indent-1, y.ctemplate))
+                        self.code('%s << "%*s%s[" << i%i << "][" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-2, self.indent-1, z))
             else:
                 subblock = compound_types[y.type]
                 if not y.arr1.lhs:
