@@ -350,9 +350,10 @@ class CFile(file):
                             if y.is_declared and not y.is_duplicate:
                                 self.code("if (link_stack.empty())")
                                 self.code("\tthrow runtime_error(\"Trying to pop a link from empty stack. This is probably a bug.\");")
-                                self.code("if (link_stack.front() != 0xffffffff)")
-                                self.code("\t%s = DynamicCast<%s>(objects[link_stack.front()]);"%(z,y.ctemplate))
-                                self.code("else")
+                                self.code("if (link_stack.front() != 0xffffffff) {")
+                                self.code("%s = DynamicCast<%s>(objects[link_stack.front()]);"%(z,y.ctemplate))
+                                self.code('if ( %s == NULL )\n\tthrow runtime_error("Link could not be cast to required type during file read. This NIF file may be invalid or improperly understood.");'%z)
+                                self.code("} else")
                                 self.code("\t%s = NULL;"%z)
                                 self.code("link_stack.pop_front();")
                 elif action == ACTION_OUT:
