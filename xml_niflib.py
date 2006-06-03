@@ -63,11 +63,9 @@ class CFile(file):
         else:
             endl = "\n"
         # indent string
-        prefix = "  " * self.indent
+        prefix = "\t" * self.indent
         # strip trailing whitespace, including newlines
         txt = txt.rstrip()
-        # replace tabs
-        txt = txt.replace("\t", "  ");
         # indent, and add newline
         result = prefix + txt.replace("\n", endl + prefix) + endl
         # block start
