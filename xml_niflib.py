@@ -289,10 +289,10 @@ class CFile(file):
                     if y.arr2.lhs:
                         if y.arr2.lhs.isdigit() == False:
                             if not y.arr2_dynamic:
-                                self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
+                                self.code("for (uint i%i = 0; i%i < %s%s.size(); i%i++)"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
                                 self.code("\t%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix)))
                             else:
-                                self.code("for (uint i%i = 0; i%i < %s; i%i++)"%(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
+                                self.code("for (uint i%i = 0; i%i < %s%s.size(); i%i++)"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
                                 self.code("\t%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
                 
             # loop over arrays
@@ -300,16 +300,26 @@ class CFile(file):
             if not y.arr1.lhs:
                 z = "%s%s"%(y_prefix, y.cname)
             else:
-                self.code(\
-                    "for (uint i%i = 0; i%i < %s; i%i++) {"\
-                    %(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
+                if y.arr1.lhs.isdigit() == False:
+                    self.code(\
+                        "for (uint i%i = 0; i%i < %s%s.size(); i%i++) {"\
+                        %(self.indent, self.indent, y_prefix, y.cname, self.indent))
+                else:
+                    self.code(\
+                        "for (uint i%i = 0; i%i < %s; i%i++) {"\
+                        %(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
                 if not y.arr2.lhs:
                     z = "%s%s[i%i]"%(y_prefix, y.cname, self.indent-1)
                 else:
                     if not y.arr2_dynamic:
-                        self.code(\
-                            "for (uint i%i = 0; i%i < %s; i%i++) {"\
-                            %(self.indent, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
+                        if y.arr2.lhs.isdigit() == False:
+                            self.code(\
+                                "for (uint i%i = 0; i%i < %s%s[i%i].size(); i%i++) {"\
+                                %(self.indent, self.indent, y_arr2_prefix, y.cname, self.indent-1, self.indent))
+                        else:
+                            self.code(\
+                                "for (uint i%i = 0; i%i < %s; i%i++) {"\
+                                %(self.indent, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
                     else:
                         self.code(\
                             "for (uint i%i = 0; i%i < %s[i%i]; i%i++) {"\
