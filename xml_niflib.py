@@ -557,8 +557,11 @@ class Member:
                 pass
             else:
                 self.default = "(%s)%s"%(class_name(self.type), self.default)
-        assert element.firstChild.nodeType == Node.TEXT_NODE
-        self.description = element.firstChild.nodeValue.strip()
+        if element.firstChild:
+            assert element.firstChild.nodeType == Node.TEXT_NODE
+            self.description = element.firstChild.nodeValue.strip()
+        else:
+            self.description = "Unknown."
         self.ver1      = version2number(element.getAttribute('ver1'))
         self.ver2      = version2number(element.getAttribute('ver2'))
         
@@ -734,6 +737,59 @@ class Compound(Basic):
                     first = False
         return result
 
+    def code_include_h(self):
+        if self.niflibtype: return ""
+
+        result = ""
+
+        # include all required structures and blocks
+        l = []
+        for y in self.members:
+            if y.type in compound_names and y.type != self.name and not compound_types[y.type].niflibtype:
+                incl = "gen/%s.h"%y.ctype
+                if incl not in l: l.append( incl )
+            elif y.template in block_names and y.template != self.name and y.type != "Ptr":
+                if not "Ref.h" in l: l.append( "Ref.h" )
+                incl = "obj/%s.h"%y.ctemplate
+                if incl not in l: l.append( incl )
+        for incl in l:
+            result += '#include "%s"\n'%incl
+    
+        # forward declaration of cross-referenced blocks
+        l = []
+        for y in self.members:
+            if y.type == "Ptr" and y.template != self.name:
+                if not y.ctemplate in l:
+                    l.append( y.ctemplate )
+        for crossref in l:
+            result += 'class %s;\n'%crossref
+
+        return result
+
+    def code_include_cpp(self):
+        if self.niflibtype: return ""
+
+        if self.name in compound_names:
+            result = '#include "gen/%s.h"\n'%self.cname
+        elif self.name in block_names:
+            result = '#include "obj/%s.h"\n'%self.cname
+        else: assert(False) # bug
+
+        # include cross-referenced blocks
+        l = []
+        for y in self.members:
+            if y.type == "Ptr" and y.template != self.name:
+                incl = "obj/%s.h"%y.ctemplate
+                if not incl in l:
+                    l.append( incl )
+            if y.type in compound_names:
+                subblock = compound_types[y.type]
+                result += subblock.code_include_cpp()
+        for crossref in l:
+            result += '#include "%s"\n'%incl
+
+        return result
+
 
 
 class Block(Compound):
@@ -747,6 +803,13 @@ class Block(Compound):
         else:
             self.inherit = None
         self.has_interface = (element.getElementsByTagName('interface') != [])
+
+    def code_include_h(self):
+        result = ""
+        if self.inherit:
+            result += '#include "%s.h"\n'%self.inherit.cname
+        result += Compound.code_include_h(self)
+        return result
 
 
 
@@ -790,28 +853,8 @@ for n in compound_names:
     h.code( '#ifndef _' + x.cname.upper() + '_H_' )
     h.code( '#define _' + x.cname.upper() + '_H_' )
     h.code()
-    h.code( '#include \"NIF_IO.h\"' )
-
-    #additional structure includes
-    for y in x.members:
-        if y.ctype in compound_names and compound_types[y.ctype].niflibtype == '':
-            h.code( '#include \"gen/%s.h\"'%y.ctype )
-    
-    l = [] #new empty list
-    
-
-    #detect need for ref inclusion/forward declarations
-    for y in x.members:
-        if y.ctype == "Ref" or y.ctype == "*":
-            l.append( 'class %s;'%y.ctemplate )
-
-    if len(l) > 0:
-        h.code( '#include \"Ref.h\"' )
-        h.code()
-        h.code( '//Forward Declarations' )
-        for y in l:
-            h.code( y )
-
+    h.code( '#include "NIF_IO.h"' )
+    h.code( x.code_include_h() )
     h.code()
     
     # header
@@ -842,13 +885,8 @@ for n in compound_names:
         cpp.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
         cpp.code( 'All rights reserved.  Please see niflib.h for licence. */' )
         cpp.code()
-        cpp.code( '#include \"' + x.cname + '.h\"' )
+        cpp.code( x.code_include_cpp() )
         
-        #additional includes
-        for y in x.members:
-            if y.ctype == "Ref" or y.ctype == "*":
-                cpp.code( '#include \"obj/%s.h\"'%y.ctemplate )
-            
         cpp.code()
         cpp.code( '//Constructor' )
         
@@ -862,7 +900,7 @@ for n in compound_names:
         
         # destructor
         cpp.code("%s::~%s()"%(x.cname,x.cname) + " {};")
-    
+
 # generate block code
 
 h = CFile("gen/obj_defines.h", "w")
@@ -887,17 +925,17 @@ using namespace std;
 """)
 
 # for now just include all the unimplimented structures
-for y in compound_names:
-    if compound_types[y].niflibtype == '' and y[:3] != 'ns ':
-        h.code( '#include \"gen/%s.h\"'%y )
-h.code()
+#for y in compound_names:
+#    if compound_types[y].niflibtype == '' and y[:3] != 'ns ':
+#        h.code( '#include "gen/%s.h"'%y )
+#h.code()
 
 # forward declaration of the block classes
-for n in block_names:
-    x = block_types[n]
-    h.code("class %s;"%x.cname)
+#for n in block_names:
+#    x = block_types[n]
+#    h.code("class %s;"%x.cname)
 
-h.code()
+#h.code()
 
 h.backslash_mode = True
 
@@ -995,7 +1033,7 @@ f.code('}')
 
 # SConstruct file names
 
-scons = open("SConstruct", "w")
+scons = open(root_dir + os.sep + "SConstruct", "w")
 
 scons.write("""
 import sys
@@ -1046,11 +1084,15 @@ You can get it from http://www.swig.org/\"\"\"
 """)
 
 scons.write("objfiles = '")
+for n in compound_names:
+    x = compound_types[n]
+    if n[:3] != 'ns ' and not x.niflibtype and not x.template:
+        scons.write('gen/' + n + '.cpp ')
 for n in block_names:
     scons.write('obj/' + n + '.cpp ')
 scons.write("'\n\n")
 
-scons.write("""niflib = env.StaticLibrary('niflib', Split('niflib.cpp nif_math.cpp NIF_IO.cpp kfm.cpp docsys_extract.cpp obj/Type.cpp ' + objfiles), CPPPATH = '.', CPPFLAGS = cppflags)
+scons.write("""niflib = env.StaticLibrary('niflib', Split('niflib.cpp nif_math.cpp NIF_IO.cpp kfm.cpp Type.cpp gen/obj_factories.cpp ' + objfiles), CPPPATH = '.', CPPFLAGS = cppflags)
 #nifshlib = env.SharedLibrary('_niflib', 'pyniflib.i', LIBS=['niflib'] + python_lib, LIBPATH=['.'] + python_libpath, SWIGFLAGS = '-c++ -python', CPPPATH = ['.'] + python_include, CPPFLAGS = cppflags, SHLIBPREFIX='')
 # makes sure niflib.lib is built before trying to build _niflib.dll
 #env.Depends(nifshlib, niflib)
@@ -1079,8 +1121,9 @@ for n in block_names:
     out.code( '#ifndef _' + x.cname.upper() + '_H_' )
     out.code( '#define _' + x.cname.upper() + '_H_' )
     out.code()
-    out.code( '#include \"xml_extract.h\"' )
-    out.code( '#include ' + x_define_name + '_INCLUDE')
+    out.code( x.code_include_h() )
+    out.code()
+    out.code( '#include "gen/obj_defines.h"' )
     out.code()
     out.code( '/*' )
     out.code( ' * ' + x.cname)
@@ -1120,22 +1163,7 @@ for n in block_names:
     out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
     out.code()
-    out.code( '#include \"' + x.cname + '.h\"' )
-    for y in x.members:
-        if y.ctype == "Ref" or y.ctype == "*":
-            out.code( '#include \"%s.h\"'%y.ctemplate )
-        elif y.ctype == "NodeGroup":
-            out.code( '#include "NiNode.h"' )
-        elif y.ctype in ["SkinShape", "SkinShapeGroup"]:
-            out.code( '#include "NiTriShape.h"' )
-            out.code( '#include "NiSkinInstance.h"' )
-        elif y.ctype == "ControllerLink":
-            out.code( '#include "NiInterpolator.h"' )
-            out.code( '#include "NiStringPalette.h"' )
-        elif y.ctype == "AVObject":
-            out.code( '#include "NiAVObject.h"' )
-        elif y.ctype in ["TexDesc", "ShaderTexDesc"]:
-            out.code( '#include "NiSourceTexture.h"' )
+    out.code( x.code_include_cpp() )
     out.code()
     out.code( '//Definition of TYPE constant' )
     out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
