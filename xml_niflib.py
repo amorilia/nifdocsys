@@ -112,7 +112,7 @@ class CFile(file):
         elif action == ACTION_WRITE:
             stream = "out"
         elif action == ACTION_OUT:
-            stream = "out" # CHEATING!!! turn this back to out when we're done debugging...
+            stream = "out"
 
         # preperation
         if isinstance(block, Block):
@@ -359,8 +359,16 @@ class CFile(file):
                     if not y.arr1.lhs:
                         self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
                     elif not y.arr2.lhs:
+                        self.code('if ( !verbose && ( i%i > MAXARRAYDUMP ) ) {'%(self.indent-1))
+                        self.code('%s << "<Data Truncated. Use verbose mode to see complete listing.>" << endl;'%stream)
+                        self.code('break;')
+                        self.code('};')
                         self.code('%s << "%*s%s[" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-1, z))
                     else:
+                        self.code('if ( !verbose && ( i%i > MAXARRAYDUMP ) ) {'%(self.indent-1))
+                        self.code('%s << "<Data Truncated. Use verbose mode to see complete listing.>" << endl;'%stream)
+                        self.code('break;')
+                        self.code('};')
                         self.code('%s << "%*s%s[" << i%i << "][" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-2, self.indent-1, z))
             else:
                 subblock = compound_types[y.type]
@@ -909,6 +917,8 @@ All rights reserved.  Please see niflib.h for licence. */
 #ifndef _OBJ_DEFINES_H_
 #define _OBJ_DEFINES_H_
 
+#define MAXARRAYDUMP 20
+
 #include "NIF_IO.h"
 #include "Ref.h"
 #include <iostream>
@@ -919,19 +929,6 @@ All rights reserved.  Please see niflib.h for licence. */
 using namespace std;
 
 """)
-
-# for now just include all the unimplimented structures
-#for y in compound_names:
-#    if compound_types[y].niflibtype == '' and y[:3] != 'ns ':
-#        h.code( '#include "gen/%s.h"'%y )
-#h.code()
-
-# forward declaration of the block classes
-#for n in block_names:
-#    x = block_types[n]
-#    h.code("class %s;"%x.cname)
-
-#h.code()
 
 h.backslash_mode = True
 
