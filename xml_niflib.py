@@ -468,6 +468,10 @@ def version2number(s):
     else:
         return (int(l[0]) << 24) + (int(l[1]) << 16) + (int(l[2]) << 8) + int(l[3])
 
+def userversion2number(s):
+    if not s: return None
+    return int(s)
+
 class Expr:
     def __init__(self, n):
         if n == None:
@@ -564,6 +568,7 @@ class Member:
             self.description = "Unknown."
         self.ver1      = version2number(element.getAttribute('ver1'))
         self.ver2      = version2number(element.getAttribute('ver2'))
+        self.userver   = userversion2number(element.getAttribute('userver'))
         
         # calculate other stuff
         self.uses_argument = (self.cond.lhs == '(ARG)' or self.arr1.lhs == '(ARG)' or self.arr2.lhs == '(ARG)')
