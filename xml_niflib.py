@@ -30,7 +30,7 @@ ACTION_WRITE = 1
 ACTION_OUT = 2
 ACTION_FIXLINKS = 3
 ACTION_REMOVECROSSREF = 4
-ACTION_GETLINKS = 5
+ACTION_GETREFS = 5
 
 #
 # C++ code formatting functions
@@ -121,8 +121,8 @@ class CFile(file):
                     self.code("uint block_num;")
             if action == ACTION_OUT:
                 self.code("stringstream out;")
-            if action == ACTION_GETLINKS:
-                self.code("list<blk_ref> links;")
+            if action == ACTION_GETREFS:
+                self.code("list<Ref<NiObject> > refs;")
 
         # stream the ancestor
         if isinstance(block, Block):
@@ -137,14 +137,14 @@ class CFile(file):
                     self.code("%s::FixLinks( objects, link_stack, version );"%block.inherit.cname)
                 elif action == ACTION_REMOVECROSSREF:
                     self.code("%s::RemoveCrossRef(block_to_remove);"%block.inherit.cname)
-                elif action == ACTION_GETLINKS:
-                    self.code("links.extend(%s::GetLinks());"%block.inherit.cname)
+                elif action == ACTION_GETREFS:
+                    self.code("refs = %s::GetRefs();"%block.inherit.cname)
 
-        # declare and calculate local variables
+        # declare and calculate local variables (TODO: GET RID OF THIS; PREFERABLY NO LOCAL VARIABLES AT ALL)
         if action in [ACTION_READ, ACTION_WRITE, ACTION_OUT]:
             block.members.reverse() # calculated data depends on data further down the structure
             for y in block.members:
-                # read + write + out + fixlinks: declare
+                # read + write + out: declare
                 if not y.is_declared and not y.is_duplicate:
                     # declare it
                     self.code(y.code_declare(localprefix))
@@ -179,7 +179,7 @@ class CFile(file):
             except KeyError:
                 subblock = compound_types[y.type]
             # check for links
-            if action in [ACTION_FIXLINKS, ACTION_GETLINKS]:
+            if action in [ACTION_FIXLINKS, ACTION_GETREFS]:
                 if not subblock.has_links and not subblock.has_crossrefs:
                     continue # contains no links, so skip this member!
             if action == ACTION_OUT:
@@ -279,20 +279,6 @@ class CFile(file):
                     if y_cond:
                         self.code("if ( %s ) {"%y_cond)
     
-            # read: also resize arrays
-            #if action == ACTION_READ:
-            #    if y.arr1.lhs:
-            #        if y.arr1.lhs.isdigit() == False:
-            #            self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
-            #        if y.arr2.lhs:
-            #            if y.arr2.lhs.isdigit() == False:
-            #                if not y.arr2_dynamic:
-            #                    self.code("for (uint i%i = 0; i%i < %s%s.size(); i%i++)"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
-            #                    self.code("\t%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix)))
-            #                else:
-            #                    self.code("for (uint i%i = 0; i%i < %s%s.size(); i%i++)"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
-            #                    self.code("\t%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
-                
             # loop over arrays
             # and resolve variable name
             if not y.arr1.lhs:
@@ -331,15 +317,17 @@ class CFile(file):
                     z = "%s%s[i%i][i%i]"%(y_prefix, y.cname, self.indent-2, self.indent-1)
     
             if native_types.has_key(y.type):
-                # resolve variable name
-                if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
+                # these actions distinguish between refs and non-refs
+                if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS, ACTION_GETREFS]:
                     if (not subblock.is_link) and (not subblock.is_crossref):
+                        # not a ref
                         if action in [ACTION_READ, ACTION_WRITE]:
                             if not y.arg:
                                 self.code("NifStream( %s, %s, version );"%(z, stream))
                             else:
                                 self.code("NifStream( %s, %s, version, %s%s );"%(z, stream, y_prefix, y.carg))
                     else:
+                        # a ref
                         if action == ACTION_READ:
                             self.code("NifStream( block_num, %s, version );"%stream)
                             if y.is_declared and not y.is_duplicate:
@@ -356,6 +344,10 @@ class CFile(file):
                                 self.code("} else")
                                 self.code("\t%s = NULL;"%z)
                                 self.code("link_stack.pop_front();")
+                        elif action == ACTION_GETREFS and subblock.is_link:
+                            if y.is_declared and not y.is_duplicate:
+                                self.code('refs.push_back(StaticCast<NiObject>(%s));'%z)
+                # the following actions don't distinguish between refs and non-refs
                 elif action == ACTION_OUT:
                     if not y.arr1.lhs:
                         self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
@@ -393,16 +385,16 @@ class CFile(file):
         if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
             if lastver1 or lastver2:
                 self.code("};")
-                
-        if lastcond:
-            self.code("};")
+        if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS, ACTION_OUT]:
+            if lastcond:
+                self.code("};")
 
         # the end
         if isinstance(block, Block):
             if action == ACTION_OUT:
                 self.code("return out.str();")
-            if action == ACTION_GETLINKS:
-                self.code("return links;")
+            if action == ACTION_GETREFS:
+                self.code("return refs;")
 
 
 
@@ -993,10 +985,10 @@ for n in block_names:
     #h.stream(x, ACTION_REMOVECROSSREF)
     #h.code()
 
-    # get links
-    #h.code("#define %s_GETLINKS"%x_define_name)
-    #h.stream(x, ACTION_GETLINKS)
-    #h.code()
+    # get references
+    h.code("#define %s_GETREFS"%x_define_name)
+    h.stream(x, ACTION_GETREFS)
+    h.code()
 
 h.backslash_mode = False
         
@@ -1138,7 +1130,8 @@ for n in block_names:
     out.code( 'virtual void Read( istream& in, list<uint> & link_stack, unsigned int version );' )
     out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version ) const;' )
     out.code( 'virtual string asString( bool verbose = false ) const;\n' )
-    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version );' );
+    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version );' )
+    out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
     out.code( 'virtual const Type & GetType() const;' )
     out.code( 'protected:' )
     for y in x.members:
@@ -1185,7 +1178,11 @@ for n in block_names:
     out.code( x_define_name + '_FIXLINKS' )
     out.code( '}' )
     out.code()
-    out.code( 'const Type & %s::GetType() const {'%(x.cname) )
+    out.code( 'list<NiObjectRef> %s::GetRefs() const {'%x.cname )
+    out.code( x_define_name + '_GETREFS' )
+    out.code( '}' )
+    out.code()
+    out.code( 'const Type & %s::GetType() const {'%x.cname )
     out.code( 'return TYPE;' )
     out.code( '};' )
     out.code()
