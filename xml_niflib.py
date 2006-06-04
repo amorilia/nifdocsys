@@ -747,51 +747,54 @@ class Compound(Basic):
 
         result = ""
 
-        # include all required structures and blocks
-        l = []
+        # include all required structures
+        used_structs = []
         for y in self.members:
             if y.type in compound_names and y.type != self.name and not compound_types[y.type].niflibtype:
-                incl = "gen/%s.h"%y.ctype
-                if incl not in l: l.append( incl )
-            elif y.template in block_names and y.template != self.name and y.type != "Ptr":
-                if not "Ref.h" in l: l.append( "Ref.h" )
-                incl = "obj/%s.h"%y.ctemplate
-                if incl not in l: l.append( incl )
-        for incl in l:
-            result += '#include "%s"\n'%incl
+                file_name = "gen/%s.h"%y.ctype
+                if file_name not in used_structs:
+                    used_structs.append( file_name )
+        if used_structs:
+            result += "// Include structures\n"
+        for file_name in used_structs:
+            result += '#include "%s"\n'%file_name
     
-        # forward declaration of cross-referenced blocks
-        l = []
+        # forward declaration of blocks
+        used_blocks = []
         for y in self.members:
-            if y.type == "Ptr" and y.template != self.name:
-                if not y.ctemplate in l:
-                    l.append( y.ctemplate )
-        for crossref in l:
-            result += 'class %s;\n'%crossref
+            if y.template in block_names and y.template != self.name:
+                if not y.ctemplate in used_blocks:
+                    used_blocks.append( y.ctemplate )
+        if used_blocks:
+            result += '\n// Forward define of referenced blocks\n#include "Ref.h"\n'
+        for fwd_class in used_blocks:
+            result += 'class %s;\n'%fwd_class
 
         return result
 
     def code_include_cpp(self):
         if self.niflibtype: return ""
 
+        result = ""
+
         if self.name in compound_names:
-            result = '#include "gen/%s.h"\n'%self.cname
+            result += '#include "gen/%s.h"\n'%self.cname
         elif self.name in block_names:
-            result = '#include "obj/%s.h"\n'%self.cname
+            result += '#include "obj/%s.h"\n'%self.cname
         else: assert(False) # bug
 
-        # include cross-referenced blocks
-        l = []
+        # include referenced blocks
+        used_blocks = []
         for y in self.members:
-            if y.type == "Ptr" and y.template != self.name:
-                incl = "obj/%s.h"%y.ctemplate
-                if not incl in l:
-                    l.append( incl )
+            if y.template in block_names and y.template != self.name:
+                file_name = "obj/%s.h"%y.ctemplate
+                if file_name not in used_blocks:
+                    used_blocks.append( file_name )
             if y.type in compound_names:
                 subblock = compound_types[y.type]
                 result += subblock.code_include_cpp()
-        for crossref in l:
-            result += '#include "%s"\n'%incl
+        for file_name in used_blocks:
+            result += '#include "%s"\n'%file_name
 
         return result
 
