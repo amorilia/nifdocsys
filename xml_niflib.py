@@ -128,13 +128,13 @@ class CFile(file):
         if isinstance(block, Block):
             if block.inherit:
                 if action == ACTION_READ:
-                    self.code("%s::Read( %s, link_stack, version );"%(block.inherit.cname, stream))
+                    self.code("%s::Read( %s, link_stack, version, user_version );"%(block.inherit.cname, stream))
                 elif action == ACTION_WRITE:
-                    self.code("%s::Write( %s, link_map, version );"%(block.inherit.cname, stream))
+                    self.code("%s::Write( %s, link_map, version, user_version );"%(block.inherit.cname, stream))
                 elif action == ACTION_OUT:
                     self.code("%s << %s::asString();"%(stream, block.inherit.cname))
                 elif action == ACTION_FIXLINKS:
-                    self.code("%s::FixLinks( objects, link_stack, version );"%block.inherit.cname)
+                    self.code("%s::FixLinks( objects, link_stack, version, user_version );"%block.inherit.cname)
                 elif action == ACTION_REMOVECROSSREF:
                     self.code("%s::RemoveCrossRef(block_to_remove);"%block.inherit.cname)
                 elif action == ACTION_GETREFS:
@@ -1125,10 +1125,10 @@ for n in block_names:
     out.code( '~' + x.cname + '();' )
     out.code( '//Run-Time Type Information' )
     out.code( 'static const Type TYPE;' )
-    out.code( 'virtual void Read( istream& in, list<uint> & link_stack, unsigned int version );' )
-    out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version ) const;' )
+    out.code( 'virtual void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
+    out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
     out.code( 'virtual string asString( bool verbose = false ) const;\n' )
-    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version );' )
+    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
     out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
     out.code( 'virtual const Type & GetType() const;' )
     out.code( 'protected:' )
@@ -1160,11 +1160,11 @@ for n in block_names:
     out.code()
     out.code( x.cname + '::' + '~' + x.cname + '() {}' )
     out.code()
-    out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, unsigned int version ) {' )
+    out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' )
     out.code( x_define_name + '_READ' )
     out.code( '}' )
     out.code()
-    out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version ) const {' )
+    out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {' )
     out.code( x_define_name + '_WRITE' )
     out.code( '}' )
     out.code()
@@ -1172,7 +1172,7 @@ for n in block_names:
     out.code( x_define_name + '_STRING' )
     out.code( '}' )
     out.code()
-    out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version ) {' );
+    out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' );
     out.code( x_define_name + '_FIXLINKS' )
     out.code( '}' )
     out.code()
