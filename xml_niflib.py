@@ -990,6 +990,28 @@ for n in block_names:
     h.stream(x, ACTION_GETREFS)
     h.code()
 
+# header and footer
+for n in ["Header", "Footer"]:
+    x = compound_types[n]
+    x_define_name = define_name(x.cname)
+
+    # istream
+    h.code("#define %s_READ"%x_define_name)
+    h.stream(x, ACTION_READ)
+    h.code()
+
+    # ostream
+    h.code("#define %s_WRITE"%x_define_name)
+    h.stream(x, ACTION_WRITE)
+    h.code()
+
+    # as string
+    h.code("#define %s_STRING"%x_define_name)
+    h.stream(x, ACTION_OUT)
+    h.code()
+    
+
+
 h.backslash_mode = False
         
 h.code("#endif")
