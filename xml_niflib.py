@@ -346,7 +346,7 @@ class CFile(file):
                                 self.code("link_stack.pop_front();")
                         elif action == ACTION_GETREFS and subblock.is_link:
                             if y.is_declared and not y.is_duplicate:
-                                self.code('refs.push_back(StaticCast<NiObject>(%s));'%z)
+                                self.code('if ( %s != NULL )\n\trefs.push_back(StaticCast<NiObject>(%s));'%(z,z))
                 # the following actions don't distinguish between refs and non-refs
                 elif action == ACTION_OUT:
                     if not y.arr1.lhs:
