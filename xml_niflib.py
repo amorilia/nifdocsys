@@ -115,7 +115,7 @@ class CFile(file):
             stream = "out"
 
         # preperation
-        if isinstance(block, Block):
+        if isinstance(block, Block) or block.name in ["Footer", "Header"]:
             if action == ACTION_READ:
                 if block.has_links or block.has_crossrefs:
                     self.code("uint block_num;")
@@ -333,7 +333,10 @@ class CFile(file):
                             if y.is_declared and not y.is_duplicate:
                                 self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
-                            self.code("NifStream( link_map[StaticCast<NiObject>(%s)], %s, version );"%(z, stream))
+                            self.code("if ( %s != NULL )"%z)
+                            self.code("\tNifStream( link_map[StaticCast<NiObject>(%s)], %s, version );"%(z, stream))
+                            self.code("else")
+                            self.code("\tNifStream( 0xffffffff, %s, version );"%stream)
                         elif action == ACTION_FIXLINKS:
                             if y.is_declared and not y.is_duplicate:
                                 self.code("if (link_stack.empty())")
@@ -390,7 +393,7 @@ class CFile(file):
                 self.code("};")
 
         # the end
-        if isinstance(block, Block):
+        if isinstance(block, Block) or block.name in ["Header", "Footer"]:
             if action == ACTION_OUT:
                 self.code("return out.str();")
             if action == ACTION_GETREFS:
@@ -855,6 +858,8 @@ for n in compound_names:
     h.code()
     h.code( '#include "NIF_IO.h"' )
     h.code( x.code_include_h() )
+    if n in ["Header", "Footer"]:
+        h.code( '#include "obj/NiObject.h"' )
     h.code()
     
     # header
@@ -874,6 +879,11 @@ for n in compound_names:
     # declaration
     h.declare(x)
 
+    # header and footer functions
+    if n in ["Header", "Footer"]:
+        h.code( 'void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
+        h.code( 'void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
+        h.code( 'string asString( bool verbose = false ) const;' )
 
     # done
     h.code("};")
@@ -900,6 +910,22 @@ for n in compound_names:
         
         # destructor
         cpp.code("%s::~%s()"%(x.cname,x.cname) + " {};")
+
+        # header and footer functions
+        if n in ["Header", "Footer"]:
+            cpp.code()
+            cpp.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' )
+            cpp.stream(x, ACTION_READ)
+            cpp.code( '}' )
+            cpp.code()
+            cpp.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {' )
+            cpp.stream(x, ACTION_WRITE)
+            cpp.code( '}' )
+            cpp.code()
+            cpp.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
+            cpp.stream(x, ACTION_OUT)
+            cpp.code( '}' )
+
 
 # generate block code
 
@@ -990,26 +1016,6 @@ for n in block_names:
     h.stream(x, ACTION_GETREFS)
     h.code()
 
-# header and footer
-for n in ["Header", "Footer"]:
-    x = compound_types[n]
-    x_define_name = define_name(x.cname)
-
-    # istream
-    h.code("#define %s_READ"%x_define_name)
-    h.stream(x, ACTION_READ)
-    h.code()
-
-    # ostream
-    h.code("#define %s_WRITE"%x_define_name)
-    h.stream(x, ACTION_WRITE)
-    h.code()
-
-    # as string
-    h.code("#define %s_STRING"%x_define_name)
-    h.stream(x, ACTION_OUT)
-    h.code()
-    
 
 
 h.backslash_mode = False
