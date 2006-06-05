@@ -9,10 +9,14 @@ import os
 #
 
 root_dir = "."
+BOOTSTRAP = False
+
 prev = ""
 for i in sys.argv:
     if prev == "-p":
         root_dir = i
+    elif i == "-b":
+        BOOTSTRAP = True
     prev = i
 
 native_types = {}
@@ -105,6 +109,7 @@ class CFile(file):
     def stream(self, block, action, localprefix = "", prefix = "", arg_prefix = "", arg_member = None):
         lastver1 = None
         lastver2 = None
+        lastuserver = None
         lastcond = None
         # stream name
         if action == ACTION_READ:
@@ -245,21 +250,29 @@ class CFile(file):
             # conditioning
             y_cond = y.cond.code(y_cond_prefix)
             if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
-                if lastver1 != y.ver1 or lastver2 != y.ver2:
+                if lastver1 != y.ver1 or lastver2 != y.ver2 or lastuserver != y.userver:
                     # we must switch to a new version block    
                     # close old version block
-                    if lastver1 or lastver2: self.code("};")
+                    if lastver1 or lastver2 or lastuserver: self.code("};")
                     # close old condition block as well    
                     if lastcond:
                         self.code("};")
                         lastcond = None
                     # start new version block
-                    if y.ver1 and not y.ver2:
-                        self.code("if ( version >= 0x%08X ) {"%y.ver1)
-                    elif not y.ver1 and y.ver2:
-                        self.code("if ( version <= 0x%08X ) {"%y.ver2)
-                    elif y.ver1 and y.ver2:
-                        self.code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(y.ver1, y.ver2))
+                    if not y.userver:
+                        if y.ver1 and not y.ver2:
+                            self.code("if ( version >= 0x%08X ) {"%y.ver1)
+                        elif not y.ver1 and y.ver2:
+                            self.code("if ( version <= 0x%08X ) {"%y.ver2)
+                        elif y.ver1 and y.ver2:
+                            self.code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(y.ver1, y.ver2))
+                    else:
+                        if y.ver1 and not y.ver2:
+                            self.code("if ( ( version >= 0x%08X ) && ( user_version == %s ) ) {"%(y.ver1, y.userver))
+                        elif not y.ver1 and y.ver2:
+                            self.code("if ( ( version <= 0x%08X ) && ( user_version == %s ) ) {"%(y.ver2, userver))
+                        elif y.ver1 and y.ver2:
+                            self.code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) && ( user_version == %s ) ) {"%(y.ver1, y.ver2, y.userver))
                     # start new condition block
                     if lastcond != y_cond and y_cond:
                         self.code("if ( %s ) {"%y_cond)
@@ -1130,101 +1143,102 @@ scons.write("""niflib = env.StaticLibrary('niflib', Split('niflib.cpp nif_math.c
 
 scons.close()
 
-# Templates
+# all non-generated bootstrap code
+if BOOTSTRAP:
+    # Templates
+    for n in block_names:
+	x = block_types[n]
+	x_define_name = define_name(x.cname)
+	
+	out = CFile('obj/' + x.cname + '.h', 'w')
+	out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+	out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+	out.code()
+	out.code( '#ifndef _' + x.cname.upper() + '_H_' )
+	out.code( '#define _' + x.cname.upper() + '_H_' )
+	out.code()
+	out.code( x.code_include_h() )
+	out.code()
+	out.code( '#include "gen/obj_defines.h"' )
+	out.code()
+	out.code( 'class ' + x.cname + ';' )
+	out.code( 'typedef Ref<' + x.cname + '> ' + x.cname + 'Ref;' )
+	out.code()
+	out.comment( x.cname + " - " + x.description )
+	out.code()
+	out.code( 'class ' + x.cname + ' : public ' + x_define_name + '_PARENT {' )
+	out.code( 'public:' )
+	out.code( x.cname + '();' )
+	out.code( '~' + x.cname + '();' )
+	out.code( '//Run-Time Type Information' )
+	out.code( 'static const Type TYPE;' )
+	out.code( 'virtual void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
+	out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
+	out.code( 'virtual string asString( bool verbose = false ) const;\n' )
+	out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
+	out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
+	out.code( 'virtual const Type & GetType() const;' )
+	out.code( 'protected:' )
+	for y in x.members:
+	    if y.func:
+		if not y.template:
+		    out.code( '%s %s() const;'%(y.ctype, y.func) )
+		else:
+		    if y.ctype != "*":
+			out.code( '%s<%s > %s::%s() const;'%(y.ctype, y.ctemplate, x.cname, y.func) )
+		    else:
+			out.code( '%s * %s::%s() const;'%(y.ctemplate, x.cname, y.func ) )
+	out.code( x_define_name + '_MEMBERS' )
+	out.code( '};' );
+	out.code();
+	out.code( '#endif' );
+	out.close()
 
-for n in block_names:
-    x = block_types[n]
-    x_define_name = define_name(x.cname)
-    
-    out = CFile('obj/' + x.cname + '.h', 'w')
-    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-    out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
-    out.code()
-    out.code( '#ifndef _' + x.cname.upper() + '_H_' )
-    out.code( '#define _' + x.cname.upper() + '_H_' )
-    out.code()
-    out.code( x.code_include_h() )
-    out.code()
-    out.code( '#include "gen/obj_defines.h"' )
-    out.code()
-    out.code( 'class ' + x.cname + ';' )
-    out.code( 'typedef Ref<' + x.cname + '> ' + x.cname + 'Ref;' )
-    out.code()
-    out.comment( x.cname + " - " + x.description )
-    out.code()
-    out.code( 'class ' + x.cname + ' : public ' + x_define_name + '_PARENT {' )
-    out.code( 'public:' )
-    out.code( x.cname + '();' )
-    out.code( '~' + x.cname + '();' )
-    out.code( '//Run-Time Type Information' )
-    out.code( 'static const Type TYPE;' )
-    out.code( 'virtual void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
-    out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
-    out.code( 'virtual string asString( bool verbose = false ) const;\n' )
-    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
-    out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
-    out.code( 'virtual const Type & GetType() const;' )
-    out.code( 'protected:' )
-    for y in x.members:
-        if y.func:
-            if not y.template:
-                out.code( '%s %s() const;'%(y.ctype, y.func) )
-            else:
-                if y.ctype != "*":
-                    out.code( '%s<%s > %s::%s() const;'%(y.ctype, y.ctemplate, x.cname, y.func) )
-                else:
-                    out.code( '%s * %s::%s() const;'%(y.ctemplate, x.cname, y.func ) )
-    out.code( x_define_name + '_MEMBERS' )
-    out.code( '};' );
-    out.code();
-    out.code( '#endif' );
-    out.close()
-
-    out = CFile('obj/' + x.cname + '.cpp', 'w')
-    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-    out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
-    out.code()
-    out.code( x.code_include_cpp() )
-    out.code()
-    out.code( '//Definition of TYPE constant' )
-    out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
-    out.code()
-    out.code( x.cname + '::' + x.cname + '() ' + x_define_name + '_CONSTRUCT {}' )
-    out.code()
-    out.code( x.cname + '::' + '~' + x.cname + '() {}' )
-    out.code()
-    out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' )
-    out.code( x_define_name + '_READ' )
-    out.code( '}' )
-    out.code()
-    out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {' )
-    out.code( x_define_name + '_WRITE' )
-    out.code( '}' )
-    out.code()
-    out.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
-    out.code( x_define_name + '_STRING' )
-    out.code( '}' )
-    out.code()
-    out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' );
-    out.code( x_define_name + '_FIXLINKS' )
-    out.code( '}' )
-    out.code()
-    out.code( 'list<NiObjectRef> %s::GetRefs() const {'%x.cname )
-    out.code( x_define_name + '_GETREFS' )
-    out.code( '}' )
-    out.code()
-    out.code( 'const Type & %s::GetType() const {'%x.cname )
-    out.code( 'return TYPE;' )
-    out.code( '};' )
-    out.code()
-    for y in x.members:
-        if y.func:
-            if not y.template:
-                out.code( '%s %s::%s() const { return %s(); }'%(y.ctype, x.cname, y.func, y.ctype) )
-            else:
-                if y.ctype != "*":
-                    out.code( '%s<%s > %s::%s() const { return %s<%s >(); }'%(y.ctype, y.ctemplate, x.cname, y.func, y.ctype, y.ctemplate) )
-                else:
-                    out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
-    out.close()
-    
+	out = CFile('obj/' + x.cname + '.cpp', 'w')
+	out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+	out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+	out.code()
+	out.code( x.code_include_cpp() )
+	out.code()
+	out.code( '//Definition of TYPE constant' )
+	out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
+	out.code()
+	out.code( x.cname + '::' + x.cname + '() ' + x_define_name + '_CONSTRUCT {}' )
+	out.code()
+	out.code( x.cname + '::' + '~' + x.cname + '() {}' )
+	out.code()
+	out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' )
+	out.code( x_define_name + '_READ' )
+	out.code( '}' )
+	out.code()
+	out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {' )
+	out.code( x_define_name + '_WRITE' )
+	out.code( '}' )
+	out.code()
+	out.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
+	out.code( x_define_name + '_STRING' )
+	out.code( '}' )
+	out.code()
+	out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' );
+	out.code( x_define_name + '_FIXLINKS' )
+	out.code( '}' )
+	out.code()
+	out.code( 'list<NiObjectRef> %s::GetRefs() const {'%x.cname )
+	out.code( x_define_name + '_GETREFS' )
+	out.code( '}' )
+	out.code()
+	out.code( 'const Type & %s::GetType() const {'%x.cname )
+	out.code( 'return TYPE;' )
+	out.code( '};' )
+	out.code()
+	for y in x.members:
+	    if y.func:
+		if not y.template:
+		    out.code( '%s %s::%s() const { return %s(); }'%(y.ctype, x.cname, y.func, y.ctype) )
+		else:
+		    if y.ctype != "*":
+			out.code( '%s<%s > %s::%s() const { return %s<%s >(); }'%(y.ctype, y.ctemplate, x.cname, y.func, y.ctype, y.ctemplate) )
+		    else:
+			out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
+	out.close()
+	
