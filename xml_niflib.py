@@ -396,10 +396,11 @@ class CFile(file):
 
             lastver1 = y.ver1
             lastver2 = y.ver2
+            lastuserver = y.userver
             lastcond = y_cond
 
         if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
-            if lastver1 or lastver2:
+            if lastver1 or lastver2 or lastuserver:
                 self.code("};")
         if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS, ACTION_OUT]:
             if lastcond:
