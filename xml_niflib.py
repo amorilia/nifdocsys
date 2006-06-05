@@ -87,8 +87,18 @@ class CFile(file):
     
     # C++ member declaration
     def declare(self, block):
+        if isinstance(block, Block):
+            #self.code('protected:')
+            prot_mode = True
         for y in block.members:
             if y.is_declared and not y.is_duplicate:
+                if isinstance(block, Block):
+                    if y.is_public and prot_mode:
+                        self.code('public:')
+                        prot_mode = False
+                    elif not y.is_public and not prot_mode:
+                        self.code('protected:')
+                        prot_mode = True
                 self.comment(y.description)
                 self.code(y.code_declare())
 
@@ -583,7 +593,8 @@ class Member:
         self.ver1      = version2number(element.getAttribute('ver1'))
         self.ver2      = version2number(element.getAttribute('ver2'))
         self.userver   = userversion2number(element.getAttribute('userver'))
-        
+        self.is_public = (element.getAttribute('public') == "1")       
+ 
         # calculate other stuff
         self.uses_argument = (self.cond.lhs == '(ARG)' or self.arr1.lhs == '(ARG)' or self.arr2.lhs == '(ARG)')
         self.type_is_native = native_types.has_key(self.name) # true if the type is implemented natively
