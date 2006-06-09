@@ -485,6 +485,7 @@ def class_name(n):
     @param b: The class name to format in C++ style.
     @type b: string
     @return The resulting valid C++ class name
+    @rtype: string
     """
     if n == None: return None
     try:
@@ -515,6 +516,7 @@ def define_name(n):
     @param b: The class name to format in define style.
     @type b: string
     @return The resulting valid C++ define name
+    @rtype: string
     """
     n2 = ''
     for i, c in enumerate(n):
@@ -536,6 +538,7 @@ def member_name(n):
     @param b: The attribute name to format in variable style.
     @type b: string
     @return The resulting valid C++ variable name
+    @rtype: string
     """
     if n == None: return None
     if n == 'ARG': return 'ARG'
@@ -561,6 +564,7 @@ def version2number(s):
     @param s: The version string to translate into numeric form.
     @type s: string
     @return The resulting numeric version of the given version string.
+    @rtype: int
     """
     if not s: return None
     l = s.split('.')
@@ -572,16 +576,27 @@ def version2number(s):
 
 def userversion2number(s):
     """
-    Translates a legibal NIF version number to the packed-byte numeric representation. For example, "10.0.1.0" is translated to 0x0A000100.
+    Translates a legibal NIF user version number to the packed-byte numeric representation.
+    Currently just converts the string to an int as this may be a raw number.
+    Probably to be used just in case this understanding changes.
     @param s: The version string to translate into numeric form.
     @type s: string
     @return The resulting numeric version of the given version string.
+    @rtype: int
     """
     if not s: return None
     return int(s)
 
 class Expr:
+    """
+    Represents a mathmatical expression?
+    """
     def __init__(self, n):
+        """
+        This constructor takes the expression in the form of a string and tokenizes it into left-hand side, operator, right hand side, and something called clhs.
+        @param n: The expression to tokenize.
+        @type n: string
+        """
         if n == None:
             self.lhs = None
             self.clhs = None
@@ -617,6 +632,14 @@ class Expr:
             raise str('"%s" is an invalid expression'%n)
 
     def code(self, prefix):
+        """
+        This function formats the expression as a string?  
+        right hand side, and something called clhs.
+        @param prefix: An optional prefix used in some situations?
+        @type prefix: string
+        @return The expression formatted into a string?
+        @rtype: string
+        """
         if not self.op:
             if not self.lhs: return None
             if self.lhs[0] >= '0' and self.lhs[0] <= '9':
@@ -633,10 +656,82 @@ class Expr:
                 return '((%s) && (%s))'%(self.lhs.code(prefix), self.rhs.code(prefix))
 
 class Member:
+    """
+    This class represents a member variable?
+    @ivar name:  The name of this member variable.  Comes from the "name" attribute of the <add> tag.
+    @type name: string
+    @ivar type: The type of this member variable.  Comes from the "type" attribute of the <add> tag.
+    @type type: string
+    @ivar arg: The argument of this member variable.  Comes from the "arg" attribute of the <add> tag.
+    @type arg: string
+    @ivar template: The template type of this member variable.  Comes from the "template" attribute of the <add> tag.
+    @type template: string
+    @ivar arr1: The first array size of this member variable.  Comes from the "arr1" attribute of the <add> tag.
+    @type arr1: string
+    @ivar arr12: The first array size of this member variable.  Comes from the "arr2" attribute of the <add> tag.
+    @type arr2: string
+    @ivar cond: The condition of this member variable.  Comes from the "cond" attribute of the <add> tag.
+    @type cond: string
+    @ivar func: The function of this member variable.  Comes from the "func" attribute of the <add> tag.
+    @type func: string
+    @ivar default: The default value of this member variable.  Comes from the "default" attribute of the <add> tag.
+        Formatted to be ready to use in a C++ constructor initializer list.
+    @type default: string
+    @ivar ver1: The first version this member exists.  Comes from the "ver1" attribute of the <add> tag.
+    @type ver1: string
+    @ivar ver2: The last version this member exists.  Comes from the "ver2" attribute of the <add> tag.
+    @type ver2: string
+    @ivar userver: The user version where this member exists.  Comes from the "userver" attribute of the <add> tag.
+    @type userver: string
+    @ivar is_public: Whether this member will be declared public.  Comes from the "public" attribute of the <add> tag.
+    @type is_public: string
+    @ivar description: The description of this member variable.  Comes from the text between <add> and </add>.
+    @type description: string
+    @ivar uses_agrument: Specifies whether this attribute uses an argument.
+    @type uses_argument: bool
+    @ivar type_is_native = Specifies whether the type is implemented natively
+    @type type_is_native: bool
+    @ivar is_duplicate: Specifies whether this is a duplicate of a previously declared member
+    @type is_duplicate: bool
+    @ivar arr2_dynamic: Specifies whether arr2 refers to an array (?)
+    @type arr2_dynamic: bool
+    @ivar arr1_ref: Names of the attributes it is a (unmasked) size of (?)
+    @type arr1_ref: string array?
+    @ivar arr2_ref: Names of the attributes it is a (unmasked) size of (?)
+    @type arr2_ref: string array?
+    @ivar cond_ref: Names of the attributes it is a condition of (?)
+    @type cond_ref: string array?
+    @ivar is_declared: True if it is declared in the class, if false, then field is calculated somehow
+    @type is_declared: bool
+    @ivar cname: Unlike default, name isn't formatted for C++ so use this instead?
+    @type cname: string
+    @ivar ctype: Unlike default, type isn't formatted for C++ so use this instead?
+    @type ctype: string
+    @ivar carg: Unlike default, arg isn't formatted for C++ so use this instead?
+    @type carg: string
+    @ivar ctemplate: Unlike default, template isn't formatted for C++ so use this instead?
+    @type ctemplate: string
+    @ivar carr1_ref: Unlike default, arr1_ref isn't formatted for C++ so use this instead?
+    @type carr1_ref: string
+    @ivar carr2_ref: Unlike default, arr2_ref isn't formatted for C++ so use this instead?
+    @type carr2_ref: string
+    @ivar ccond_ref: Unlike default, cond_ref isn't formatted for C++ so use this instead?
+    @type ccond_ref: string
+    """
     def __init__(self, element):
+        """
+        This constructor converts an XML <add> element into a Member object.
+        Some sort of processing is applied to the various variables that are copied from the XML tag...
+        Seems to be trying to set reasonable defaults for certain types, and put things into C++ format generally. 
+        @param prefix: An optional prefix used in some situations?
+        @type prefix: string
+        @return The expression formatted into a string?
+        @rtype: string?
+        """
         assert element.tagName == 'add'
         parent = element.parentNode
         sisters = parent.getElementsByTagName('add')
+        
         # member attributes
         self.name      = element.getAttribute('name')
         self.type      = element.getAttribute('type')
@@ -647,6 +742,19 @@ class Member:
         self.cond      = Expr(element.getAttribute('cond'))
         self.func      = element.getAttribute('function')
         self.default   = element.getAttribute('default')
+        self.ver1      = version2number(element.getAttribute('ver1'))
+        self.ver2      = version2number(element.getAttribute('ver2'))
+        self.userver   = userversion2number(element.getAttribute('userver'))
+        self.is_public = (element.getAttribute('public') == "1")  
+
+        #Get description from text between start and end tags
+        if element.firstChild:
+            assert element.firstChild.nodeType == Node.TEXT_NODE
+            self.description = element.firstChild.nodeValue.strip()
+        else:
+            self.description = "Unknown."
+        
+        # Format default value so that it can be used in a C++ initializer list
         if not self.default and (not self.arr1.lhs and not self.arr2.lhs):
             if self.type in ["uint", "ushort", "byte"]:
                 self.default = "0"
@@ -669,16 +777,7 @@ class Member:
                 pass
             else:
                 self.default = "(%s)%s"%(class_name(self.type), self.default)
-        if element.firstChild:
-            assert element.firstChild.nodeType == Node.TEXT_NODE
-            self.description = element.firstChild.nodeValue.strip()
-        else:
-            self.description = "Unknown."
-        self.ver1      = version2number(element.getAttribute('ver1'))
-        self.ver2      = version2number(element.getAttribute('ver2'))
-        self.userver   = userversion2number(element.getAttribute('userver'))
-        self.is_public = (element.getAttribute('public') == "1")       
- 
+        
         # calculate other stuff
         self.uses_argument = (self.cond.lhs == '(ARG)' or self.arr1.lhs == '(ARG)' or self.arr2.lhs == '(ARG)')
         self.type_is_native = native_types.has_key(self.name) # true if the type is implemented natively
