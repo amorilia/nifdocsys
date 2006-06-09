@@ -519,8 +519,8 @@ class CFile(file):
 def class_name(n):
     """
     Formats a valid C++ class name from the name format used in the XML.
-    @param b: The class name to format in C++ style.
-    @type b: string
+    @param n: The class name to format in C++ style.
+    @type n: string
     @return The resulting valid C++ class name
     @rtype: string
     """
@@ -550,8 +550,8 @@ def class_name(n):
 def define_name(n):
     """
     Formats an all-uppercase version of the name for use in C++ defines.
-    @param b: The class name to format in define style.
-    @type b: string
+    @param n: The class name to format in define style.
+    @type n: string
     @return The resulting valid C++ define name
     @rtype: string
     """
@@ -572,8 +572,8 @@ def define_name(n):
 def member_name(n):
     """
     Formats a version of the name for use as a C++ member variable.
-    @param b: The attribute name to format in variable style.
-    @type b: string
+    @param n: The attribute name to format in variable style.
+    @type n: string
     @return The resulting valid C++ variable name
     @rtype: string
     """
