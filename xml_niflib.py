@@ -45,6 +45,10 @@ class CFile(file):
     This class represents a C++ source file.  It is used to open the file for output
     and automatically handles indentation by detecting brackets and colons.
     It also handles writing the generated Niflib C++ code.
+    @ivar indent: The current level of indentation.
+    @type indent: int
+    @ivar backslash_mode: Determines whether a backslash is appended to each line for creation of multi-line defines
+    @type backslash_mode: bool
     """
     def __init__(self, filename, mode):
         """
@@ -590,6 +594,14 @@ def userversion2number(s):
 class Expr:
     """
     Represents a mathmatical expression?
+    @ivar lhs: The left hand side of the expression?
+    @type lhs: string
+    @ivar clhs: The C++ formatted version of the left hand side of the expression?
+    @type clhs: string
+    @ivar op: The operator used in the expression.  ==, &&, !=, etc.
+    @type op: string
+    @ivar rhs: The right hand side of the expression?
+    @type rhs: string
     """
     def __init__(self, n):
         """
@@ -668,7 +680,7 @@ class Member:
     @type template: string
     @ivar arr1: The first array size of this member variable.  Comes from the "arr1" attribute of the <add> tag.
     @type arr1: string
-    @ivar arr12: The first array size of this member variable.  Comes from the "arr2" attribute of the <add> tag.
+    @ivar arr2: The first array size of this member variable.  Comes from the "arr2" attribute of the <add> tag.
     @type arr2: string
     @ivar cond: The condition of this member variable.  Comes from the "cond" attribute of the <add> tag.
     @type cond: string
@@ -687,9 +699,9 @@ class Member:
     @type is_public: string
     @ivar description: The description of this member variable.  Comes from the text between <add> and </add>.
     @type description: string
-    @ivar uses_agrument: Specifies whether this attribute uses an argument.
+    @ivar uses_argument: Specifies whether this attribute uses an argument.
     @type uses_argument: bool
-    @ivar type_is_native = Specifies whether the type is implemented natively
+    @ivar type_is_native: Specifies whether the type is implemented natively
     @type type_is_native: bool
     @ivar is_duplicate: Specifies whether this is a duplicate of a previously declared member
     @type is_duplicate: bool
