@@ -1,3 +1,36 @@
+"""
+This module generates C++ code for Niflib from the NIF file format specification XML.
+Created by Amorilia in 2006.
+@var root_dir:  A period?  Means current directory?
+@type root_dir: string
+@var BOOTSTRAP: ?
+@type BOOTSTRAP: bool
+@var native_types:  A list of the types implemented manually in Niflib?
+@type native_types: ?
+@var basic_types: A list of the basic types?  Different from native types?
+@type basic_types: ?
+@var compound_types:  A list of the struct types?
+@type compound_types: ?
+@var basic_names: A list of the basic type names?
+@type basic_names: ?
+@var compound_names: A list of the struct names?
+@type compound_names: ?
+@var block_types: A list of the NiObject-derived classes?
+@type block_types: ?
+@var ACTION_READ: Constant for use with CFile::stream.  Causes it to generate Niflib's Read function.
+@type ACTION_READ: int
+@var ACTION_WRITE: Constant for use with CFile::stream.  Causes it to generate Niflib's Write function.
+@type ACTION_WRITE: int
+@var ACTION_OUT: Constant for use with CFile::stream.  Causes it to generate Niflib's asString function.
+@type ACTION_OUT: int
+@var ACTION_FIXLINKS: Constant for use with CFile::stream.  Causes it to generate Niflib's FixLinks function.
+@type ACTION_FIXLINKS: int
+@var ACTION_REMOVECROSSREF: Constant for use with CFile::stream.  Causes it to generate Niflib's RemoveCrossRef function.  Not used.
+@type ACTION_REMOVECROSSREF: int
+@var ACTION_GETREFS: Constant for use with CFile::stream.  Causes it to generate Niflib's GetRefs function.
+@type ACTION_GETREFS: int
+"""
+
 from xml.dom.minidom import *
 from textwrap import wrap
 
@@ -564,7 +597,7 @@ def member_name(n):
 
 def version2number(s):
     """
-    Translates a legibal NIF version number to the packed-byte numeric representation. For example, "10.0.1.0" is translated to 0x0A000100.
+    Translates a legible NIF version number to the packed-byte numeric representation. For example, "10.0.1.0" is translated to 0x0A000100.
     @param s: The version string to translate into numeric form.
     @type s: string
     @return The resulting numeric version of the given version string.
@@ -580,7 +613,7 @@ def version2number(s):
 
 def userversion2number(s):
     """
-    Translates a legibal NIF user version number to the packed-byte numeric representation.
+    Translates a legible NIF user version number to the packed-byte numeric representation.
     Currently just converts the string to an int as this may be a raw number.
     Probably to be used just in case this understanding changes.
     @param s: The version string to translate into numeric form.
