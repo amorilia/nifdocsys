@@ -480,6 +480,12 @@ class CFile(file):
 
 
 def class_name(n):
+    """
+    Formats a valid C++ class name from the name format used in the XML.
+    @param b: The class name to format in C++ style.
+    @type b: string
+    @return The resulting valid C++ class name
+    """
     if n == None: return None
     try:
         return native_types[n]
@@ -504,6 +510,12 @@ def class_name(n):
     return n2
 
 def define_name(n):
+    """
+    Formats an all-uppercase version of the name for use in C++ defines.
+    @param b: The class name to format in define style.
+    @type b: string
+    @return The resulting valid C++ define name
+    """
     n2 = ''
     for i, c in enumerate(n):
         if ('A' <= c) and (c <= 'Z'):
@@ -519,6 +531,12 @@ def define_name(n):
     return n2
 
 def member_name(n):
+    """
+    Formats a version of the name for use as a C++ member variable.
+    @param b: The attribute name to format in variable style.
+    @type b: string
+    @return The resulting valid C++ variable name
+    """
     if n == None: return None
     if n == 'ARG': return 'ARG'
     n2 = ''
@@ -538,6 +556,12 @@ def member_name(n):
     return n2
 
 def version2number(s):
+    """
+    Translates a legibal NIF version number to the packed-byte numeric representation. For example, "10.0.1.0" is translated to 0x0A000100.
+    @param s: The version string to translate into numeric form.
+    @type s: string
+    @return The resulting numeric version of the given version string.
+    """
     if not s: return None
     l = s.split('.')
     if len(l) != 4:
@@ -547,6 +571,12 @@ def version2number(s):
         return (int(l[0]) << 24) + (int(l[1]) << 16) + (int(l[2]) << 8) + int(l[3])
 
 def userversion2number(s):
+    """
+    Translates a legibal NIF version number to the packed-byte numeric representation. For example, "10.0.1.0" is translated to 0x0A000100.
+    @param s: The version string to translate into numeric form.
+    @type s: string
+    @return The resulting numeric version of the given version string.
+    """
     if not s: return None
     return int(s)
 
