@@ -41,16 +41,35 @@ ACTION_GETREFS = 5
 #
 
 class CFile(file):
+    """
+    This class represents a C++ source file.  It is used to open the file for output
+    and automatically handles indentation by detecting brackets and colons.
+    It also handles writing the generated Niflib C++ code.
+    """
     def __init__(self, filename, mode):
+        """
+        This constructor requires the name of the file to open and the IO mode to open it in.
+        @param filename: The name of the ouput file to open
+        @type filename: string
+        @param mode: The IO Mode.  Same as fopen?  Usually should be 'r', 'w', or 'a'
+        @type mode: char
+        """
         file.__init__(self, root_dir + os.sep + filename, mode)
         self.indent = 0
         self.backslash_mode = False
     
-    # format C++ code; the returned result always ends with a newline
-    # if txt starts with "}", indent is decreased
-    # if txt ends with "{", indent is increased
+
     def code(self, txt = None):
-        # txt None means just a line break
+        r"""
+        Formats a line of C++ code; the returned result always ends with a newline.
+        If txt starts with "E{rb}", indent is decreased, if it ends with "E{lb}", indent is increased.
+        Text ending in "E{:}" de-indents itself.  For example "publicE{:}"
+        Result always ends with a newline
+        @param txt: None means just a line break.  This will also break the backslash, which is kind of handy.
+            "\n" will create a backslashed newline in backslash mode.
+        @type txt: string, None
+         """
+        # txt 
         # this will also break the backslash, which is kind of handy
         # call code("\n") if you want a backslashed newline in backslash mode
         if txt == None:
@@ -79,14 +98,24 @@ class CFile(file):
     
         self.write(result)
     
-    # create C++-style comments (handle multilined comments as well)
-    # result always ends with a newline
+    
+    # 
     def comment(self, txt):
+        """
+        Wraps text in Doxygen-style C++ comments and outputs it to the file.  Handles multilined comments as well.
+        Result always ends with a newline
+        @param txt: The text to enclose in a Doxygen comment
+        @type txt: string
+         """
         if self.backslash_mode: return # skip comments when we are in backslash mode
         self.code("/*!\n * " + "\n".join(wrap(txt)).replace("\n", "\n * ") + "\n */")
     
-    # C++ member declaration
     def declare(self, block):
+        """
+        Formats the member variables for a specific class as described by the XML and outputs the result to the file.
+        @param block: The class or struct to generate member functions for.
+        @type block: Block, Compound
+         """
         if isinstance(block, Block):
             #self.code('protected:')
             prot_mode = True
@@ -103,7 +132,11 @@ class CFile(file):
                 self.code(y.code_declare())
 
     def get_attr(self, block):
-        # get the attributes whose type is implemented natively by Niflib
+        """
+        Get the attributes whose type is implemented natively by Niflib.  Appears to be an attempt to generate a GetAttr function and so is obsolete.
+        @param block: The class or struct to generate the GetAttr function for.
+        @type block: Block, Compound
+         """
         if block.inherit:
             self.code("attr_ref attr = %s::GetAttr( attr_name );"%block.inherit.cname)
             self.code("if ( attr.is_null() == false ) return attr;")
@@ -117,6 +150,27 @@ class CFile(file):
         self.code("return attr_ref();")
 
     def stream(self, block, action, localprefix = "", prefix = "", arg_prefix = "", arg_member = None):
+        """
+        Generates the function code for various functions in Niflib and outputs it to the file.
+        @param block: The class or struct to generate the function for.
+        @type block: Block, Compound
+        @param action: The type of function to generate, valid values are::
+            ACTION_READ - Read function.
+            ACTION_WRITE - Write function
+            ACTION_OUT - asString function
+            ACTION_FIXLINKS - FixLinks function
+            ACTION_REMOVECROSSREF - RemoveCrossRef function, not used
+            ACTION_GETREFS - GetRefs function
+        @type action: ACTION_X constant
+        @param localprefix: ?
+        @type localprefix: string
+        @param prefix: ?
+        @type prefix: string
+        @param arg_prefix: ?
+        @type arg_prefix: string
+        @param arg_member: ?
+        @type arg_member: None, ?
+         """
         lastver1 = None
         lastver2 = None
         lastuserver = None
