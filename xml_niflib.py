@@ -945,6 +945,11 @@ class Compound(Basic):
     def __init__(self, element):
         Basic.__init__(self, element)
 
+        #the relative path to files in the gen folder
+        self.gen_file_prefix = ""
+        #the relative path to files in the obj folder
+        self.obj_file_prefix = "../obj/"
+
         self.members = []     # list of all members (list of Member)
         self.template = False # does it use templates?
         self.argument = False # does it use an argument?
@@ -1004,7 +1009,7 @@ class Compound(Basic):
         used_structs = []
         for y in self.members:
             if y.type in compound_names and y.type != self.name and not compound_types[y.type].niflibtype:
-                file_name = "gen/%s.h"%y.ctype
+                file_name = "%s%s.h"%(self.gen_file_prefix, y.ctype)
                 if file_name not in used_structs:
                     used_structs.append( file_name )
         if used_structs:
@@ -1019,7 +1024,7 @@ class Compound(Basic):
                 if not y.ctemplate in used_blocks:
                     used_blocks.append( y.ctemplate )
         if used_blocks:
-            result += '\n// Forward define of referenced blocks\n#include "Ref.h"\n'
+            result += '\n// Forward define of referenced blocks\n'
         for fwd_class in used_blocks:
             result += 'class %s;\n'%fwd_class
 
@@ -1031,16 +1036,16 @@ class Compound(Basic):
         result = ""
 
         if self.name in compound_names:
-            result += '#include "gen/%s.h"\n'%self.cname
+            result += '#include "%s%s.h"\n'%(self.gen_file_prefix, self.cname)
         elif self.name in block_names:
-            result += '#include "obj/%s.h"\n'%self.cname
+            result += '#include "%s%s.h"\n'%(self.obj_file_prefix, self.cname)
         else: assert(False) # bug
 
         # include referenced blocks
         used_blocks = []
         for y in self.members:
             if y.template in block_names and y.template != self.name:
-                file_name = "obj/%s.h"%y.ctemplate
+                file_name = "%s%s.h"%(self.obj_file_prefix, y.ctemplate)
                 if file_name not in used_blocks:
                     used_blocks.append( file_name )
             if y.type in compound_names:
@@ -1056,6 +1061,10 @@ class Compound(Basic):
 class Block(Compound):
     def __init__(self, element):
         Compound.__init__(self, element)
+        #the relative path to files in the gen folder
+        self.gen_file_prefix = "../gen/"
+        #the relative path to files in the obj folder
+        self.obj_file_prefix = ""
         
         self.is_ancestor = (element.getAttribute('abstract') == "1")
         inherit = element.getAttribute('inherit')
@@ -1114,10 +1123,10 @@ for n in compound_names:
     h.code( '#ifndef _' + x.cname.upper() + '_H_' )
     h.code( '#define _' + x.cname.upper() + '_H_' )
     h.code()
-    h.code( '#include "NIF_IO.h"' )
+    h.code( '#include "../NIF_IO.h"' )
     h.code( x.code_include_h() )
     if n in ["Header", "Footer"]:
-        h.code( '#include "obj/NiObject.h"' )
+        h.code( '#include "../obj/NiObject.h"' )
     h.code()
     
     # header
@@ -1199,15 +1208,6 @@ All rights reserved.  Please see niflib.h for licence. */
 
 #define MAXARRAYDUMP 20
 
-#include "NIF_IO.h"
-#include "Ref.h"
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-
-using namespace std;
-
 """)
 
 h.backslash_mode = True
@@ -1288,14 +1288,14 @@ f = CFile("gen/obj_factories.cpp", "w")
 f.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
 f.code( 'All rights reserved.  Please see niflib.h for licence. */' )
 f.code()
-f.code('#include "obj/NiObject.h"')
+f.code('#include "../obj/NiObject.h"')
 f.code('typedef NiObject*(*blk_factory_func)();')
 f.code('extern map<string, blk_factory_func> global_block_map;')
 f.code()
 for n in block_names:
     x = block_types[n]
     if not x.is_ancestor:
-        f.code('#include "obj/%s.h"'%x.cname)
+        f.code('#include "../obj/%s.h"'%x.cname)
         f.code('NiObject * Create%s() { return new %s; }'%(x.cname,x.cname))
 f.code()
 f.code('//This function registers the factory functions with global_block_map which is used by CreateBlock')
