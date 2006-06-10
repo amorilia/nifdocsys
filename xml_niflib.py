@@ -1,21 +1,21 @@
 """
 This module generates C++ code for Niflib from the NIF file format specification XML.
 Created by Amorilia in 2006.
-@var root_dir:  A period?  Means current directory?
-@type root_dir: string
-@var BOOTSTRAP: ?
+@var ROOT_DIR:  Destination directory to write the generated code to.
+@type ROOT_DIR: string
+@var BOOTSTRAP: If true, this will generate the templates (the code that is not updated from the database). Specify "-b" on the command line to turn this on.
 @type BOOTSTRAP: bool
-@var native_types:  A list of the types implemented manually in Niflib?
+@var native_types:  A list of the types implemented manually in Niflib. Those are the types tagged by the niflibtype tag in the XML.
 @type native_types: ?
-@var basic_types: A list of the basic types?  Different from native types?
+@var basic_types: A list of the basic types (<basic> in XML). These are different from native types, since some of the structs can also be natively implemented in Niflib.
 @type basic_types: ?
-@var compound_types:  A list of the struct types?
+@var compound_types:  A list of the struct types (<compound> in XML).
 @type compound_types: ?
-@var basic_names: A list of the basic type names?
+@var basic_names: A list of the basic type names.
 @type basic_names: ?
-@var compound_names: A list of the struct names?
+@var compound_names: A list of the struct names.
 @type compound_names: ?
-@var block_types: A list of the NiObject-derived classes?
+@var block_types: A list of the NiObject-derived classes.
 @type block_types: ?
 @var ACTION_READ: Constant for use with CFile::stream.  Causes it to generate Niflib's Read function.
 @type ACTION_READ: int
@@ -25,8 +25,6 @@ Created by Amorilia in 2006.
 @type ACTION_OUT: int
 @var ACTION_FIXLINKS: Constant for use with CFile::stream.  Causes it to generate Niflib's FixLinks function.
 @type ACTION_FIXLINKS: int
-@var ACTION_REMOVECROSSREF: Constant for use with CFile::stream.  Causes it to generate Niflib's RemoveCrossRef function.  Not used.
-@type ACTION_REMOVECROSSREF: int
 @var ACTION_GETREFS: Constant for use with CFile::stream.  Causes it to generate Niflib's GetRefs function.
 @type ACTION_GETREFS: int
 """
@@ -41,13 +39,13 @@ import os
 # global data
 #
 
-root_dir = "."
+ROOT_DIR = "."
 BOOTSTRAP = False
 
 prev = ""
 for i in sys.argv:
     if prev == "-p":
-        root_dir = i
+        ROOT_DIR = i
     elif i == "-b":
         BOOTSTRAP = True
     prev = i
@@ -66,8 +64,7 @@ ACTION_READ = 0
 ACTION_WRITE = 1
 ACTION_OUT = 2
 ACTION_FIXLINKS = 3
-ACTION_REMOVECROSSREF = 4
-ACTION_GETREFS = 5
+ACTION_GETREFS = 4
 
 #
 # C++ code formatting functions
@@ -91,7 +88,7 @@ class CFile(file):
         @param mode: The IO Mode.  Same as fopen?  Usually should be 'r', 'w', or 'a'
         @type mode: char
         """
-        file.__init__(self, root_dir + os.sep + filename, mode)
+        file.__init__(self, ROOT_DIR + os.sep + filename, mode)
         self.indent = 0
         self.backslash_mode = False
     
@@ -168,24 +165,6 @@ class CFile(file):
                 self.comment(y.description)
                 self.code(y.code_declare())
 
-    def get_attr(self, block):
-        """
-        Get the attributes whose type is implemented natively by Niflib.  Appears to be an attempt to generate a GetAttr function and so is obsolete.
-        @param block: The class or struct to generate the GetAttr function for.
-        @type block: Block, Compound
-         """
-        if block.inherit:
-            self.code("attr_ref attr = %s::GetAttr( attr_name );"%block.inherit.cname)
-            self.code("if ( attr.is_null() == false ) return attr;")
-        for y in block.members:
-            if y.is_declared and not y.is_duplicate:
-                if native_types.has_key(y.type) and (not y.arr1.lhs) and (not y.arr2.lhs) and (not y.func):
-                    self.code('if ( attr_name == "%s" )'%y.name)
-                    self.code("\treturn attr_ref(%s);"%y.cname)
-        if not block.is_ancestor:
-            self.code('throw runtime_error("The attribute you requested does not exist in this block, or cannot be accessed.");')
-        self.code("return attr_ref();")
-
     def stream(self, block, action, localprefix = "", prefix = "", arg_prefix = "", arg_member = None):
         """
         Generates the function code for various functions in Niflib and outputs it to the file.
@@ -196,7 +175,6 @@ class CFile(file):
             ACTION_WRITE - Write function
             ACTION_OUT - asString function
             ACTION_FIXLINKS - FixLinks function
-            ACTION_REMOVECROSSREF - RemoveCrossRef function, not used
             ACTION_GETREFS - GetRefs function
         @type action: ACTION_X constant
         @param localprefix: ?
@@ -241,8 +219,6 @@ class CFile(file):
                     self.code("%s << %s::asString();"%(stream, block.inherit.cname))
                 elif action == ACTION_FIXLINKS:
                     self.code("%s::FixLinks( objects, link_stack, version, user_version );"%block.inherit.cname)
-                elif action == ACTION_REMOVECROSSREF:
-                    self.code("%s::RemoveCrossRef(block_to_remove);"%block.inherit.cname)
                 elif action == ACTION_GETREFS:
                     self.code("refs = %s::GetRefs();"%block.inherit.cname)
 
@@ -1221,11 +1197,6 @@ for n in block_names:
     h.declare(x)
     h.code()
     
-    # get attribute
-    #h.code("#define %s_GETATTR"%x_define_name)
-    #h.get_attr(x)
-    #h.code()
-
     # parents
     if not x.inherit:
         par = ""
@@ -1263,11 +1234,6 @@ for n in block_names:
     h.code("#define %s_FIXLINKS"%x_define_name)
     h.stream(x, ACTION_FIXLINKS)
     h.code()
-
-    # remove cross reference
-    #h.code("#define %s_REMOVECROSSREF"%x_define_name)
-    #h.stream(x, ACTION_REMOVECROSSREF)
-    #h.code()
 
     # get references
     h.code("#define %s_GETREFS"%x_define_name)
@@ -1308,7 +1274,7 @@ f.code('}')
 
 # SConstruct file names
 
-scons = open(root_dir + os.sep + "SConstruct", "w")
+scons = open(ROOT_DIR + os.sep + "SConstruct", "w")
 
 scons.write("""
 import sys
