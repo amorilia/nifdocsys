@@ -966,6 +966,8 @@ class Compound(Basic):
         self.gen_file_prefix = ""
         #the relative path to files in the obj folder
         self.obj_file_prefix = "../obj/"
+        #the relative path to files in the root folder
+        self.root_file_prefix = "../"
 
         self.members = []     # list of all members (list of Member)
         self.template = False # does it use templates?
@@ -1025,12 +1027,19 @@ class Compound(Basic):
         # include all required structures
         used_structs = []
         for y in self.members:
-            if y.type in compound_names and y.type != self.name and not compound_types[y.type].niflibtype:
-                file_name = "%s%s.h"%(self.gen_file_prefix, y.ctype)
-                if file_name not in used_structs:
-                    used_structs.append( file_name )
+            file_name = None
+            if y.type != self.name:
+                if y.type in compound_names:
+                    if not compound_types[y.type].niflibtype:
+                        file_name = "%s%s.h"%(self.gen_file_prefix, y.ctype)
+                elif y.type in basic_names:
+                    print y.type, basic_types[y.type].niflibtype
+                    if basic_types[y.type].niflibtype == "Ref":
+                        file_name = "%sRef.h"%(self.root_file_prefix)
+            if file_name and file_name not in used_structs:
+                used_structs.append( file_name )
         if used_structs:
-            result += "// Include structures\n"
+            result += "\n// Include structures\n"
         for file_name in used_structs:
             result += '#include "%s"\n'%file_name
     
