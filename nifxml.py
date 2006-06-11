@@ -1033,7 +1033,6 @@ class Compound(Basic):
                     if not compound_types[y.type].niflibtype:
                         file_name = "%s%s.h"%(self.gen_file_prefix, y.ctype)
                 elif y.type in basic_names:
-                    print y.type, basic_types[y.type].niflibtype
                     if basic_types[y.type].niflibtype == "Ref":
                         file_name = "%sRef.h"%(self.root_file_prefix)
             if file_name and file_name not in used_structs:
