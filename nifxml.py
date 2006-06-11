@@ -955,6 +955,8 @@ class Basic:
                 self.is_crossref = True
                 self.has_crossrefs = True
 
+        self.template = (element.getAttribute('istemplate') == "1")
+
 
 
 class Compound(Basic):
@@ -970,7 +972,6 @@ class Compound(Basic):
         self.root_file_prefix = "../"
 
         self.members = []     # list of all members (list of Member)
-        self.template = False # does it use templates?
         self.argument = False # does it use an argument?
 
         # store all attribute data & calculate stuff
@@ -979,10 +980,10 @@ class Compound(Basic):
             self.members.append(x)
             
             # detect templates
-            if x.type == 'TEMPLATE':
-                self.template = True
-            if x.template == 'TEMPLATE':
-                self.template = True
+            #if x.type == 'TEMPLATE':
+            #    self.template = True
+            #if x.template == 'TEMPLATE':
+            #    self.template = True
 
             # detect argument
             if x.uses_argument:
