@@ -405,6 +405,9 @@ POSSIBILITY OF SUCH DAMAGE. */
 }
 #endif
 
+// we need to define this because the wrapper gets confused about NIFLIB_API'd functions otherwise
+#define NIFLIB_API
+
 %{
 	#include "niflib.h"
 %}
@@ -503,6 +506,8 @@ struct Key {
 
 %include "niflib.h"
 """)
+
+swig.close()
 
 # all non-generated bootstrap code
 if BOOTSTRAP:
