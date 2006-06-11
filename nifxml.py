@@ -1,28 +1,84 @@
 """
 This module generates C++ code for Niflib from the NIF file format specification XML.
-Created by Amorilia in 2006.
-@var native_types:  A list of the types implemented manually in Niflib. Those are the types tagged by the niflibtype tag in the XML.
-@type native_types: ?
-@var basic_types: A list of the basic types (<basic> in XML). These are different from native types, since some of the structs can also be natively implemented in Niflib.
-@type basic_types: ?
-@var compound_types:  A list of the struct types (<compound> in XML).
-@type compound_types: ?
-@var basic_names: A list of the basic type names.
-@type basic_names: ?
-@var compound_names: A list of the struct names.
-@type compound_names: ?
-@var block_types: A list of the NiObject-derived classes.
-@type block_types: ?
-@var ACTION_READ: Constant for use with CFile::stream.  Causes it to generate Niflib's Read function.
-@type ACTION_READ: int
+
+@author: Amorilia
+@author: Shon
+
+@contact: http://niftools.sourceforge.net
+
+@copyright:
+Copyright (c) 2005, NIF File Format Library and Tools.
+All rights reserved.
+
+@license:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+   - Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+
+   - Redistributions in binary form must reproduce the above
+     copyright notice, this list of conditions and the following
+     disclaimer in the documentation and/or other materials provided
+     with the distribution.
+
+   - Neither the name of the NIF File Format Library and Tools
+     project nor the names of its contributors may be used to endorse
+     or promote products derived from this software without specific
+     prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+@var native_types: Maps name of basic or compound type to name of type implemented manually in Niflib.
+    These are the types tagged by the niflibtype tag in the XML. For example,
+    if a (basic or compound) type with C{name="ferrari"} has C{niflibtype="car"}
+    then C{native_types["ferrari"]} equals the string C{"car"}.
+@type native_types: C{dictionary}
+
+@var basic_types: Maps name of basic type to L{Basic} instance.
+@type basic_types: C{dictionary}
+
+@var compound_types:  Maps name of compound type to a L{Compound} instance.
+@type compound_types: C{dictionary}
+
+@var block_types: Maps name of the block name to a L{Block} instance.
+@type block_types: C{list}
+
+@var basic_names: Sorted keys of L{basic_types}.
+@type basic_names: C{list}
+
+@var compound_names: Sorted keys of L{compound_types}.
+@type compound_names: C{list}
+
+@var block_names: Sorted keys of L{block_types}.
+@type block_names: C{list}
+
+@var ACTION_READ: Constant for use with CFile::stream. Causes it to generate Niflib's Read function.
+@type ACTION_READ: C{int}
+
 @var ACTION_WRITE: Constant for use with CFile::stream.  Causes it to generate Niflib's Write function.
-@type ACTION_WRITE: int
+@type ACTION_WRITE: C{int}
+
 @var ACTION_OUT: Constant for use with CFile::stream.  Causes it to generate Niflib's asString function.
-@type ACTION_OUT: int
+@type ACTION_OUT: C{int}
+
 @var ACTION_FIXLINKS: Constant for use with CFile::stream.  Causes it to generate Niflib's FixLinks function.
-@type ACTION_FIXLINKS: int
+@type ACTION_FIXLINKS: C{int}
+
 @var ACTION_GETREFS: Constant for use with CFile::stream.  Causes it to generate Niflib's GetRefs function.
-@type ACTION_GETREFS: int
+@type ACTION_GETREFS: C{int}
 """
 
 from xml.dom.minidom import *
