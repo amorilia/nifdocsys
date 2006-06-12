@@ -418,9 +418,13 @@ POSSIBILITY OF SUCH DAMAGE. */
 
 // we need to define this because the wrapper gets confused about NIFLIB_API'd functions otherwise
 #define NIFLIB_API
+#define NIFLIB_HIDDEN
+
+// we need this to get all the defines in there
+%include "gen/obj_defines.h"
 
 %{
-	#include "niflib.h"
+    #include "niflib.h"
 %}
 
 // we need the definition of the template classes before we define the template Python names below
@@ -493,7 +497,6 @@ for n in compound_names + block_names:
     for y in x.members:
         if not y.template:
             if y.arr1.lhs and not y.arr2.lhs:
-                print y.ctype
                 if not y.ctype in swig_v: swig_v.append(y.ctype)
 
 for ctype in swig_v:
@@ -508,6 +511,10 @@ swig.code("""%template(pair_int_float) std::pair<int, float>;
 
 %include "niflib.h"
 """)
+
+for n in block_names:
+    x = block_types[n]
+    swig.code('%%include "obj/%s.h"'%x.cname)
 
 swig.close()
 
