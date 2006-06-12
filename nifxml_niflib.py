@@ -67,7 +67,9 @@ for i in sys.argv:
         BOOTSTRAP = True
     prev = i
 
+#
 # generate compound code
+#
 
 mkpath(os.path.join(ROOT_DIR, "obj"))
 mkpath(os.path.join(ROOT_DIR, "gen"))
@@ -119,6 +121,7 @@ for n in compound_names:
     h.code("};")
     h.code()
     h.code( '#endif' )
+    h.close()
 
     if not x.template:
         cpp = CFile(ROOT_DIR + '/gen/' + x.cname + '.cpp', 'w')
@@ -156,8 +159,12 @@ for n in compound_names:
             cpp.stream(x, ACTION_OUT)
             cpp.code( '}' )
 
+        cpp.close()
 
+
+#
 # generate block code
+#
 
 h = CFile(ROOT_DIR + "/gen/obj_defines.h", "w")
 
@@ -259,7 +266,9 @@ for n in block_names:
         f.code('global_block_map["%s"] = Create%s;'%(x.cname, x.cname))
 f.code('}')
 
-# SConstruct file names
+#
+# SCons
+#
 
 scons = open(os.path.join(ROOT_DIR, "SConstruct"), "w")
 
@@ -336,7 +345,9 @@ env.Depends(nifshlib, niflib)
 
 scons.close()
 
-# generate the swig interface
+#
+# generate the SWIG interface
+#
 
 swig = CFile(os.path.join(ROOT_DIR, 'pyniflib.i'), "w")
 
@@ -426,41 +437,84 @@ struct Key {
 
 # vector and list templates
 
-for n in basic_names:
-    x = basic_types[n]
-    if not x.template:
-        swig.code("%%template(vector_%s) std::vector<%s>;"%(x.niflibtype, x.niflibtype))
-for n in compound_names:
-    x = compound_types[n]
-    if not x.template:
-        if not x.niflibtype:
-            swig.code("%%template(vector_%s) std::vector<%s>;"%(x.cname, x.cname))
-        else:
-            swig.code("%%template(vector_%s) std::vector<%s>;"%(x.niflibtype, x.niflibtype))
-for n in block_names:
-    x = block_types[n]
-    if not x.template:
-        swig.code("%%template(vector_%s) std::vector<%s>;"%(x.cname, x.cname))
+##for n in basic_names:
+##    x = basic_types[n]
+##    if not x.template:
+##        if not x.niflibtype in swig_types:
+##            swig_types.append(x.niflibtype)
+##    else:
+##        if not x.niflibtype in swig_template_types and x.niflibtype != "*":
+##            swig_template_types.append(x.niflibtype)
+##            
+##for n in compound_names:
+##    x = compound_types[n]
+##    if n[:3] == "ns ": continue
+##    if not x.template:
+##        if not x.niflibtype:
+##            if not x.cname in swig_types:
+##                swig_types.append(x.cname)
+##        else:
+##            if not x.niflibtype in swig_types:
+##                swig_types.append(x.niflibtype)
+##    else:
+##        if not x.niflibtype:
+##            if not x.cname in swig_template_types:
+##                swig_template_types.append(x.cname)
+##        else:
+##            if not x.niflibtype in swig_template_types:
+##                swig_template_types.append(x.niflibtype)
+##for n in block_names:
+##    x = block_types[n]
+##    assert(not x.template) # debug
+##    assert(not x.niflibtype) # debug
+##    if not x.cname in swig_types:
+##        swig_types.append(x.cname)
+##
+##for swig_type in swig_types:
+##    if swig_type == "string":
+##        real_swig_type = "std::string"
+##    else:
+##        real_swig_type = swig_type
+##    swig.code("%%template(vector_%s) std::vector<%s>;"%(swig_type, real_swig_type))
+##    for swig_template_type in swig_template_types:
+##        swig.code("%%template(%s_%s) %s<%s >;"%(swig_template_type, swig_type, swig_template_type, real_swig_type))
+##        swig.code("%%template(vector_%s_%s) std::vector<%s<%s > >;"%(swig_template_type, swig_type, swig_template_type, real_swig_type))
+##
+
+swig_v = []
+
+for n in compound_names + block_names:
+    try:
+        x = compound_types[n]
+    except KeyError:
+        x = block_types[n]
+    if n[:3] == "ns ": continue
+    if x.niflibtype: continue
+    for y in x.members:
+        if not y.template:
+            if y.arr1.lhs and not y.arr2.lhs:
+                print y.ctype
+                if not y.ctype in swig_v: swig_v.append(y.ctype)
+
+for ctype in swig_v:
+    if ctype == "string":
+        real_ctype = "std::string"
+    else:
+        real_ctype = ctype
+    swig.code("%%template(vector_%s) std::vector<%s>;"%(ctype, real_ctype))
 
 swig.code("""%template(pair_int_float) std::pair<int, float>;
 %template(map_int_float) std::map<int, float>;
-%template(Key_Quaternion) Key<Quaternion>;
-%template(vector_Key_Quaternion) std::vector< Key<Quaternion> >;
-%template(Key_Vector3) Key<Vector3>;
-%template(vector_Key_Vector3) std::vector< Key<Vector3> >;
-%template(Key_float) Key<float>;
-%template(vector_Key_float) std::vector< Key<float> >;
-%template(Key_Color4) Key<Color4>;
-%template(vector_Key_Color4) std::vector< Key<Color4> >;
-%template(Key_string) Key<std::string>;
-%template(vector_Key_string) std::vector< Key<std::string> >;
 
 %include "niflib.h"
 """)
 
 swig.close()
 
+#
 # all non-generated bootstrap code
+#
+
 if BOOTSTRAP:
     # Templates
     for n in block_names:
