@@ -422,10 +422,19 @@ POSSIBILITY OF SUCH DAMAGE. */
 
 // we need this to get all the defines in there
 %include "gen/obj_defines.h"
+""")
 
-%{
-    #include "niflib.h"
-%}
+swig.code('%{')
+swig.code('\t#include "niflib.h"')
+
+for n in block_names:
+    x = block_types[n]
+    swig.code('\t#include "obj/%s.h"'%x.cname)
+
+swig.indent -= 1 # '%%}' hack
+swig.code('%}')
+
+swig.code("""
 
 // we need the definition of the template classes before we define the template Python names below
 template <class T> 
