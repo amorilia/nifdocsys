@@ -650,4 +650,25 @@ if BOOTSTRAP:
 		    else:
 			out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
 	out.close()
-	
+
+#Doxygen pre-define file
+doxy = CFile(os.path.join(ROOT_DIR, 'DoxygenPredefines.txt'), "w")
+doxy.backslash_mode = True
+doxy.code( "PREDEFINED             =" )
+
+for n in block_names:
+    x = block_types[n]
+    x_define_name = define_name(x.cname)
+        
+    # parents
+    if not x.inherit:
+        par = ""
+    else:
+        par = x.inherit.cname
+    # declaration
+    doxy.code('%s_PARENT=%s'%(x_define_name, par))
+
+doxy.code()
+doxy.close()
+
+
