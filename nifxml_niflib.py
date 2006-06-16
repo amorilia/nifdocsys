@@ -420,12 +420,27 @@ POSSIBILITY OF SUCH DAMAGE. */
 #define NIFLIB_API
 #define NIFLIB_HIDDEN
 
+//Ignore the const versions of these functions
+%ignore DynamicCast( const NiObject * object );
+%ignore StaticCast (const NiObject * object);
+
+//Do not wrap base classes as their methods are accessed through Ref smart pointers
+""")
+for n in block_names:
+    x = block_types[n]
+    swig.code('%%ignore %s;'%x.cname)
+
+swig.code()
+swig.code("""
 // we need this to get all the defines in there
 %include "gen/obj_defines.h"
 """)
 
 swig.code('%{')
 swig.code('\t#include "niflib.h"')
+swig.code('\t#include "Ref.h"')
+swig.code('\t#include "Type.h"')
+swig.code('\t#include "nif_math.h"')
 
 for n in block_names:
     x = block_types[n]
@@ -518,12 +533,19 @@ for ctype in swig_v:
 swig.code("""%template(pair_int_float) std::pair<int, float>;
 %template(map_int_float) std::map<int, float>;
 
+%include "Ref.h"
 %include "niflib.h"
 """)
 
 for n in block_names:
     x = block_types[n]
     swig.code('%%include "obj/%s.h"'%x.cname)
+    swig.code("%%template(%sRef) Ref<%s>;"%(x.cname, x.cname))
+    swig.code("%%template(DynamicCastTo%s) DynamicCast<%s>;"%(x.cname, x.cname))
+    swig.code("%%template(StaticCastTo%s) StaticCast<%s>;"%(x.cname, x.cname))
+
+swig.code()
+swig.code("%template(vector_NiAVObjectRef) std::vector<NiAVObjectRef>;")
 
 swig.close()
 
