@@ -112,7 +112,12 @@ for n in compound_names:
     h.declare(x)
 
     # header and footer functions
-    if n in ["Header", "Footer"]:
+    if n  == "Header":
+        h.code( 'void Read( istream& in );' )
+        h.code( 'void Write( ostream& out ) const;' )
+        h.code( 'string asString( bool verbose = false ) const;' )
+    
+    if n == "Footer":
         h.code( 'void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
         h.code( 'void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
         h.code( 'string asString( bool verbose = false ) const;' )
@@ -424,14 +429,11 @@ POSSIBILITY OF SUCH DAMAGE. */
 %ignore DynamicCast( const NiObject * object );
 %ignore StaticCast (const NiObject * object);
 
-//Do not wrap base classes as their methods are accessed through Ref smart pointers
-""")
-for n in block_names:
-    x = block_types[n]
-    swig.code('%%ignore %s;'%x.cname)
+//Do not use smart pointer support as it doubles the size of the library
+//and makes it take twice as long to be imported
+%ignore Ref::operator->;
+%ignore Ref::operator=;
 
-swig.code()
-swig.code("""
 // we need this to get all the defines in there
 %include "gen/obj_defines.h"
 """)
@@ -445,6 +447,12 @@ swig.code('\t#include "nif_math.h"')
 for n in block_names:
     x = block_types[n]
     swig.code('\t#include "obj/%s.h"'%x.cname)
+    
+for n in compound_names:
+    x = compound_types[n]
+    if x.niflibtype: continue
+    if n[:3] == "ns ": continue
+    swig.code('\t#include "gen/%s.h"'%x.cname)
 
 swig.indent -= 1 # '%%}' hack
 swig.code('%}')
@@ -533,8 +541,11 @@ for ctype in swig_v:
 swig.code("""%template(pair_int_float) std::pair<int, float>;
 %template(map_int_float) std::map<int, float>;
 
-%include "Ref.h"
 %include "niflib.h"
+%include "Ref.h"
+%include "Type.h"
+%include "nif_math.h"
+
 """)
 
 for n in block_names:
@@ -544,6 +555,12 @@ for n in block_names:
     swig.code("%%template(DynamicCastTo%s) DynamicCast<%s>;"%(x.cname, x.cname))
     swig.code("%%template(StaticCastTo%s) StaticCast<%s>;"%(x.cname, x.cname))
 
+for n in compound_names:
+    x = compound_types[n]
+    if x.niflibtype: continue
+    if n[:3] == "ns ": continue
+    swig.code('%%include "gen/%s.h"'%x.cname)
+    
 swig.code()
 swig.code("%template(vector_NiAVObjectRef) std::vector<NiAVObjectRef>;")
 
