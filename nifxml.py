@@ -15,18 +15,18 @@ Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions
 are met:
 
-   - Redistributions of source code must retain the above copyright
-     notice, this list of conditions and the following disclaimer.
+  - Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
 
-   - Redistributions in binary form must reproduce the above
-     copyright notice, this list of conditions and the following
-     disclaimer in the documentation and/or other materials provided
-     with the distribution.
+  - Redistributions in binary form must reproduce the above
+    copyright notice, this list of conditions and the following
+    disclaimer in the documentation and/or other materials provided
+    with the distribution.
 
-   - Neither the name of the NIF File Format Library and Tools
-     project nor the names of its contributors may be used to endorse
-     or promote products derived from this software without specific
-     prior written permission.
+  - Neither the name of the NIF File Format Library and Tools
+    project nor the names of its contributors may be used to endorse
+    or promote products derived from this software without specific
+    prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -143,7 +143,7 @@ class CFile(file):
         @param txt: None means just a line break.  This will also break the backslash, which is kind of handy.
             "\n" will create a backslashed newline in backslash mode.
         @type txt: string, None
-         """
+        """
         # txt 
         # this will also break the backslash, which is kind of handy
         # call code("\n") if you want a backslashed newline in backslash mode
@@ -181,7 +181,7 @@ class CFile(file):
         Result always ends with a newline
         @param txt: The text to enclose in a Doxygen comment
         @type txt: string
-         """
+        """
         if self.backslash_mode: return # skip comments when we are in backslash mode
         self.code("/*!\n * " + "\n".join(wrap(txt)).replace("\n", "\n * ") + "\n */")
     
@@ -190,7 +190,7 @@ class CFile(file):
         Formats the member variables for a specific class as described by the XML and outputs the result to the file.
         @param block: The class or struct to generate member functions for.
         @type block: Block, Compound
-         """
+        """
         if isinstance(block, Block):
             #self.code('protected:')
             prot_mode = True
@@ -205,6 +205,9 @@ class CFile(file):
                         prot_mode = True
                 self.comment(y.description)
                 self.code(y.code_declare())
+                if y.func:
+                  self.comment(y.description)
+                  self.code("%s %s() const;"%(y.ctype,y.func))
 
     def stream(self, block, action, localprefix = "", prefix = "", arg_prefix = "", arg_member = None):
         """
@@ -226,7 +229,7 @@ class CFile(file):
         @type arg_prefix: string
         @param arg_member: ?
         @type arg_member: None, ?
-         """
+        """
         lastver1 = None
         lastver2 = None
         lastuserver = None
@@ -269,31 +272,54 @@ class CFile(file):
             for y in block.members:
                 # read + write + out: declare
                 if not y.is_declared and not y.is_duplicate:
-                    # declare it
-                    self.code(y.code_declare(localprefix))
-                    # write + out: calculate
-                    if action in [ACTION_WRITE, ACTION_OUT]:
-                        if y.cond_ref:
-                            assert(y.is_declared) # bug check
-                        elif y.arr1_ref:
-                            assert(not y.is_declared) # bug check
-                            self.code('%s%s = %s(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr1_ref[0]))
-                        elif y.arr2_ref:
-                            assert(not y.is_declared) # bug check
-                            if not y.arr1.lhs:
-                                self.code('%s%s = %s(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr2_ref[0]))
-                            else:
-                                # index of dynamically sized array
-                                self.code('%s%s.resize(%s%s.size());'%(localprefix, y.cname, prefix, y.carr2_ref[0]))
-                                self.code('for (uint i%i = 0; i%i < %s%s.size(); i%i++)'%(self.indent, self.indent, prefix, y.carr2_ref[0], self.indent))
-                                self.code('\t%s%s[i%i] = %s(%s%s[i%i].size());'%(localprefix, y.cname, self.indent, y.ctype, prefix, y.carr2_ref[0], self.indent))
-                        elif y.func:
-                            assert(not y.is_declared) # bug check
-                            self.code('%s%s = %s%s();'%(localprefix, y.cname, prefix, y.func))
-                        else:
-                            assert(y.is_declared) # bug check
+                  # declare it
+                  self.code(y.code_declare(localprefix))
+                  # write + out: calculate
+                  if action in [ACTION_WRITE, ACTION_OUT]:
+                      if y.cond_ref:
+                          assert(y.is_declared) # bug check
+                      elif y.arr1_ref:
+                          assert(not y.is_declared) # bug check
+                          self.code('%s%s = %s(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr1_ref[0]))
+                      elif y.arr2_ref:
+                          assert(not y.is_declared) # bug check
+                          if not y.arr1.lhs:
+                              self.code('%s%s = %s(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr2_ref[0]))
+                          else:
+                              # index of dynamically sized array
+                              self.code('%s%s.resize(%s%s.size());'%(localprefix, y.cname, prefix, y.carr2_ref[0]))
+                              self.code('for (uint i%i = 0; i%i < %s%s.size(); i%i++)'%(self.indent, self.indent, localprefix, y.cname, self.indent))
+                              self.code('\t%s%s[i%i] = %s(%s%s[i%i].size());'%(localprefix, y.cname, self.indent, y.ctype, prefix, y.carr2_ref[0], self.indent))
+                      elif y.func:
+                          assert(not y.is_declared) # bug check
+                          self.code('%s%s = %s%s();'%(localprefix, y.cname, prefix, y.func))
+                      else:
+                          assert(y.is_declared) # bug check
+                          
+                elif y.is_declared and not y.is_duplicate and action in [ACTION_WRITE, ACTION_OUT]:
+                  if y.func:
+                      self.code('%s%s = %s%s();'%(prefix, y.cname, prefix, y.func))
+                  elif y.arr1_ref:
+                    if not y.arr1 or not y.arr1.lhs: # Simple Scalar
+                      cref = block.find_member(y.arr1_ref[0], True) 
+                      # if not cref.is_duplicate and not cref.next_dup and (not cref.cond.lhs or cref.cond.lhs == y.name):
+                        # self.code('assert(%s%s == %s(%s%s.size()));'%(prefix, y.cname, y.ctype, prefix, cref.cname))
+                      self.code('%s%s = %s(%s%s.size());'%(prefix, y.cname, y.ctype, prefix, cref.cname))
+                  elif y.arr2_ref: # 1-dimensional dynamic array
+                    cref = block.find_member(y.arr2_ref[0], True) 
+                    if not y.arr1 or not y.arr1.lhs: # Second dimension
+                      # if not cref.is_duplicate and not cref.next_dup (not cref.cond.lhs or cref.cond.lhs == y.name):
+                       # self.code('assert(%s%s == %s((%s%s.size() > 0) ? %s%s[0].size() : 0));'%(prefix, y.cname, y.ctype, prefix, cref.cname, prefix, cref.cname))
+                      self.code('%s%s = %s((%s%s.size() > 0) ? %s%s[0].size() : 0);'%(prefix, y.cname, y.ctype, prefix, cref.cname, prefix, cref.cname))
+                    else:
+                        # index of dynamically sized array
+                        self.code('for (uint i%i = 0; i%i < %s%s.size(); i%i++)'%(self.indent, self.indent, prefix, cref.cname, self.indent))
+                        self.code('\t%s%s[i%i] = %s(%s%s[i%i].size());'%(prefix, y.cname, self.indent, y.ctype, prefix, cref.cname, self.indent))
+                  # else: #has duplicates needs to be selective based on version
+                    # self.code('assert(!"%s");'%(y.name))
             block.members.reverse() # undo reverse
-                            
+
+
         # now comes the difficult part: processing all members recursively
         for y in block.members:
             # get block
@@ -417,10 +443,20 @@ class CFile(file):
             else:
                 if y.arr1.lhs.isdigit() == False:
                     if action == ACTION_READ:
-                        self.code("%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix)))
+                      # default to local variable, check if variable is in current scope if not then try to use
+                      #   definition from resized child
+                      memcode = "%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix))
+                      mem = block.find_member(y.arr1.lhs, True) # find member in self or parents
+                      if mem and not mem.is_declared and not mem.is_duplicate and mem.arr1_ref:
+                          localmem = block.find_member(y.arr1.lhs, False) # find only in self for locals
+                          if not localmem:
+                            ref1 = block.find_first_ref(mem.name)
+                            if ref1 and ref1.name != y.name:
+                              memcode = "%s%s.resize(%s%s.size());"%(y_prefix, y.cname, prefix, member_name(ref1.name))
+                      self.code(memcode)
+                      
                     self.code(\
-                        "for (uint i%i = 0; i%i < %s%s.size(); i%i++) {"\
-                        %(self.indent, self.indent, y_prefix, y.cname, self.indent))
+                        "for (uint i%i = 0; i%i < %s%s.size(); i%i++) {"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
                 else:
                     self.code(\
                         "for (uint i%i = 0; i%i < %s; i%i++) {"\
@@ -434,7 +470,7 @@ class CFile(file):
                                 self.code("%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent-1, y.arr2.code(y_arr2_prefix)))
                             self.code(\
                                 "for (uint i%i = 0; i%i < %s%s[i%i].size(); i%i++) {"\
-                                %(self.indent, self.indent, y_arr2_prefix, y.cname, self.indent-1, self.indent))
+                                %(self.indent, self.indent, y_prefix, y.cname, self.indent-1, self.indent))
                         else:
                             self.code(\
                                 "for (uint i%i = 0; i%i < %s; i%i++) {"\
@@ -531,6 +567,15 @@ class CFile(file):
             if action == ACTION_GETREFS:
                 self.code("return refs;")
 
+    # declaration
+    # print "$t Get$n() const; \nvoid Set$n($t value);\n\n";
+    def getset_declare(self, block, prefix = ""): # prefix is used to tag local variables only
+      for y in block.members:
+        if not y.func:
+          if y.cname.find("Unk") == -1:
+            self.code( y.getter_declare("", ";") )
+            self.code( y.setter_declare("", ";") )
+            self.code()
 
 
 def class_name(n):
@@ -729,11 +774,11 @@ class Member:
     @ivar template: The template type of this member variable.  Comes from the "template" attribute of the <add> tag.
     @type template: string
     @ivar arr1: The first array size of this member variable.  Comes from the "arr1" attribute of the <add> tag.
-    @type arr1: string
+    @type arr1: Eval
     @ivar arr2: The first array size of this member variable.  Comes from the "arr2" attribute of the <add> tag.
-    @type arr2: string
+    @type arr2: Eval
     @ivar cond: The condition of this member variable.  Comes from the "cond" attribute of the <add> tag.
-    @type cond: string
+    @type cond: Eval
     @ivar func: The function of this member variable.  Comes from the "func" attribute of the <add> tag.
     @type func: string
     @ivar default: The default value of this member variable.  Comes from the "default" attribute of the <add> tag.
@@ -779,6 +824,8 @@ class Member:
     @type carr2_ref: string
     @ivar ccond_ref: Unlike default, cond_ref isn't formatted for C++ so use this instead?
     @type ccond_ref: string
+    @ivar next_dup: Next duplicate member
+    @type next_dup: Member
     """
     def __init__(self, element):
         """
@@ -808,6 +855,8 @@ class Member:
         self.ver2      = version2number(element.getAttribute('ver2'))
         self.userver   = userversion2number(element.getAttribute('userver'))
         self.is_public = (element.getAttribute('public') == "1")  
+        self.next_dup  = None
+
 
         #Get description from text between start and end tags
         if element.firstChild:
@@ -871,18 +920,18 @@ class Member:
                 sis_arr1 = Expr(sis.getAttribute('arr1'))
                 sis_arr2 = Expr(sis.getAttribute('arr2'))
                 sis_cond = Expr(sis.getAttribute('cond'))
-                if sis_arr1.lhs == self.name and not sis_arr1.rhs:
+                if sis_arr1.lhs == self.name and (not sis_arr1.rhs or sis_arr1.rhs.isdigit()):
                     self.arr1_ref.append(sis_name)
-                if sis_arr2.lhs == self.name and not sis_arr2.rhs:
+                if sis_arr2.lhs == self.name and (not sis_arr2.rhs or sis_arr2.rhs.isdigit()):
                     self.arr2_ref.append(sis_name)
                 if sis_cond.lhs == self.name:
                     self.cond_ref.append(sis_name)
             sis = sis.nextSibling
         # true if it is declared in the class, if false, this field is calculated somehow
         # so don't declare variables that can be calculated; ("Num Vertices" is a dirty hack, it's used in derived classes as array size so we must declare it)
-        #if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref and self.name != "Num Vertices":
-        #    self.is_declared = False
-        #else:
+        # if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref : # and self.name != "Num Vertices":
+          # self.is_declared = False
+        # else:
         self.is_declared = True
 
         # C++ names
@@ -906,6 +955,14 @@ class Member:
         result = self.ctype
         suffix1 = ""
         suffix2 = ""
+        keyword = ""
+        if self.is_declared and not self.is_duplicate: # is dimension for one or more arrays
+          if self.arr1_ref:
+            if not self.arr1 or not self.arr1.lhs: # Simple Scalar
+              keyword = "mutable "
+          elif self.arr2_ref: # 1-dimensional dynamic array
+              keyword = "mutable "
+                  
         if self.ctemplate:
             if result != "*":
                 result += "<%s >"%self.ctemplate
@@ -913,7 +970,8 @@ class Member:
                 result = "%s *"%self.ctemplate
         if self.arr1.lhs:
             if self.arr1.lhs.isdigit():
-                suffix1 = "[%s]"%self.arr1.lhs
+                result = "array<%s,%s>"%(result,self.arr1.lhs)
+               # suffix1 = "[%s]"%self.arr1.lhs
             else:
                 if self.arr2.lhs and self.arr2.lhs.isdigit():
                     result = "vector< array<%s,%s> >"%(result,self.arr2.lhs)
@@ -922,11 +980,64 @@ class Member:
             if self.arr2.lhs:
                 if self.arr2.lhs.isdigit():
                     if self.arr1.lhs.isdigit():
-                        suffix2 = "[%s]"%self.arr2.lhs
+                        result = "array<%s,%s>"%(result,self.arr2.lhs)
+                       # suffix2 = "[%s]"%self.arr2.lhs
                 else:
                     result = "vector<%s >"%result
-        result += " " + prefix + self.cname + suffix1 + suffix2 + ";"
+        result = keyword + result + " " + prefix + self.cname + suffix1 + suffix2 + ";"
         return result
+
+    def getter_declare(self, scope = "", suffix = ""):
+      ltype = self.ctype
+      if self.ctemplate:
+          if ltype != "*":
+              ltype += "<%s >"%self.ctemplate
+          else:
+              ltype = "%s *"%self.ctemplate
+      if self.arr1.lhs:
+          if self.arr1.lhs.isdigit():
+              ltype = "array<%s,%s> "%(ltype,self.arr1.lhs)
+              # ltype = ltype
+          else:
+              if self.arr2.lhs and self.arr2.lhs.isdigit():
+                  ltype = "vector< array<%s,%s> >"%(ltype,self.arr2.lhs)
+              else:
+                  ltype = "vector<%s >"%ltype
+          if self.arr2.lhs:
+              if self.arr2.lhs.isdigit():
+                  if self.arr1.lhs.isdigit():
+                    ltype = "array<%s,%s>"%(ltype,self.arr2.lhs)
+                    # ltype = ltype
+              else:
+                  ltype = "vector<%s >"%ltype
+      result = ltype + " " + scope + "Get" + self.cname[0:1].upper() + self.cname[1:] + "() const" + suffix
+      return result
+
+    def setter_declare(self, scope = "", suffix = ""):
+      ltype = self.ctype
+      if self.ctemplate:
+          if ltype != "*":
+              ltype += "<%s >"%self.ctemplate
+          else:
+              ltype = "%s *"%self.ctemplate
+      if self.arr1.lhs:
+          if self.arr1.lhs.isdigit():
+            # ltype = "const %s&"%ltype
+            ltype = "const array<%s,%s>& "%(ltype,self.arr1.lhs)
+          else:
+              if self.arr2.lhs and self.arr2.lhs.isdigit():
+                  ltype = "const vector< array<%s,%s> >&"%(ltype,self.arr2.lhs)
+              else:
+                  ltype = "const vector<%s >&"%ltype
+          if self.arr2.lhs:
+              if self.arr2.lhs.isdigit():
+                  if self.arr1.lhs.isdigit():
+                    # ltype = "const %s&"%ltype
+                      ltype = "const array<%s,%s>&"%(ltype,self.arr2.lhs)
+              else:
+                  ltype = "const vector<%s >&"%ltype
+      result = "void " + scope + "Set" + self.cname[0:1].upper() + self.cname[1:] + "( " + ltype + " value )" + suffix
+      return result
 
 
 
@@ -1005,6 +1116,18 @@ class Compound(Basic):
                     self.has_links = True
                 if y.has_crossrefs:
                     self.has_crossrefs = True
+                    
+        # create duplicate chains for items that need it (only valid in current object scope)
+        #  prefer to use iterators to avoid O(n^2) but I dont know how to reset iterators
+        for x in self.members:
+          atx = False
+          for y in self.members:
+            if atx:
+              if x.name == y.name: # duplicate
+                x.next_dup = y
+                break
+            elif x == y:
+              atx = True
 
     def code_construct(self):
         # constructor
@@ -1042,7 +1165,13 @@ class Compound(Basic):
             result += "\n// Include structures\n"
         for file_name in used_structs:
             result += '#include "%s"\n'%file_name
-    
+        return result
+        
+    def code_fwd_decl(self):
+        if self.niflibtype: return ""
+        
+        result = ""
+
         # forward declaration of blocks
         used_blocks = []
         for y in self.members:
@@ -1053,36 +1182,55 @@ class Compound(Basic):
             result += '\n// Forward define of referenced blocks\n'
         for fwd_class in used_blocks:
             result += 'class %s;\n'%fwd_class
-
+        
         return result
 
-    def code_include_cpp(self):
+    def code_include_cpp(self, usedirs=False, gen_dir=None, obj_dir=None):
         if self.niflibtype: return ""
+        
+        if not usedirs:
+          gen_dir = self.gen_file_prefix
+          obj_dir = self.obj_file_prefix
 
         result = ""
 
         if self.name in compound_names:
-            result += '#include "%s%s.h"\n'%(self.gen_file_prefix, self.cname)
+            result += '#include "%s%s.h"\n'%(gen_dir, self.cname)
         elif self.name in block_names:
-            result += '#include "%s%s.h"\n'%(self.obj_file_prefix, self.cname)
+            result += '#include "%s%s.h"\n'%(obj_dir, self.cname)
         else: assert(False) # bug
 
         # include referenced blocks
         used_blocks = []
         for y in self.members:
             if y.template in block_names and y.template != self.name:
-                file_name = "%s%s.h"%(self.obj_file_prefix, y.ctemplate)
+                file_name = "%s%s.h"%(obj_dir, y.ctemplate)
                 if file_name not in used_blocks:
                     used_blocks.append( file_name )
             if y.type in compound_names:
                 subblock = compound_types[y.type]
-                result += subblock.code_include_cpp()
+                result += subblock.code_include_cpp(True, gen_dir, obj_dir)
         for file_name in used_blocks:
             result += '#include "%s"\n'%file_name
 
         return result
 
-
+    # find member by name
+    def find_member(self, name, inherit=False):
+      for y in self.members:
+        if y.name == name:
+          return y
+      return None
+      
+    # find first reference of name in class
+    def find_first_ref(self, name):
+      for y in self.members:
+        if y.arr1 and y.arr1.lhs == name:
+          return y
+        elif y.arr2 and y.arr2.lhs == name:
+          return y
+      return None
+      
 
 class Block(Compound):
     def __init__(self, element):
@@ -1106,9 +1254,23 @@ class Block(Compound):
             result += '#include "%s.h"\n'%self.inherit.cname
         result += Compound.code_include_h(self)
         return result
+    
+    # find member by name
+    def find_member(self, name, inherit=False):
+      ret = Compound.find_member(self, name)
+      if not ret and inherit and self.inherit:
+        ret = self.inherit.find_member(name, inherit)
+      return ret
 
-
-
+    # find first reference of name in class
+    def find_first_ref(self, name):
+      ret = None
+      if self.inherit:
+        ret = self.inherit.find_first_ref(name)
+      if not ret:
+        ret = Compound.find_first_ref(self, name)
+      return ret
+      
 #
 # import elements into our code generating classes
 #

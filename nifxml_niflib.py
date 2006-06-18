@@ -8,6 +8,10 @@
 # -p /path/to/niflib : specifies the path where niflib can be found 
 #
 # -b : enable bootstrap mode (generates templates)
+# 
+# -i : generate implmentation instead of placing all data in defines.h
+#
+# -a : generate accessors for data in classes
 #
 # --------------------------------------------------------------------------
 # ***** BEGIN LICENSE BLOCK *****
@@ -58,6 +62,8 @@ import os
 
 ROOT_DIR = "."
 BOOTSTRAP = False
+GENIMPL = False
+GENACCESSORS = False
 
 prev = ""
 for i in sys.argv:
@@ -65,6 +71,10 @@ for i in sys.argv:
         ROOT_DIR = i
     elif i == "-b":
         BOOTSTRAP = True
+    elif i == "-i":
+        GENIMPL = True
+    elif i == "-a":
+        GENACCESSORS = True
     prev = i
 
 #
@@ -89,11 +99,12 @@ for n in compound_names:
     h.code( '#define _' + x.cname.upper() + '_H_' )
     h.code()
     h.code( '#include "../NIF_IO.h"' )
-    h.code( x.code_include_h() )
     if n in ["Header", "Footer"]:
         h.code( '#include "../obj/NiObject.h"' )
+    h.code( x.code_include_h() )
+    h.write( "namespace NifLib {\n" )
+    h.code( x.code_fwd_decl() )
     h.code()
-    
     # header
     h.comment(x.description)
     hdr = "struct NIFLIB_API %s"%x.cname
@@ -125,6 +136,7 @@ for n in compound_names:
     # done
     h.code("};")
     h.code()
+    h.write( "}\n" )
     h.code( '#endif' )
     h.close()
 
@@ -134,14 +146,14 @@ for n in compound_names:
         cpp.code( 'All rights reserved.  Please see niflib.h for licence. */' )
         cpp.code()
         cpp.code( x.code_include_cpp() )
-        
+        cpp.code( "using namespace NifLib;" )
         cpp.code()
         cpp.code( '//Constructor' )
         
         # constructor
         x_code_construct = x.code_construct()
-        if x_code_construct:
-            cpp.code("%s::%s()"%(x.cname,x.cname) + x_code_construct + " {};")
+        #if x_code_construct:
+        cpp.code("%s::%s()"%(x.cname,x.cname) + x_code_construct + " {};")
         cpp.code()
 
         cpp.code( '//Destructor' )
@@ -150,7 +162,20 @@ for n in compound_names:
         cpp.code("%s::~%s()"%(x.cname,x.cname) + " {};")
 
         # header and footer functions
-        if n in ["Header", "Footer"]:
+        if n  == "Header":
+            cpp.code( 'void ' + x.cname + '::Read( istream& in ) {' )
+            cpp.stream(x, ACTION_READ)
+            cpp.code( '}' )
+            cpp.code()
+            cpp.code( 'void ' + x.cname + '::Write( ostream& out ) const {' )
+            cpp.stream(x, ACTION_WRITE)
+            cpp.code( '}' )
+            cpp.code()
+            cpp.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
+            cpp.stream(x, ACTION_OUT)
+            cpp.code( '}' )
+        
+        if n == "Footer":
             cpp.code()
             cpp.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' )
             cpp.stream(x, ACTION_READ)
@@ -182,9 +207,22 @@ All rights reserved.  Please see niflib.h for licence. */
 #define _OBJ_DEFINES_H_
 
 #define MAXARRAYDUMP 20
-
 """)
 
+if GENIMPL:
+  h.write("""
+#define STANDARD_INTERNAL_METHODS \\
+private:\\
+  void InternalRead( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );\\
+  void InternalWrite( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;\\
+  string InternalAsString( bool verbose ) const;\\
+  void InternalFixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );\\
+  list<NiObjectRef> InternalGetRefs() const;
+""")
+else:
+  h.code("#define STANDARD_INTERNAL_METHODS")
+  h.code()
+  
 h.backslash_mode = True
 
 for n in block_names:
@@ -216,27 +254,42 @@ for n in block_names:
     
     # istream
     h.code("#define %s_READ"%x_define_name)
-    h.stream(x, ACTION_READ)
+    if GENIMPL:
+      h.code("InternalRead( in, link_stack, version, user_version );")
+    else:
+      h.stream(x, ACTION_READ)
     h.code()
-
+      
     # ostream
     h.code("#define %s_WRITE"%x_define_name)
-    h.stream(x, ACTION_WRITE)
+    if GENIMPL:
+      h.code("InternalWrite( out, link_map, version, user_version );")
+    else:
+      h.stream(x, ACTION_WRITE)
     h.code()
     
     # as string
     h.code("#define %s_STRING"%x_define_name)
-    h.stream(x, ACTION_OUT)
+    if GENIMPL:
+      h.code("return InternalAsString( verbose );")
+    else:
+      h.stream(x, ACTION_OUT)
     h.code()
 
     # fix links
     h.code("#define %s_FIXLINKS"%x_define_name)
-    h.stream(x, ACTION_FIXLINKS)
+    if GENIMPL:
+      h.code("InternalFixLinks( objects, link_stack, version, user_version );")
+    else:
+      h.stream(x, ACTION_FIXLINKS)
     h.code()
 
     # get references
     h.code("#define %s_GETREFS"%x_define_name)
-    h.stream(x, ACTION_GETREFS)
+    if GENIMPL:
+      h.code("return InternalGetRefs();")
+    else:
+      h.stream(x, ACTION_GETREFS)
     h.code()
 
 
@@ -247,6 +300,58 @@ h.code("#endif")
 
 h.close()
 
+# Internal Implementations
+
+if GENIMPL:
+  m = CFile(ROOT_DIR + "/gen/obj_impl.cpp", "w")
+  m.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+  m.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+  m.code()
+  # m.code('#include <assert.h>')
+  m.code('#include "../obj/NiObject.h"')
+  m.code('using namespace NifLib;')
+  m.code('using namespace std;')
+  m.code()
+  for n in block_names:
+      x = block_types[n]
+      if not x.is_ancestor:
+          m.code('#include "../obj/%s.h"'%x.cname)
+  m.code()
+  m.backslash_mode = False
+
+  for n in block_names:
+      x = block_types[n]
+      x_define_name = define_name(x.cname)
+          
+      m.code("void %s::InternalRead( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {"%x.cname)
+      m.stream(x, ACTION_READ)
+      m.code("}")
+      m.code()
+      
+      m.code("void %s::InternalWrite( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {"%x.cname)
+      m.stream(x, ACTION_WRITE)
+      m.code("}")
+      m.code()
+      
+      m.code("std::string %s::InternalAsString( bool verbose ) const {"%x.cname)
+      m.stream(x, ACTION_OUT)
+      m.code("}")
+      m.code()
+
+      m.code("void %s::InternalFixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {"%x.cname)
+      m.stream(x, ACTION_FIXLINKS)
+      m.code("}")
+      m.code()
+
+      m.code("std::list<NiObjectRef> %s::InternalGetRefs() const {"%x.cname)
+      m.stream(x, ACTION_GETREFS)
+      m.code("}")
+      m.code()
+
+  m.backslash_mode = False
+
+  m.close();
+
 # Factories
 
 f = CFile(ROOT_DIR + "/gen/obj_factories.cpp", "w")
@@ -254,8 +359,12 @@ f.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
 f.code( 'All rights reserved.  Please see niflib.h for licence. */' )
 f.code()
 f.code('#include "../obj/NiObject.h"')
+f.code('using namespace NifLib;')
+f.code('using namespace std;')
+f.write('namespace NifLib {\n')
 f.code('typedef NiObject*(*blk_factory_func)();')
 f.code('extern map<string, blk_factory_func> global_block_map;')
+f.write('}\n')
 f.code()
 for n in block_names:
     x = block_types[n]
@@ -263,6 +372,7 @@ for n in block_names:
         f.code('#include "../obj/%s.h"'%x.cname)
         f.code('NiObject * Create%s() { return new %s; }'%(x.cname,x.cname))
 f.code()
+f.write('namespace NifLib {\n')
 f.code('//This function registers the factory functions with global_block_map which is used by CreateBlock')
 f.code('void RegisterBlockFactories() {')
 for n in block_names:
@@ -270,6 +380,8 @@ for n in block_names:
     if not x.is_ancestor:
         f.code('global_block_map["%s"] = Create%s;'%(x.cname, x.cname))
 f.code('}')
+
+f.write('}\n')
 
 #
 # SCons
@@ -401,23 +513,23 @@ POSSIBILITY OF SUCH DAMAGE. */
 
 // enable string assignment in structure member functions
 %typemap(in) std::string* ($*1_ltype tempstr) {
-	char * temps; int templ;
- 	if (PyString_AsStringAndSize($input, &temps, &templ)) return NULL;
- 	tempstr = $*1_ltype(temps, templ);
- 	$1 = &tempstr;
+  char * temps; int templ;
+   if (PyString_AsStringAndSize($input, &temps, &templ)) return NULL;
+   tempstr = $*1_ltype(temps, templ);
+   $1 = &tempstr;
 }
 %typemap(out) std::string* "$result = PyString_FromStringAndSize($1->data(), $1->length());";
 
 // we need a version of SWIG that has SWIG_CATCH_STDEXCEPT support
 #if SWIG_VERSION >= 0x010322
 %exception {
-	try {
-		$action
-	}
-	SWIG_CATCH_STDEXCEPT // catch std::exception
-	catch (...) {
-		SWIG_exception(SWIG_UnknownError, "Unknown exception");
-	}
+  try {
+    $action
+  }
+  SWIG_CATCH_STDEXCEPT // catch std::exception
+  catch (...) {
+    SWIG_exception(SWIG_UnknownError, "Unknown exception");
+  }
 }
 #endif
 
@@ -462,9 +574,9 @@ swig.code("""
 // we need the definition of the template classes before we define the template Python names below
 template <class T> 
 struct Key {
-	float time;
-	T data, forward_tangent, backward_tangent;
-	float tension, bias, continuity;
+  float time;
+  T data, forward_tangent, backward_tangent;
+  float tension, bias, continuity;
 };
 
 %ignore Key;
@@ -572,101 +684,139 @@ swig.close()
 
 if BOOTSTRAP:
     # Templates
-    for n in block_names:
-	x = block_types[n]
-	x_define_name = define_name(x.cname)
-	
-	out = CFile(ROOT_DIR + '/obj/' + x.cname + '.h', 'w')
-	out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-	out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
-	out.code()
-	out.code( '#ifndef _' + x.cname.upper() + '_H_' )
-	out.code( '#define _' + x.cname.upper() + '_H_' )
-	out.code()
-	out.code( x.code_include_h() )
-	out.code()
-	out.code( '#include "gen/obj_defines.h"' )
-	out.code()
-	out.code( 'class ' + x.cname + ';' )
-	out.code( 'typedef Ref<' + x.cname + '> ' + x.cname + 'Ref;' )
-	out.code()
-	out.comment( x.cname + " - " + x.description )
-	out.code()
-	out.code( 'class ' + x.cname + ' : public ' + x_define_name + '_PARENT {' )
-	out.code( 'public:' )
-	out.code( x.cname + '();' )
-	out.code( '~' + x.cname + '();' )
-	out.code( '//Run-Time Type Information' )
-	out.code( 'static const Type TYPE;' )
-	out.code( 'virtual void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
-	out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
-	out.code( 'virtual string asString( bool verbose = false ) const;\n' )
-	out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
-	out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
-	out.code( 'virtual const Type & GetType() const;' )
-	out.code( 'protected:' )
-	for y in x.members:
-	    if y.func:
-		if not y.template:
-		    out.code( '%s %s() const;'%(y.ctype, y.func) )
-		else:
-		    if y.ctype != "*":
-			out.code( '%s<%s > %s::%s() const;'%(y.ctype, y.ctemplate, x.cname, y.func) )
-		    else:
-			out.code( '%s * %s::%s() const;'%(y.ctemplate, x.cname, y.func ) )
-	out.code( x_define_name + '_MEMBERS' )
-	out.code( '};' );
-	out.code();
-	out.code( '#endif' );
-	out.close()
+  for n in block_names:
+    x = block_types[n]
+    x_define_name = define_name(x.cname)
+    
+    out = CFile(ROOT_DIR + '/obj/' + x.cname + '.h', 'w')
+    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+    out.code()
+    out.code( '#ifndef _' + x.cname.upper() + '_H_' )
+    out.code( '#define _' + x.cname.upper() + '_H_' )
+    out.code()
+#    out.code( '#include "../Ref.h"')
+    out.code( x.code_include_h() )
+    out.write( "namespace NifLib {\n" )
+    out.code( x.code_fwd_decl() )
+    out.code()
+    out.code( '#include "../gen/obj_defines.h"' )
+    out.code()
+    out.code( 'class ' + x.cname + ';' )
+    out.code( 'typedef Ref<' + x.cname + '> ' + x.cname + 'Ref;' )
+    out.code()
+    out.comment( x.cname + " - " + x.description )
+    out.code()
+    out.code( 'class NIFLIB_API ' + x.cname + ' : public ' + x_define_name + '_PARENT {' )
+    out.code( 'public:' )
+    out.code( x.cname + '();' )
+    out.code( '~' + x.cname + '();' )
+    out.code( '//Run-Time Type Information' )
+    out.code( 'static const Type & TypeConst() { return TYPE; }' )
+    out.code( 'private:' )
+    out.code( 'static const Type TYPE;' )
+    out.code( 'public:' )  
+    out.code( 'virtual void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
+    out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
+    out.code( 'virtual string asString( bool verbose = false ) const;\n' )
+    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
+    out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
+    out.code( 'virtual const Type & GetType() const;' )
+    out.code()
+  
+    # Declare Helper Methods
+    if GENACCESSORS:
+      for y in x.members:
+        if not y.func:
+          if not y.arr1_ref and not y.arr2_ref and y.cname.lower().find("unk") == -1: #not y.cname.startswith("num") :
+            out.comment(y.description)
+            out.code( y.getter_declare("", ";") )
+            out.code( y.setter_declare("", ";") )
+            out.code()
+        
+    out.code( 'protected:' )
+    for y in x.members:
+      if y.func:
+        if not y.template:
+            out.code( '%s %s() const;'%(y.ctype, y.func) )
+        else:
+          if y.ctype != "*":
+            out.code( '%s<%s > %s::%s() const;'%(y.ctype, y.ctemplate, x.cname, y.func) )
+          else:
+            out.code( '%s * %s::%s() const;'%(y.ctemplate, x.cname, y.func ) )
+            
+    out.code( x_define_name + '_MEMBERS' )
+    out.code( "STANDARD_INTERNAL_METHODS" )
+    out.code( '};' )
+    out.code()
+    out.write( "}\n" )
+    out.code( '#endif' )
+    out.close()
 
-	out = CFile(ROOT_DIR + '/obj/' + x.cname + '.cpp', 'w')
-	out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-	out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
-	out.code()
-	out.code( x.code_include_cpp() )
-	out.code()
-	out.code( '//Definition of TYPE constant' )
-	out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
-	out.code()
-	out.code( x.cname + '::' + x.cname + '() ' + x_define_name + '_CONSTRUCT {}' )
-	out.code()
-	out.code( x.cname + '::' + '~' + x.cname + '() {}' )
-	out.code()
-	out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' )
-	out.code( x_define_name + '_READ' )
-	out.code( '}' )
-	out.code()
-	out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {' )
-	out.code( x_define_name + '_WRITE' )
-	out.code( '}' )
-	out.code()
-	out.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
-	out.code( x_define_name + '_STRING' )
-	out.code( '}' )
-	out.code()
-	out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' );
-	out.code( x_define_name + '_FIXLINKS' )
-	out.code( '}' )
-	out.code()
-	out.code( 'list<NiObjectRef> %s::GetRefs() const {'%x.cname )
-	out.code( x_define_name + '_GETREFS' )
-	out.code( '}' )
-	out.code()
-	out.code( 'const Type & %s::GetType() const {'%x.cname )
-	out.code( 'return TYPE;' )
-	out.code( '};' )
-	out.code()
-	for y in x.members:
-	    if y.func:
-		if not y.template:
-		    out.code( '%s %s::%s() const { return %s(); }'%(y.ctype, x.cname, y.func, y.ctype) )
-		else:
-		    if y.ctype != "*":
-			out.code( '%s<%s > %s::%s() const { return %s<%s >(); }'%(y.ctype, y.ctemplate, x.cname, y.func, y.ctype, y.ctemplate) )
-		    else:
-			out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
-	out.close()
+    out = CFile(ROOT_DIR + '/obj/' + x.cname + '.cpp', 'w')
+    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+    out.code()
+    out.code( x.code_include_cpp() )
+    out.code( "using namespace NifLib;" );
+    out.code()
+    out.code( '//Definition of TYPE constant' )
+    out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TypeConst() );' )
+    out.code()
+    out.code( x.cname + '::' + x.cname + '() ' + x_define_name + '_CONSTRUCT {}' )
+    out.code()
+    out.code( x.cname + '::' + '~' + x.cname + '() {}' )
+    out.code()
+    out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' )
+    out.code( x_define_name + '_READ' )
+    out.code( '}' )
+    out.code()
+    out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {' )
+    out.code( x_define_name + '_WRITE' )
+    out.code( '}' )
+    out.code()
+    out.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
+    out.code( x_define_name + '_STRING' )
+    out.code( '}' )
+    out.code()
+    out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' );
+    out.code( x_define_name + '_FIXLINKS' )
+    out.code( '}' )
+    out.code()
+    out.code( 'list<NiObjectRef> %s::GetRefs() const {'%x.cname )
+    out.code( x_define_name + '_GETREFS' )
+    out.code( '}' )
+    out.code()
+    out.code( 'const Type & %s::GetType() const {'%x.cname )
+    out.code( 'return TYPE;' )
+    out.code( '};' )
+    out.code()
+    
+    # Implement Public Getter/Setter Methods
+    if GENACCESSORS:
+      for y in x.members:
+        if not y.func:
+          if not y.arr1_ref and not y.arr2_ref and y.cname.lower().find("unk") == -1: # and not y.cname.startswith("num") :
+            out.code( y.getter_declare(x.name + "::", " {") )
+            out.code( "return %s;"%y.cname )
+            out.code( "}" )
+            out.code()
+            
+            out.code( y.setter_declare(x.name + "::", " {") )
+            out.code( "%s = value;"%y.cname )
+            out.code( "}" )
+            out.code()
+    
+    for y in x.members:
+      if y.func:
+        if not y.template:
+            out.code( '%s %s::%s() const { return %s(); }'%(y.ctype, x.cname, y.func, y.ctype) )
+        else:
+          if y.ctype != "*":
+            out.code( '%s<%s > %s::%s() const { return %s<%s >(); }'%(y.ctype, y.ctemplate, x.cname, y.func, y.ctype, y.ctemplate) )
+          else:
+            out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
+    out.close()
 
 #Doxygen pre-define file
 doxy = CFile(os.path.join(ROOT_DIR, 'DoxygenPredefines.txt'), "w")
@@ -687,5 +837,3 @@ for n in block_names:
 
 doxy.code()
 doxy.close()
-
-
