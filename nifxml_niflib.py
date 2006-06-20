@@ -538,13 +538,13 @@ POSSIBILITY OF SUCH DAMAGE. */
 #define NIFLIB_HIDDEN
 
 //Ignore the const versions of these functions
-%ignore DynamicCast( const NiObject * object );
-%ignore StaticCast (const NiObject * object);
+%ignore Niflib::DynamicCast( const Niflib::NiObject * object );
+%ignore Niflib::StaticCast (const Niflib::NiObject * object);
 
 //Do not use smart pointer support as it doubles the size of the library
 //and makes it take twice as long to be imported
-%ignore Ref::operator->;
-%ignore Ref::operator=;
+%ignore Niflib::Ref::operator->;
+%ignore Niflib::Ref::operator=;
 
 // we need this to get all the defines in there
 %include "gen/obj_defines.h"
@@ -573,13 +573,13 @@ swig.code("""
 
 // we need the definition of the template classes before we define the template Python names below
 template <class T> 
-struct Key {
+struct Niflib::Key {
   float time;
   T data, forward_tangent, backward_tangent;
   float tension, bias, continuity;
 };
 
-%ignore Key;
+%ignore Niflib::Key;
 
 """)
 
@@ -648,6 +648,8 @@ for ctype in swig_v:
         real_ctype = "std::string"
     else:
         real_ctype = ctype
+    if real_ctype in compound_types:
+        real_ctype = "Niflib::" + real_ctype
     swig.code("%%template(vector_%s) std::vector<%s>;"%(ctype, real_ctype))
 
 swig.code("""%template(pair_int_float) std::pair<int, float>;
@@ -663,9 +665,9 @@ swig.code("""%template(pair_int_float) std::pair<int, float>;
 for n in block_names:
     x = block_types[n]
     swig.code('%%include "obj/%s.h"'%x.cname)
-    swig.code("%%template(%sRef) Ref<%s>;"%(x.cname, x.cname))
-    swig.code("%%template(DynamicCastTo%s) DynamicCast<%s>;"%(x.cname, x.cname))
-    swig.code("%%template(StaticCastTo%s) StaticCast<%s>;"%(x.cname, x.cname))
+    swig.code("%%template(%sRef) Niflib::Ref<Niflib::%s>;"%(x.cname, x.cname))
+    swig.code("%%template(DynamicCastTo%s) Niflib::DynamicCast<Niflib::%s>;"%(x.cname, x.cname))
+    swig.code("%%template(StaticCastTo%s) Niflib::StaticCast<Niflib::%s>;"%(x.cname, x.cname))
 
 for n in compound_names:
     x = compound_types[n]
@@ -674,7 +676,7 @@ for n in compound_names:
     swig.code('%%include "gen/%s.h"'%x.cname)
     
 swig.code()
-swig.code("%template(vector_NiAVObjectRef) std::vector<NiAVObjectRef>;")
+swig.code("%template(vector_NiAVObjectRef) std::vector<Niflib::NiAVObjectRef>;")
 
 swig.close()
 
