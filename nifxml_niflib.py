@@ -533,21 +533,19 @@ POSSIBILITY OF SUCH DAMAGE. */
 }
 #endif
 
-// we need to define this because the wrapper gets confused about NIFLIB_API'd functions otherwise
-#define NIFLIB_API
-#define NIFLIB_HIDDEN
-
 //Ignore the const versions of these functions
-%ignore Niflib::DynamicCast( const Niflib::NiObject * object );
-%ignore Niflib::StaticCast (const Niflib::NiObject * object);
+%ignore DynamicCast( const NiObject * object );
+%ignore StaticCast ( const NiObject * object );
 
 //Do not use smart pointer support as it doubles the size of the library
 //and makes it take twice as long to be imported
 %ignore Niflib::Ref::operator->;
 %ignore Niflib::Ref::operator=;
 
-// we need this to get all the defines in there
-%include "gen/obj_defines.h"
+//Import the symbols from these but do not include them in the wrapper
+%import "gen/obj_defines.h"
+%import "NIF_IO.h"
+%import "dll_export.h"
 """)
 
 swig.code('%{')
@@ -565,23 +563,11 @@ for n in compound_names:
     if x.niflibtype: continue
     if n[:3] == "ns ": continue
     swig.code('\t#include "gen/%s.h"'%x.cname)
+swig.code("using namespace Niflib;")
 
 swig.indent -= 1 # '%%}' hack
 swig.code('%}')
-
-swig.code("""
-
-// we need the definition of the template classes before we define the template Python names below
-template <class T> 
-struct Niflib::Key {
-  float time;
-  T data, forward_tangent, backward_tangent;
-  float tension, bias, continuity;
-};
-
-%ignore Niflib::Key;
-
-""")
+swig.code()
 
 # vector and list templates
 
@@ -646,10 +632,10 @@ for n in compound_names + block_names:
 for ctype in swig_v:
     if ctype == "string":
         real_ctype = "std::string"
+    elif ctype not in ['int', 'float', 'char', 'short', 'double', 'long']:
+        real_ctype = "Niflib::" + ctype
     else:
         real_ctype = ctype
-    if real_ctype in compound_types:
-        real_ctype = "Niflib::" + real_ctype
     swig.code("%%template(vector_%s) std::vector<%s>;"%(ctype, real_ctype))
 
 swig.code("""%template(pair_int_float) std::pair<int, float>;
