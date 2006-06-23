@@ -102,7 +102,7 @@ for n in compound_names:
     if n in ["Header", "Footer"]:
         h.code( '#include "../obj/NiObject.h"' )
     h.code( x.code_include_h() )
-    h.write( "namespace NifLib {\n" )
+    h.write( "namespace Niflib {\n" )
     h.code( x.code_fwd_decl() )
     h.code()
     # header
@@ -146,7 +146,7 @@ for n in compound_names:
         cpp.code( 'All rights reserved.  Please see niflib.h for licence. */' )
         cpp.code()
         cpp.code( x.code_include_cpp() )
-        cpp.code( "using namespace NifLib;" )
+        cpp.code( "using namespace Niflib;" )
         cpp.code()
         cpp.code( '//Constructor' )
         
@@ -309,7 +309,7 @@ if GENIMPL:
   m.code()
   # m.code('#include <assert.h>')
   m.code('#include "../obj/NiObject.h"')
-  m.code('using namespace NifLib;')
+  m.code('using namespace Niflib;')
   m.code('using namespace std;')
   m.code()
   for n in block_names:
@@ -359,9 +359,9 @@ f.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
 f.code( 'All rights reserved.  Please see niflib.h for licence. */' )
 f.code()
 f.code('#include "../obj/NiObject.h"')
-f.code('using namespace NifLib;')
+f.code('using namespace Niflib;')
 f.code('using namespace std;')
-f.write('namespace NifLib {\n')
+f.write('namespace Niflib {\n')
 f.code('typedef NiObject*(*blk_factory_func)();')
 f.code('extern map<string, blk_factory_func> global_block_map;')
 f.write('}\n')
@@ -372,7 +372,7 @@ for n in block_names:
         f.code('#include "../obj/%s.h"'%x.cname)
         f.code('NiObject * Create%s() { return new %s; }'%(x.cname,x.cname))
 f.code()
-f.write('namespace NifLib {\n')
+f.write('namespace Niflib {\n')
 f.code('//This function registers the factory functions with global_block_map which is used by CreateBlock')
 f.code('void RegisterBlockFactories() {')
 for n in block_names:
@@ -685,7 +685,7 @@ if BOOTSTRAP:
     out.code()
 #    out.code( '#include "../Ref.h"')
     out.code( x.code_include_h() )
-    out.write( "namespace NifLib {\n" )
+    out.write( "namespace Niflib {\n" )
     out.code( x.code_fwd_decl() )
     out.code()
     out.code( '#include "../gen/obj_defines.h"' )
@@ -746,7 +746,7 @@ if BOOTSTRAP:
     out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
     out.code()
     out.code( x.code_include_cpp() )
-    out.code( "using namespace NifLib;" );
+    out.code( "using namespace Niflib;" );
     out.code()
     out.code( '//Definition of TYPE constant' )
     out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TypeConst() );' )
