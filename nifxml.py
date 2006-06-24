@@ -304,7 +304,8 @@ class CFile(file):
                       cref = block.find_member(y.arr1_ref[0], True) 
                       # if not cref.is_duplicate and not cref.next_dup and (not cref.cond.lhs or cref.cond.lhs == y.name):
                         # self.code('assert(%s%s == %s(%s%s.size()));'%(prefix, y.cname, y.ctype, prefix, cref.cname))
-                      self.code('%s%s = %s(%s%s.size());'%(prefix, y.cname, y.ctype, prefix, cref.cname))
+                      if y.cname != "numRotationKeys":
+                          self.code('%s%s = %s(%s%s.size());'%(prefix, y.cname, y.ctype, prefix, cref.cname))
                   elif y.arr2_ref: # 1-dimensional dynamic array
                     cref = block.find_member(y.arr2_ref[0], True) 
                     if not y.arr1 or not y.arr1.lhs: # Second dimension

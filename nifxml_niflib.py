@@ -9,7 +9,7 @@
 #
 # -b : enable bootstrap mode (generates templates)
 # 
-# -i : generate implmentation instead of placing all data in defines.h
+# -i : do NOT generate implmentation; place all code in defines.h
 #
 # -a : generate accessors for data in classes
 #
@@ -62,7 +62,7 @@ import os
 
 ROOT_DIR = "."
 BOOTSTRAP = False
-GENIMPL = False
+GENIMPL = True
 GENACCESSORS = False
 
 prev = ""
@@ -72,7 +72,7 @@ for i in sys.argv:
     elif i == "-b":
         BOOTSTRAP = True
     elif i == "-i":
-        GENIMPL = True
+        GENIMPL = False
     elif i == "-a":
         GENACCESSORS = True
     prev = i
