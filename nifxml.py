@@ -497,7 +497,7 @@ class CFile(file):
                         # a ref
                         if action == ACTION_READ:
                             self.code("NifStream( block_num, %s, version );"%stream)
-                            if y.is_declared and not y.is_duplicate:
+                            if y.is_declared:
                                 self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
                             self.code("if ( %s != NULL )"%z)
@@ -505,7 +505,7 @@ class CFile(file):
                             self.code("else")
                             self.code("\tNifStream( 0xffffffff, %s, version );"%stream)
                         elif action == ACTION_FIXLINKS:
-                            if y.is_declared and not y.is_duplicate:
+                            if y.is_declared:
                                 self.code("if (link_stack.empty())")
                                 self.code("\tthrow runtime_error(\"Trying to pop a link from empty stack. This is probably a bug.\");")
                                 self.code("if (link_stack.front() != 0xffffffff) {")
