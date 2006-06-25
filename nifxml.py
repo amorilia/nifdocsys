@@ -885,7 +885,7 @@ class Member:
                 self.default = "\"" + self.default + "\""
             elif self.type == "float":
                 self.default += "f"
-            elif self.type in ["Ref", "Ptr", "bool"]:
+            elif self.type in ["Ref", "Ptr", "bool", "Vector3"]:
                 pass
             else:
                 self.default = "(%s)%s"%(class_name(self.type), self.default)
