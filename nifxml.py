@@ -868,7 +868,7 @@ class Member:
         
         # Format default value so that it can be used in a C++ initializer list
         if not self.default and (not self.arr1.lhs and not self.arr2.lhs):
-            if self.type in ["uint", "ushort", "byte"]:
+            if self.type in ["uint", "ushort", "byte", "int", "short", "char"]:
                 self.default = "0"
             elif self.type == "bool":
                 self.default = "false"
@@ -887,6 +887,8 @@ class Member:
                 self.default += "f"
             elif self.type in ["Ref", "Ptr", "bool", "Vector3"]:
                 pass
+            elif self.default[0] == '(' and self.default[-1] == ')':
+                self.default = self.default[1:-1]
             else:
                 self.default = "(%s)%s"%(class_name(self.type), self.default)
         
