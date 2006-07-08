@@ -296,7 +296,7 @@ class CFile(file):
                       else:
                           assert(y.is_declared) # bug check
                           
-                elif y.is_declared and not y.is_duplicate and action in [ACTION_WRITE, ACTION_OUT]:
+                elif y.is_declared and not y.is_duplicate and not y.is_manual_update and action in [ACTION_WRITE, ACTION_OUT]:
                   if y.func:
                       self.code('%s%s = %s%s();'%(prefix, y.cname, prefix, y.func))
                   elif y.arr1_ref:
@@ -304,8 +304,7 @@ class CFile(file):
                       cref = block.find_member(y.arr1_ref[0], True) 
                       # if not cref.is_duplicate and not cref.next_dup and (not cref.cond.lhs or cref.cond.lhs == y.name):
                         # self.code('assert(%s%s == %s(%s%s.size()));'%(prefix, y.cname, y.ctype, prefix, cref.cname))
-                      if y.cname != "numRotationKeys":
-                          self.code('%s%s = %s(%s%s.size());'%(prefix, y.cname, y.ctype, prefix, cref.cname))
+                      self.code('%s%s = %s(%s%s.size());'%(prefix, y.cname, y.ctype, prefix, cref.cname))
                   elif y.arr2_ref: # 1-dimensional dynamic array
                     cref = block.find_member(y.arr2_ref[0], True) 
                     if not y.arr1 or not y.arr1.lhs: # Second dimension
@@ -827,6 +826,8 @@ class Member:
     @type ccond_ref: string
     @ivar next_dup: Next duplicate member
     @type next_dup: Member
+    @ivar is_manual_update: True if the member value is manually updated by the code
+    @type is_manual_update: bool
     """
     def __init__(self, element):
         """
@@ -857,6 +858,7 @@ class Member:
         self.userver   = userversion2number(element.getAttribute('userver'))
         self.is_public = (element.getAttribute('public') == "1")  
         self.next_dup  = None
+        self.is_manual_update = False
 
 
         #Get description from text between start and end tags

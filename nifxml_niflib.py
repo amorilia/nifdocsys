@@ -77,6 +77,11 @@ for i in sys.argv:
         GENACCESSORS = True
     prev = i
 
+    
+# Fix known manual update attributes. For now hard code here.
+block_types["NiKeyframeData"].find_member("Num Rotation Keys").is_manual_update = True
+#block_types["NiTriStripsData"].find_member("Num Triangles").is_manual_update = True
+    
 #
 # generate compound code
 #
