@@ -1041,6 +1041,10 @@ class Member:
                       ltype = "const array<%s,%s>&"%(ltype,self.arr2.lhs)
               else:
                   ltype = "const vector<%s >&"%ltype
+      else:
+          if not self.type in basic_names:
+            ltype = "const %s &"%ltype
+             
       result = "void " + scope + "Set" + self.cname[0:1].upper() + self.cname[1:] + "( " + ltype + " value )" + suffix
       return result
 
