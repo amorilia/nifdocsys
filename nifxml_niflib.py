@@ -378,7 +378,7 @@ for n in block_names:
         f.code('NiObject * Create%s() { return new %s; }'%(x.cname,x.cname))
 f.code()
 f.write('namespace Niflib {\n')
-f.code('//This function registers the factory functions with global_block_map which is used by CreateBlock')
+f.code('//This function registers the factory functions with global_block_map which is used by CreateNiObject')
 f.code('void RegisterBlockFactories() {')
 for n in block_names:
     x = block_types[n]
@@ -387,6 +387,8 @@ for n in block_names:
 f.code('}')
 
 f.write('}\n')
+
+
 
 #
 # SCons
@@ -676,7 +678,27 @@ swig.close()
 #
 
 if BOOTSTRAP:
-    # Templates
+
+  # Write out Enumerations
+  out = CFile(ROOT_DIR + '/nif_enums.h', 'w')
+  out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+  out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+  out.code()
+  out.write('namespace Niflib {\n')
+  out.code()
+  for n in basic_types:
+      x = basic_types[n]
+      if x.options and x.niflibtype in ["uint", "ushort", "byte", "int", "short", "char"]:
+        out.code('typedef enum %s {'%x.cname)
+        for o in x.options:
+          out.code('%s = %s, /*!< %s */'%(o.name, o.value, o.description))
+        out.code('} %s;'%x.cname)
+        out.code()
+
+  out.write('}\n')
+  out.close()
+
+  # Templates
   for n in block_names:
     x = block_types[n]
     x_define_name = define_name(x.cname)
@@ -810,6 +832,7 @@ if BOOTSTRAP:
           else:
             out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
     out.close()
+    
 
 #Doxygen pre-define file
 doxy = CFile(os.path.join(ROOT_DIR, 'DoxygenPredefines.txt'), "w")

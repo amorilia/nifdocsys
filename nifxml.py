@@ -761,6 +761,33 @@ class Expr:
                     return '(%s%s %s %s)'%(prefix, self.clhs, self.op, self.rhs)
             else:
                 return '((%s) && (%s))'%(self.lhs.code(prefix), self.rhs.code(prefix))
+                
+class Option:
+    """
+    This class represents an option in an option list.
+    @ivar value: The C++ value of option variable.  Comes from the "value" attribute of the <option> tag.
+    @type value: string
+    @ivar name: The name of this member variable.  Comes from the "name" attribute of the <option> tag.
+    @type name: string
+    @ivar description: The description of this option.  Comes from the text between <option> and </option>.
+    @type description: string
+    """
+    def __init__(self, element):
+        """
+        This constructor converts an XML <option> element into an Option object.
+        """
+        assert element.tagName == 'option'
+        parent = element.parentNode
+        #sisters = parent.getElementsByTagName('option')
+        
+        # member attributes
+        self.value     = element.getAttribute('value')
+        self.name      = element.getAttribute('name')
+        if element.firstChild:
+            assert element.firstChild.nodeType == Node.TEXT_NODE
+            self.description = element.firstChild.nodeValue.strip()
+        else:
+            self.description = self.name
 
 class Member:
     """
@@ -828,6 +855,8 @@ class Member:
     @type next_dup: Member
     @ivar is_manual_update: True if the member value is manually updated by the code
     @type is_manual_update: bool
+    @ivar has_options: True if the member has an option list
+    @type has_options: bool
     """
     def __init__(self, element):
         """
@@ -859,6 +888,7 @@ class Member:
         self.is_public = (element.getAttribute('public') == "1")  
         self.next_dup  = None
         self.is_manual_update = False
+        self.has_options = False
 
 
         #Get description from text between start and end tags
@@ -1049,7 +1079,6 @@ class Member:
       return result
 
 
-
 class Basic:
     def __init__(self, element):
         global native_types
@@ -1077,7 +1106,11 @@ class Basic:
 
         self.template = (element.getAttribute('istemplate') == "1")
 
-
+        # Locate all special enumeration options
+        self.options = []
+        for option in element.getElementsByTagName('option'):
+            x = Option(option)
+            self.options.append(x)
 
 class Compound(Basic):
     # create a compound type from the XML <compound /> attributes
