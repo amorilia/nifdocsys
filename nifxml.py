@@ -94,6 +94,7 @@ import os
 native_types = {}
 native_types['TEMPLATE'] = 'T'
 basic_types = {}
+enum_types = {}
 compound_types = {}
 block_types = {}
 
@@ -855,8 +856,6 @@ class Member:
     @type next_dup: Member
     @ivar is_manual_update: True if the member value is manually updated by the code
     @type is_manual_update: bool
-    @ivar has_options: True if the member has an option list
-    @type has_options: bool
     """
     def __init__(self, element):
         """
@@ -888,8 +887,6 @@ class Member:
         self.is_public = (element.getAttribute('public') == "1")  
         self.next_dup  = None
         self.is_manual_update = False
-        self.has_options = False
-
 
         #Get description from text between start and end tags
         if element.firstChild:
@@ -1105,12 +1102,22 @@ class Basic:
                 self.has_crossrefs = True
 
         self.template = (element.getAttribute('istemplate') == "1")
-
-        # Locate all special enumeration options
         self.options = []
-        for option in element.getElementsByTagName('option'):
-            x = Option(option)
-            self.options.append(x)
+
+class Enum(Basic):
+  def __init__(self, element):
+      Basic.__init__(self, element)
+      
+      self.storage = element.getAttribute('storage')
+      self.description = element.firstChild.nodeValue.strip()
+             
+      self.niflibtype = self.cname
+      native_types[self.name] = self.niflibtype
+      
+      # Locate all special enumeration options
+      for option in element.getElementsByTagName('option'):
+          x = Option(option)
+          self.options.append(x)
 
 class Compound(Basic):
     # create a compound type from the XML <compound /> attributes
@@ -1325,13 +1332,21 @@ for element in doc.getElementsByTagName('basic'):
     basic_types[x.name] = x
     basic_names.append(x.name)
 
+for element in doc.getElementsByTagName('enum'):
+    x = Enum(element)
+    assert not basic_types.has_key(x.name)
+    assert not enum_types.has_key(x.name)
+    basic_types[x.name] = x
+    enum_types[x.name] = x
+    basic_names.append(x.name)
+    
 for element in doc.getElementsByTagName("compound"):
     x = Compound(element)
     assert not compound_types.has_key(x.name)
     compound_types[x.name] = x
     compound_names.append(x.name)
 
-for element in doc.getElementsByTagName("niblock"):
+for element in doc.getElementsByTagName("niobject"):
     x = Block(element)
     assert not block_types.has_key(x.name)
     block_types[x.name] = x
