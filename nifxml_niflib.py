@@ -673,86 +673,103 @@ swig.code("%template(vector_NiAVObjectRef) std::vector<Niflib::NiAVObjectRef>;")
 
 swig.close()
 
+# Write out Public Enumeration header Enumerations
+out = CFile(ROOT_DIR + '/gen/enums.h', 'w')
+out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+out.code('#ifndef _NIF_ENUMS_H_')
+out.code('#define _NIF_ENUMS_H_')
+out.code()
+out.write('namespace Niflib {\n')
+out.code()
+for n in enum_types:
+  x = enum_types[n]
+  if x.options:
+    if x.description:
+      out.comment(x.description)
+    out.code('enum %s {'%(x.cname))
+    for o in x.options:
+      out.code('%s = %s, /*!< %s */'%(o.name, o.value, o.description))
+    out.code('};')
+    out.code()
+    out.code('ostream & operator<<( ostream & out, %s const & val );'%x.cname)
+    out.code()
+
+out.write('}\n')
+out.code('#endif')
+out.close()
+
+# Write out Internal Enumeration header (NifStream functions)
+out = CFile(ROOT_DIR + '/gen/enums_intl.h', 'w')
+out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+out.code('#ifndef _NIF_ENUMS_INTL_H_')
+out.code('#define _NIF_ENUMS_INTL_H_')
+out.code()
+out.code('#include "nif_basic_types.h"')
+out.code()
+out.write('namespace Niflib {\n')
+out.code()
+for n in enum_types:
+  x = enum_types[n]
+  if x.options:
+    if x.description:
+      out.comment(x.description)
+    out.code('void NifStream( %s & val, istream& in, uint version = 0 );'%x.cname)
+    out.code('void NifStream( %s const & val, ostream& out, uint version = 0  );'%x.cname)
+    out.code()
+
+out.write('}\n')
+out.code('#endif')
+out.close()
+
+
+
+#Write out Enumeration Implementation
+out = CFile(ROOT_DIR + '/gen/enums.cpp', 'w')
+out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+out.code()
+out.code('#include <string>')
+out.code('#include <iostream>')
+out.code('#include "enums.h"')
+out.code('#include "enums_intl.h"')
+out.code()
+out.write('namespace Niflib {\n')
+out.code()
+
+out.code()
+for n in enum_types:
+  x = enum_types[n]
+  if x.options:
+    out.comment(x.cname)
+    out.code('void NifStream( %s & val, istream& in, uint version ) {'%(x.cname))
+    out.code('%s temp;'%(x.storage))
+    out.code('NifStream( temp, in, version );')
+    out.code('val = %s(temp);'%(x.cname))
+    out.code('}')
+    out.code()
+    out.code('void NifStream( %s const & val, ostream& out, uint version ) {'%(x.cname))
+    out.code('NifStream( %s(val), out, version );'%(x.storage))
+    out.code('}')
+    out.code()
+    out.code('ostream & operator<<( ostream & out, %s const & val ) { '%(x.cname))
+    out.code('switch ( val ) {')
+    for o in x.options:
+      out.code('case %s: return out << "%s";'%(o.name, o.name))
+    out.code('default: return out << "Invalid Value! - " << uint(val);')
+    out.code('}')
+    out.code('}')
+    out.code()
+    
+out.write('}\n')
+out.close()
+
 #
 # all non-generated bootstrap code
 #
 
 if BOOTSTRAP:
-
-  # Write out Enumerations
-  out = CFile(ROOT_DIR + '/nif_enums.h', 'w')
-  out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-  out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
-  out.code('#ifndef _NIF_ENUMS_H_')
-  out.code('#define _NIF_ENUMS_H_')
-  out.code()
-  out.code('#include "nif_basic_types.h"')
-  out.code()
-  out.write('namespace Niflib {\n')
-  out.code()
-  for n in enum_types:
-      x = enum_types[n]
-      if x.options:
-        if x.description:
-          out.comment(x.description)
-        out.code('typedef enum %s : %s {'%(x.cname, x.storage))
-        for o in x.options:
-          out.code('%s = %s, /*!< %s */'%(o.name, o.value, o.description))
-        out.code('} %s;'%x.cname)
-        out.code()
-        out.code('void NifStream( %s & val, istream& in, uint version = 0 );'%x.cname)
-        out.code('void NifStream( %s const & val, ostream& out, uint version = 0  );'%x.cname)
-        out.code('ostream & operator<<( ostream & out, %s const & val );'%x.cname)
-        out.code()
-
-  out.write('}\n')
-  out.code('#endif')
-  out.close()
-  
-  #Write out Enumeration Implementation
-  out = CFile(ROOT_DIR + '/nif_enums.cpp', 'w')
-  out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-  out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
-  out.code()
-  out.code('#include <string>')
-  out.code('#include <iostream>')
-  out.code('#include "nif_enums.h"')
-  out.code()
-  out.write('namespace Niflib {\n')
-  out.code()
-
-  out.code('/* Template wrappers around Nif IO routines */')
-  out.code('template <typename T> inline T ReadValue(istream& in);')
-  out.code('template <typename T> inline void WriteValue( T val, ostream& out);')
-  out.code('template <> inline int    ReadValue<int>   (istream& in) { return ReadInt( in ); }')
-  out.code('template <> inline uint   ReadValue<uint>  (istream& in) { return ReadUInt( in ); }')
-  out.code('template <> inline ushort ReadValue<ushort>(istream& in) { return ReadUShort( in ); }')
-  out.code('template <> inline short  ReadValue<short> (istream& in) { return ReadShort( in ); }')
-  out.code('template <> inline byte   ReadValue<byte>  (istream& in) { return ReadByte( in ); }')
-  out.code('template <> inline void WriteValue<int>   ( int val,    ostream& out) { WriteInt( val, out ); }')
-  out.code('template <> inline void WriteValue<uint>  ( uint val,   ostream& out) { WriteUInt( val, out ); }')
-  out.code('template <> inline void WriteValue<ushort>( ushort val, ostream& out) { WriteUShort( val, out ); }')
-  out.code('template <> inline void WriteValue<short> ( short val,  ostream& out) { WriteShort( val, out ); }')
-  out.code('template <> inline void WriteValue<byte>  ( byte val,   ostream& out) { WriteByte( val, out ); }')
-  
-  out.code()
-  for n in enum_types:
-      x = enum_types[n]
-      if x.options:
-        out.comment(x.cname)
-        out.code('void NifStream( %s & val, istream& in, uint version ) { val = %s(ReadValue<%s>( in )); } '%(x.cname, x.cname, x.storage))
-        out.code('void NifStream( %s const & val, ostream& out, uint version ) { WriteValue<%s>( val, out ); } '%(x.cname, x.storage))
-        out.code('ostream & operator<<( ostream & out, %s const & val ) { '%x.cname)
-        out.code('switch ( val ) {')
-        for o in x.options:
-          out.code('case %s: return out << "%s";'%(o.name, o.name))
-        out.code('default: return out << "Invalid Value! - " << uint(val);')
-        out.code('}')
-        out.code('}')
-        out.code()
-        
-  out.write('}\n')
-  out.close()
 
   # Templates
   for n in block_names:
