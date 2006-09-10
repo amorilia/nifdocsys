@@ -97,11 +97,13 @@ basic_types = {}
 enum_types = {}
 compound_types = {}
 block_types = {}
+version_types = {}
 
 basic_names = []
 compound_names = []
 enum_names = []
 block_names = []
+version_names = []
 
 ACTION_READ = 0
 ACTION_WRITE = 1
@@ -1110,7 +1112,11 @@ class Member:
       result = "void " + scope + "Set" + self.cname[0:1].upper() + self.cname[1:] + "( " + ltype + " value )" + suffix
       return result
 
-
+class Version:
+    def __init__(self, element):
+        self.num = element.getAttribute('num')
+        self.description = element.firstChild.nodeValue.strip()
+        
 class Basic:
     def __init__(self, element):
         global native_types
@@ -1361,6 +1367,11 @@ class Block(Compound):
 
 doc = parse("nif.xml")
 
+for element in doc.getElementsByTagName('version'):
+    x = Version(element)
+    version_types[x.num] = x
+    version_names.append(x.num)
+
 for element in doc.getElementsByTagName('basic'):
     x = Basic(element)
     assert not basic_types.has_key(x.name)
@@ -1369,11 +1380,8 @@ for element in doc.getElementsByTagName('basic'):
 
 for element in doc.getElementsByTagName('enum'):
     x = Enum(element)
-    #assert not basic_types.has_key(x.name)
     assert not enum_types.has_key(x.name)
-    #basic_types[x.name] = x
     enum_types[x.name] = x
-    #basic_names.append(x.name)
     enum_names.append(x.name)
     
 for element in doc.getElementsByTagName("compound"):
