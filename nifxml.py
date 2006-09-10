@@ -109,6 +109,36 @@ ACTION_FIXLINKS = 3
 ACTION_GETREFS = 4
 
 #
+# HTML Template class
+#
+
+class Template:
+    """
+    This class processes template files.  These files have tags enclosed
+    in curly brackets like this: {tag}, which are replaced when a template
+    is processed.
+    """
+    def __init__(self):
+        #Initialize variable dictionary
+        self.vars = {}
+        
+    def set_var(self, var_name, value):
+        self.vars[var_name] = value
+
+    def parse(self, file_name):
+        #Open file and read contents to txt variable
+        f = file(file_name, 'r')
+        txt = f.read()
+        f.close()
+
+        #Loop through all variables, replacing them in the template text
+        for i in self.vars:
+            txt = txt.replace( "{" + i + "}", self.vars[i] )
+
+        #return result
+        return txt
+        
+#
 # C++ code formatting functions
 #
 
@@ -881,6 +911,8 @@ class Member:
         self.cond      = Expr(element.getAttribute('cond'))
         self.func      = element.getAttribute('function')
         self.default   = element.getAttribute('default')
+        self.orig_ver1 = element.getAttribute('ver1')
+        self.orig_ver2 = element.getAttribute('ver2')
         self.ver1      = version2number(element.getAttribute('ver1'))
         self.ver2      = version2number(element.getAttribute('ver2'))
         self.userver   = userversion2number(element.getAttribute('userver'))
