@@ -100,6 +100,7 @@ block_types = {}
 
 basic_names = []
 compound_names = []
+enum_names = []
 block_names = []
 
 ACTION_READ = 0
@@ -354,10 +355,12 @@ class CFile(file):
         # now comes the difficult part: processing all members recursively
         for y in block.members:
             # get block
-            try:
+            if y.type in basic_types:
                 subblock = basic_types[y.type]
-            except KeyError:
+            elif y.type in compound_types:
                 subblock = compound_types[y.type]
+            else:
+                subblock = enum_types[y.type]
             # check for links
             if action in [ACTION_FIXLINKS, ACTION_GETREFS]:
                 if not subblock.has_links and not subblock.has_crossrefs:
@@ -1366,11 +1369,12 @@ for element in doc.getElementsByTagName('basic'):
 
 for element in doc.getElementsByTagName('enum'):
     x = Enum(element)
-    assert not basic_types.has_key(x.name)
+    #assert not basic_types.has_key(x.name)
     assert not enum_types.has_key(x.name)
-    basic_types[x.name] = x
+    #basic_types[x.name] = x
     enum_types[x.name] = x
-    basic_names.append(x.name)
+    #basic_names.append(x.name)
+    enum_names.append(x.name)
     
 for element in doc.getElementsByTagName("compound"):
     x = Compound(element)
