@@ -1128,6 +1128,8 @@ class Basic:
         assert element.firstChild.nodeType == Node.TEXT_NODE
         self.description = element.firstChild.nodeValue.strip()
 
+        self.count = element.getAttribute('count')
+
         self.is_link = False
         self.is_crossref = False
         self.has_links = False
