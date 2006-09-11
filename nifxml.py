@@ -944,6 +944,8 @@ class Member:
                 self.default = "0.0"
             elif self.type == "HeaderString":
                 pass
+            elif self.type == "StringOffset":
+                self.default = "-1";
             elif self.type in basic_names:
                 self.default = "0"
         if self.default:
