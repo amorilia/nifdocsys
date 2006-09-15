@@ -86,8 +86,11 @@ block_types["NiKeyframeData"].find_member("Num Rotation Keys").is_manual_update 
 # generate compound code
 #
 
-mkpath(os.path.join(ROOT_DIR, "obj"))
-mkpath(os.path.join(ROOT_DIR, "gen"))
+mkpath(os.path.join(ROOT_DIR, "include/obj"))
+mkpath(os.path.join(ROOT_DIR, "include/gen"))
+
+mkpath(os.path.join(ROOT_DIR, "src/obj"))
+mkpath(os.path.join(ROOT_DIR, "src/gen"))
 
 for n in compound_names:
     x = compound_types[n]
@@ -96,7 +99,7 @@ for n in compound_names:
     if x.niflibtype: continue
     if n[:3] == 'ns ': continue
 
-    h = CFile(ROOT_DIR + '/gen/' + x.cname + '.h', 'w')  
+    h = CFile(ROOT_DIR + '/include/gen/' + x.cname + '.h', 'w')  
     h.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     h.code( 'All rights reserved.  Please see niflib.h for licence. */' )
     h.code()
@@ -146,7 +149,7 @@ for n in compound_names:
     h.close()
 
     if not x.template:
-        cpp = CFile(ROOT_DIR + '/gen/' + x.cname + '.cpp', 'w')
+        cpp = CFile(ROOT_DIR + '/src/gen/' + x.cname + '.cpp', 'w')
         cpp.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
         cpp.code( 'All rights reserved.  Please see niflib.h for licence. */' )
         cpp.code()
@@ -201,7 +204,7 @@ for n in compound_names:
 # generate block code
 #
 
-h = CFile(ROOT_DIR + "/gen/obj_defines.h", "w")
+h = CFile(ROOT_DIR + "/include/gen/obj_defines.h", "w")
 
 # file header
 
@@ -308,7 +311,7 @@ h.close()
 # Internal Implementations
 
 if GENIMPL:
-  m = CFile(ROOT_DIR + "/gen/obj_impl.cpp", "w")
+  m = CFile(ROOT_DIR + "/src/gen/obj_impl.cpp", "w")
   m.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
   m.code( 'All rights reserved.  Please see niflib.h for licence. */' )
   m.code()
@@ -359,7 +362,7 @@ if GENIMPL:
 
 # Factories
 
-f = CFile(ROOT_DIR + "/gen/obj_factories.cpp", "w")
+f = CFile(ROOT_DIR + "/src/gen/obj_factories.cpp", "w")
 f.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
 f.code( 'All rights reserved.  Please see niflib.h for licence. */' )
 f.code()
@@ -448,9 +451,9 @@ scons.write("objfiles = '")
 for n in compound_names:
     x = compound_types[n]
     if n[:3] != 'ns ' and not x.niflibtype and not x.template:
-        scons.write('gen/' + n + '.cpp ')
+        scons.write('src/gen/' + n + '.cpp ')
 for n in block_names:
-    scons.write('obj/' + n + '.cpp ')
+    scons.write('src/obj/' + n + '.cpp ')
 scons.write("'\n\n")
 
 scons.write("""niflib = env.StaticLibrary('niflib', Split('niflib.cpp nif_math.cpp NIF_IO.cpp kfm.cpp Type.cpp gen/obj_factories.cpp ' + objfiles), CPPPATH = '.', CPPFLAGS = cppflags)
@@ -674,7 +677,7 @@ swig.code("%template(vector_NiAVObjectRef) std::vector<Niflib::NiAVObjectRef>;")
 swig.close()
 
 # Write out Public Enumeration header Enumerations
-out = CFile(ROOT_DIR + '/gen/enums.h', 'w')
+out = CFile(ROOT_DIR + '/include/gen/enums.h', 'w')
 out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
 out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
 out.code('#ifndef _NIF_ENUMS_H_')
@@ -700,7 +703,7 @@ out.code('#endif')
 out.close()
 
 # Write out Internal Enumeration header (NifStream functions)
-out = CFile(ROOT_DIR + '/gen/enums_intl.h', 'w')
+out = CFile(ROOT_DIR + '/include/gen/enums_intl.h', 'w')
 out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
 out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
 out.code('#ifndef _NIF_ENUMS_INTL_H_')
@@ -726,7 +729,7 @@ out.close()
 
 
 #Write out Enumeration Implementation
-out = CFile(ROOT_DIR + '/gen/enums.cpp', 'w')
+out = CFile(ROOT_DIR + '/src/gen/enums.cpp', 'w')
 out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
 out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
 out.code()
@@ -776,7 +779,7 @@ if BOOTSTRAP:
     x = block_types[n]
     x_define_name = define_name(x.cname)
     
-    out = CFile(ROOT_DIR + '/obj/' + x.cname + '.h', 'w')
+    out = CFile(ROOT_DIR + '/include/obj/' + x.cname + '.h', 'w')
     out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
     out.code()
@@ -841,7 +844,7 @@ if BOOTSTRAP:
     out.code( '#endif' )
     out.close()
 
-    out = CFile(ROOT_DIR + '/obj/' + x.cname + '.cpp', 'w')
+    out = CFile(ROOT_DIR + '/src/obj/' + x.cname + '.cpp', 'w')
     out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
     out.code()
