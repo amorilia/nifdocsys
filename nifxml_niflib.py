@@ -324,8 +324,40 @@ if GENIMPL:
       x = block_types[n]
       if not x.is_ancestor:
           m.code('#include "../../include/obj/%s.h"'%x.cname)
-  m.code()
   m.backslash_mode = False
+
+  m.write( """
+const char FIX_LINK_POP_ERROR[] = "Trying to pop a link from empty stack. This is probably a bug.";
+const char FIX_LINK_INDEX_ERROR[] = "Object index was not found in object map.  This NIF file may be invalid or imporperly supported.";
+const char FIX_LINK_CAST_ERROR[] = "Link could not be cast to required type during file read. This NIF file may be invalid or improperly supported.";
+
+template <class T>
+Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned version ) {
+	if (link_stack.empty()) {
+		throw runtime_error(FIX_LINK_POP_ERROR);
+	}
+	unsigned index = link_stack.front();
+	link_stack.pop_front();
+
+	//Check if link is NULL
+	if ( index == 0xFFFFFFFF) {
+		return NULL;
+	}
+
+	map<unsigned,NiObjectRef>::const_iterator it = objects.find(index);
+	if ( it == objects.end() ) {
+		throw runtime_error(FIX_LINK_INDEX_ERROR);
+	}
+		
+	Ref<T> object = DynamicCast<T>(it->second);
+	if ( object == NULL ) {
+		throw runtime_error(FIX_LINK_CAST_ERROR);
+	}
+
+	return object;
+}
+
+""" )
 
   for n in block_names:
       x = block_types[n]
@@ -346,7 +378,7 @@ if GENIMPL:
       m.code("}")
       m.code()
 
-      m.code("void %s::InternalFixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {"%x.cname)
+      m.code("void %s::InternalFixLinks( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {"%x.cname)
       m.stream(x, ACTION_FIXLINKS)
       m.code("}")
       m.code()
@@ -819,7 +851,7 @@ if BOOTSTRAP:
     out.code( 'virtual void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
     out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
     out.code( 'virtual string asString( bool verbose = false ) const;\n' )
-    out.code( 'virtual void FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
+    out.code( 'virtual void FixLinks( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
     out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
     out.code( 'virtual const Type & GetType() const;' )
     out.code()

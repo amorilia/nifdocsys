@@ -542,14 +542,9 @@ class CFile(file):
                             self.code("\tNifStream( 0xffffffff, %s, version );"%stream)
                         elif action == ACTION_FIXLINKS:
                             if y.is_declared:
-                                self.code("if (link_stack.empty())")
-                                self.code("\tthrow runtime_error(\"Trying to pop a link from empty stack. This is probably a bug.\");")
-                                self.code("if (link_stack.front() != 0xffffffff) {")
-                                self.code("%s = DynamicCast<%s>(objects[link_stack.front()]);"%(z,y.ctemplate))
-                                self.code('if ( %s == NULL )\n\tthrow runtime_error("Link could not be cast to required type during file read. This NIF file may be invalid or improperly understood.");'%z)
-                                self.code("} else")
-                                self.code("\t%s = NULL;"%z)
-                                self.code("link_stack.pop_front();")
+                                
+                                self.code("%s = FixLink<%s>( objects, link_stack, version );"%(z,y.ctemplate))
+                                
                         elif action == ACTION_GETREFS and subblock.is_link:
                             if y.is_declared and not y.is_duplicate:
                                 self.code('if ( %s != NULL )\n\trefs.push_back(StaticCast<NiObject>(%s));'%(z,z))
