@@ -224,7 +224,7 @@ private:\\
   void InternalRead( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );\\
   void InternalWrite( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;\\
   string InternalAsString( bool verbose ) const;\\
-  void InternalFixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );\\
+  void InternalFixLinks( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );\\
   list<NiObjectRef> InternalGetRefs() const;
 """)
 else:
@@ -911,7 +911,7 @@ if BOOTSTRAP:
     out.code( x_define_name + '_STRING' )
     out.code( '}' )
     out.code()
-    out.code( 'void ' + x.cname + '::FixLinks( const vector<NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' );
+    out.code( 'void ' + x.cname + '::FixLinks( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' );
     out.code( x_define_name + '_FIXLINKS' )
     out.code( '}' )
     out.code()
