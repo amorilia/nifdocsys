@@ -215,94 +215,51 @@ All rights reserved.  Please see niflib.h for licence. */
 #define _OBJ_DEFINES_H_
 
 #define MAXARRAYDUMP 20
-""")
 
-if GENIMPL:
-  h.write("""
-#define STANDARD_INTERNAL_METHODS \\
-private:\\
-  void InternalRead( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );\\
-  void InternalWrite( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;\\
-  string InternalAsString( bool verbose ) const;\\
-  void InternalFixLinks( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );\\
-  list<NiObjectRef> InternalGetRefs() const;
 """)
-else:
-  h.code("#define STANDARD_INTERNAL_METHODS")
-  h.code()
-  
+h.code('#ifndef SWIG')
 h.backslash_mode = True
+for n in block_names:
+    x = block_types[n]
+    x_define_name = define_name(x.cname)
+
+    # declaration
+    h.code('#define %s_MEMBERS '%x_define_name)
+    h.declare(x)
+    h.code()
+h.backslash_mode = False
+
+
+h.code('#else')
+for n in block_names:
+    x = block_types[n]
+    x_define_name = define_name(x.cname)
+    h.code('#define %s_MEMBERS'%x_define_name)
+
+h.code('#endif')
+h.code()
 
 for n in block_names:
     x = block_types[n]
     x_define_name = define_name(x.cname)
-        
-    # declaration
-    h.code('#define %s_MEMBERS'%x_define_name)
-    h.declare(x)
-    h.code()
-    
     # parents
     if not x.inherit:
-        par = ""
+        h.code('#define %s_INCLUDE'%(x_define_name) )
+        h.code('#define %s_PARENT'%(x_define_name) )
     else:
-        par = x.inherit.cname
+        h.code('#define %s_INCLUDE \"%s.h\"'%(x_define_name, x.inherit.cname))
+        h.code()
+        h.code('#define %s_PARENT %s'%(x_define_name, x.inherit.cname))
+    h.code()
+        
     # declaration
-    h.code('#define %s_INCLUDE \"%s.h\"'%(x_define_name, par))
-    h.code()
-    h.code('#define %s_PARENT %s'%(x_define_name, par))
-    h.code()
 
     # constructor
-    h.code("#define %s_CONSTRUCT "%x_define_name)
+    h.write("#define %s_CONSTRUCT "%x_define_name)
     x_code_construct = x.code_construct()
     if x_code_construct:
         h.code(x_code_construct)
     h.code()
-    
-    # istream
-    h.code("#define %s_READ"%x_define_name)
-    if GENIMPL:
-      h.code("InternalRead( in, link_stack, version, user_version );")
-    else:
-      h.stream(x, ACTION_READ)
-    h.code()
-      
-    # ostream
-    h.code("#define %s_WRITE"%x_define_name)
-    if GENIMPL:
-      h.code("InternalWrite( out, link_map, version, user_version );")
-    else:
-      h.stream(x, ACTION_WRITE)
-    h.code()
-    
-    # as string
-    h.code("#define %s_STRING"%x_define_name)
-    if GENIMPL:
-      h.code("return InternalAsString( verbose );")
-    else:
-      h.stream(x, ACTION_OUT)
-    h.code()
-
-    # fix links
-    h.code("#define %s_FIXLINKS"%x_define_name)
-    if GENIMPL:
-      h.code("InternalFixLinks( objects, link_stack, version, user_version );")
-    else:
-      h.stream(x, ACTION_FIXLINKS)
-    h.code()
-
-    # get references
-    h.code("#define %s_GETREFS"%x_define_name)
-    if GENIMPL:
-      h.code("return InternalGetRefs();")
-    else:
-      h.stream(x, ACTION_GETREFS)
-    h.code()
-
-
-
-h.backslash_mode = False
         
 h.code("#endif")
 
@@ -755,7 +712,9 @@ for n in enum_types:
   x = enum_types[n]
   if x.options:
     if x.description:
-      out.comment(x.description)
+        out.code()
+        out.code( '//---' + x.cname + '---//')
+        out.code()
     out.code('void NifStream( %s & val, istream& in, uint version = 0 );'%x.cname)
     out.code('void NifStream( %s const & val, ostream& out, uint version = 0  );'%x.cname)
     out.code()
@@ -786,7 +745,9 @@ out.code()
 for n in enum_types:
   x = enum_types[n]
   if x.options:
-    out.comment(x.cname)
+    out.code()
+    out.code('//--' + x.cname + '--//')
+    out.code()
     out.code('void NifStream( %s & val, istream& in, uint version ) {'%(x.cname))
     out.code('%s temp;'%(x.storage))
     out.code('NifStream( temp, in, version );')
@@ -878,7 +839,12 @@ if BOOTSTRAP:
             out.code( '%s * %s::%s() const;'%(y.ctemplate, x.cname, y.func ) )
             
     out.code( x_define_name + '_MEMBERS' )
-    out.code( "STANDARD_INTERNAL_METHODS" )
+    out.code( 'private:' )
+    out.code( 'void InternalRead( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
+    out.code( 'void InternalWrite( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
+    out.code( 'string InternalAsString( bool verbose ) const;' )
+    out.code( 'void InternalFixLinks( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
+    out.code( 'list<NiObjectRef> InternalGetRefs() const;' )
     out.code( '};' )
     out.code()
     out.write( "}\n" )
@@ -898,25 +864,25 @@ if BOOTSTRAP:
     out.code( x.cname + '::' + x.cname + '() ' + x_define_name + '_CONSTRUCT {}' )
     out.code()
     out.code( x.cname + '::' + '~' + x.cname + '() {}' )
-    out.code()
+    out.code() 
     out.code( 'void ' + x.cname + '::Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' )
-    out.code( x_define_name + '_READ' )
+    out.code( 'InternalRead( in, link_stack, version, user_version );' )
     out.code( '}' )
     out.code()
     out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {' )
-    out.code( x_define_name + '_WRITE' )
+    out.code( 'InternalWrite( out, link_map, version, user_version );' )
     out.code( '}' )
     out.code()
     out.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
-    out.code( x_define_name + '_STRING' )
+    out.code( 'return InternalAsString( verbose );' )
     out.code( '}' )
     out.code()
     out.code( 'void ' + x.cname + '::FixLinks( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version ) {' );
-    out.code( x_define_name + '_FIXLINKS' )
+    out.code( 'InternalFixLinks( objects, link_stack, version, user_version );' )
     out.code( '}' )
     out.code()
     out.code( 'list<NiObjectRef> %s::GetRefs() const {'%x.cname )
-    out.code( x_define_name + '_GETREFS' )
+    out.code( 'return InternalGetRefs();' )
     out.code( '}' )
     out.code()
     out.code( 'const Type & %s::GetType() const {'%x.cname )
@@ -954,11 +920,19 @@ if BOOTSTRAP:
 #Doxygen pre-define file
 doxy = CFile(os.path.join(ROOT_DIR, 'DoxygenPredefines.txt'), "w")
 doxy.backslash_mode = True
-doxy.code( "PREDEFINED             =" )
 
+i = 0
 for n in block_names:
     x = block_types[n]
     x_define_name = define_name(x.cname)
+
+    if i == 0:
+        doxy.write( "PREDEFINED             = " )
+    else:
+        doxy.write( "                         " )
+
+    if i == len(block_names) - 1:
+        doxy.backslash_mode = False
         
     # parents
     if not x.inherit:
@@ -967,6 +941,7 @@ for n in block_names:
         par = x.inherit.cname
     # declaration
     doxy.code('%s_PARENT=%s'%(x_define_name, par))
+    i += 1
 
 doxy.code()
 doxy.close()
