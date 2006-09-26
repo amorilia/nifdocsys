@@ -855,7 +855,7 @@ if BOOTSTRAP:
     out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
     out.code()
-    out.code( x.code_include_cpp() )
+    out.code( x.code_include_cpp( True, "../../include/gen/", "../../include/obj/" ) )
     out.code( "using namespace Niflib;" );
     out.code()
     out.code( '//Definition of TYPE constant' )
