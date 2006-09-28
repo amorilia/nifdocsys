@@ -271,10 +271,9 @@ class CFile(file):
         # stream name
         if action == ACTION_READ:
             stream = "in"
-        elif action == ACTION_WRITE:
+        else:
             stream = "out"
-        elif action == ACTION_OUT:
-            stream = "out"
+        
 
         # preperation
         if isinstance(block, Block) or block.name in ["Footer", "Header"]:
@@ -283,6 +282,7 @@ class CFile(file):
                     self.code("uint block_num;")
             if action == ACTION_OUT:
                 self.code("stringstream out;")
+                self.code("uint array_output_count = 0;")
             if action == ACTION_GETREFS:
                 self.code("list<Ref<NiObject> > refs;")
 
@@ -477,6 +477,8 @@ class CFile(file):
             if not y.arr1.lhs:
                 z = "%s%s"%(y_prefix, y.cname)
             else:
+                if action == ACTION_OUT:
+                    self.code("array_output_count = 0;")
                 if y.arr1.lhs.isdigit() == False:
                     if action == ACTION_READ:
                       # default to local variable, check if variable is in current scope if not then try to use
@@ -497,6 +499,12 @@ class CFile(file):
                     self.code(\
                         "for (uint i%i = 0; i%i < %s; i%i++) {"\
                         %(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
+                if action == ACTION_OUT:
+                        self.code('if ( !verbose && ( array_output_count > MAXARRAYDUMP ) ) {')
+                        self.code('%s << "<Data Truncated. Use verbose mode to see complete listing.>" << endl;'%stream)
+                        self.code('break;')
+                        self.code('};')
+                        
                 if not y.arr2.lhs:
                     z = "%s%s[i%i]"%(y_prefix, y.cname, self.indent-1)
                 else:
@@ -552,18 +560,12 @@ class CFile(file):
                 elif action == ACTION_OUT:
                     if not y.arr1.lhs:
                         self.code('%s << "%*s%s:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, z))
-                    elif not y.arr2.lhs:
-                        self.code('if ( !verbose && ( i%i > MAXARRAYDUMP ) ) {'%(self.indent-1))
-                        self.code('%s << "<Data Truncated. Use verbose mode to see complete listing.>" << endl;'%stream)
+                    else:
+                        self.code('if ( !verbose && ( array_output_count > MAXARRAYDUMP ) ) {')
                         self.code('break;')
                         self.code('};')
                         self.code('%s << "%*s%s[" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-1, z))
-                    else:
-                        self.code('if ( !verbose && ( i%i > MAXARRAYDUMP ) ) {'%(self.indent-1))
-                        self.code('%s << "<Data Truncated. Use verbose mode to see complete listing.>" << endl;'%stream)
-                        self.code('break;')
-                        self.code('};')
-                        self.code('%s << "%*s%s[" << i%i << "][" << i%i << "]:  " << %s << endl;'%(stream, 2*self.indent, "", y.name, self.indent-2, self.indent-1, z))
+                        self.code('array_output_count++;')
             else:
                 subblock = compound_types[y.type]
                 if not y.arr1.lhs:
