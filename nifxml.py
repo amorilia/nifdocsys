@@ -700,11 +700,15 @@ def version2number(s):
     """
     if not s: return None
     l = s.split('.')
-    if len(l) != 4:
+    if len(l) > 4:
         assert(False)
         return int(s)
     else:
-        return (int(l[0]) << 24) + (int(l[1]) << 16) + (int(l[2]) << 8) + int(l[3])
+        version = 0
+        for i in range( 0, len(l) ):
+            version += int(l[i]) << ((3-i) * 8)
+            #return (int(l[0]) << 24) + (int(l[1]) << 16) + (int(l[2]) << 8) + int(l[3])
+        return version
 
 def userversion2number(s):
     """
