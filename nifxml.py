@@ -756,7 +756,7 @@ class Expr:
             return
             
         x = None
-        for op in [ '==', '!=', '&' ]:
+        for op in [ '>=', '<=', '<', '>', '==', '!=', '&' ]:
             if n.find(op) != -1:
                 x = n.split(op)
                 break
