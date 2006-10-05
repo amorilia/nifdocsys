@@ -545,7 +545,7 @@ class CFile(file):
                                 self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
                             self.code("if ( %s != NULL )"%z)
-                            self.code("\tNifStream( link_map[StaticCast<NiObject>(%s)], %s, version );"%(z, stream))
+                            self.code("\tNifStream( link_map.find( StaticCast<NiObject>(%s) )->second, %s, version );"%(z, stream))
                             self.code("else")
                             self.code("\tNifStream( 0xffffffff, %s, version );"%stream)
                         elif action == ACTION_FIXLINKS:

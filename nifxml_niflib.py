@@ -138,7 +138,7 @@ for n in compound_names:
     
     if n == "Footer":
         h.code( 'void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
-        h.code( 'void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
+        h.code( 'void Write( ostream& out, const map<NiObjectRef,uint> & link_map, unsigned int version, unsigned int user_version ) const;' )
         h.code( 'string asString( bool verbose = false ) const;' )
 
     # done
@@ -189,7 +189,7 @@ for n in compound_names:
             cpp.stream(x, ACTION_READ)
             cpp.code( '}' )
             cpp.code()
-            cpp.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {' )
+            cpp.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,uint> & link_map, unsigned int version, unsigned int user_version ) const {' )
             cpp.stream(x, ACTION_WRITE)
             cpp.code( '}' )
             cpp.code()
@@ -325,7 +325,7 @@ Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<uint> & link_sta
       m.code("}")
       m.code()
       
-      m.code("void %s::InternalWrite( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {"%x.cname)
+      m.code("void %s::InternalWrite( ostream& out, const map<NiObjectRef,uint> & link_map, unsigned int version, unsigned int user_version ) const {"%x.cname)
       m.stream(x, ACTION_WRITE)
       m.code("}")
       m.code()
@@ -810,7 +810,7 @@ if BOOTSTRAP:
     out.code( 'static const Type TYPE;' )
     out.code( 'public:' )  
     out.code( 'virtual void Read( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
-    out.code( 'virtual void Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
+    out.code( 'virtual void Write( ostream& out, const map<NiObjectRef,uint> & link_map, unsigned int version, unsigned int user_version ) const;' )
     out.code( 'virtual string asString( bool verbose = false ) const;\n' )
     out.code( 'virtual void FixLinks( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
     out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
@@ -841,7 +841,7 @@ if BOOTSTRAP:
     out.code( x_define_name + '_MEMBERS' )
     out.code( 'private:' )
     out.code( 'void InternalRead( istream& in, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
-    out.code( 'void InternalWrite( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const;' )
+    out.code( 'void InternalWrite( ostream& out, const map<NiObjectRef,uint> & link_map, unsigned int version, unsigned int user_version ) const;' )
     out.code( 'string InternalAsString( bool verbose ) const;' )
     out.code( 'void InternalFixLinks( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned int version, unsigned int user_version );' )
     out.code( 'list<NiObjectRef> InternalGetRefs() const;' )
@@ -869,7 +869,7 @@ if BOOTSTRAP:
     out.code( 'InternalRead( in, link_stack, version, user_version );' )
     out.code( '}' )
     out.code()
-    out.code( 'void ' + x.cname + '::Write( ostream& out, map<NiObjectRef,uint> link_map, unsigned int version, unsigned int user_version ) const {' )
+    out.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,uint> & link_map, unsigned int version, unsigned int user_version ) const {' )
     out.code( 'InternalWrite( out, link_map, version, user_version );' )
     out.code( '}' )
     out.code()
