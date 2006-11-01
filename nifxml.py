@@ -1043,12 +1043,12 @@ class Member:
         if self.arr1.lhs:
             if self.arr1.lhs.isdigit():
                 if self.arr2.lhs and self.arr2.lhs.isdigit():
-                      result = "array< %s, array<%s,%s> >"%(self.arr1.lhs, self.arr2.lhs, result)
+                      result = "array< %s, array<%s,%s > >"%(self.arr1.lhs, self.arr2.lhs, result)
                 else:
-                      result = "array<%s,%s>"%(self.arr1.lhs, result) 
+                      result = "array<%s,%s >"%(self.arr1.lhs, result) 
             else:
                 if self.arr2.lhs and self.arr2.lhs.isdigit():
-                    result = "vector< array<%s,%s> >"%(self.arr2.lhs, result)
+                    result = "vector< array<%s,%s > >"%(self.arr2.lhs, result)
                 else:
                     if self.arr2.lhs:
                         result = "vector< vector<%s > >"%result
@@ -1066,17 +1066,17 @@ class Member:
               ltype = "%s *"%self.ctemplate
       if self.arr1.lhs:
           if self.arr1.lhs.isdigit():
-              ltype = "array<%s,%s> "%(self.arr1.lhs, ltype)
+              ltype = "array<%s,%s > "%(self.arr1.lhs, ltype)
               # ltype = ltype
           else:
               if self.arr2.lhs and self.arr2.lhs.isdigit():
-                  ltype = "vector< array<%s,%s> >"%(self.arr2.lhs, ltype)
+                  ltype = "vector< array<%s,%s > >"%(self.arr2.lhs, ltype)
               else:
                   ltype = "vector<%s >"%ltype
           if self.arr2.lhs:
               if self.arr2.lhs.isdigit():
                   if self.arr1.lhs.isdigit():
-                    ltype = "array<%s,%s>"%(self.arr2.lhs,ltype)
+                    ltype = "array<%s,%s >"%(self.arr2.lhs,ltype)
                     # ltype = ltype
               else:
                   ltype = "vector<%s >"%ltype
@@ -1094,13 +1094,13 @@ class Member:
           if self.arr1.lhs.isdigit():
             # ltype = "const %s&"%ltype
             if self.arr2.lhs and self.arr2.lhs.isdigit():
-                  ltype = "const array< %s, array<%s,%s> >&"%(self.arr1.lhs,self.arr2.lhs, ltype)
+                  ltype = "const array< %s, array<%s,%s > >&"%(self.arr1.lhs,self.arr2.lhs, ltype)
             else:
-                  ltype = "const array<%s,%s>& "%(self.arr1.lhs,ltype)              
+                  ltype = "const array<%s,%s >& "%(self.arr1.lhs,ltype)              
             
           else:
               if self.arr2.lhs and self.arr2.lhs.isdigit():
-                  ltype = "const vector< array<%s,%s> >&"%(self.arr2.lhs, ltype)
+                  ltype = "const vector< array<%s,%s > >&"%(self.arr2.lhs, ltype)
               else:
                   ltype = "const vector<%s >&"%ltype
       else:
