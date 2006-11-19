@@ -120,12 +120,16 @@ for n in compound_names:
     hdr += " {"
     h.code(hdr)
     
-    #constructor/destructor
+    #constructor/destructor/assignment
     if not x.template:
         h.code( '/*! Default Constructor */' )
-        h.code( "%s()"%x.cname + ';' )
+        h.code( "%s();"%x.cname )
+        h.code( '/*! Copy Constructor */' )
+        h.code( '%s( const %s & src );'%(x.cname, x.cname) )
+        h.code( '/*! Copy Operator */' )
+        h.code( '%s & operator=( const %s & src );'%(x.cname, x.cname) )
         h.code( '/*! Default Destructor */' )
-        h.code( "~%s()"%x.cname + ';' )
+        h.code( "~%s();"%x.cname )
 
     # declaration
     h.declare(x)
@@ -162,6 +166,21 @@ for n in compound_names:
         x_code_construct = x.code_construct()
         #if x_code_construct:
         cpp.code("%s::%s()"%(x.cname,x.cname) + x_code_construct + " {};")
+        cpp.code()
+
+        cpp.code('//Copy Constructor')
+        cpp.code( '%s::%s( const %s & src ) {'%(x.cname,x.cname,x.cname) )
+        cpp.code( '*this = src;' )
+        cpp.code('};')
+        cpp.code()
+
+        cpp.code('//Copy Operator')
+        cpp.code( '%s & %s::operator=( const %s & src ) {'%(x.cname,x.cname,x.cname) )
+        for m in x.members:
+            if m.is_declared and not m.is_duplicate:
+                cpp.code('this->%s = src.%s;'%(m.cname, m.cname) )
+        cpp.code('return *this;')
+        cpp.code('};')
         cpp.code()
 
         cpp.code( '//Destructor' )
@@ -244,11 +263,11 @@ for n in block_names:
     x_define_name = define_name(x.cname)
     # parents
     if not x.inherit:
-        h.code('#define %s_INCLUDE'%(x_define_name) )
+        #h.code('#define %s_INCLUDE'%(x_define_name) )
         h.code('#define %s_PARENT'%(x_define_name) )
     else:
-        h.code('#define %s_INCLUDE \"%s.h\"'%(x_define_name, x.inherit.cname))
-        h.code()
+        #h.code('#define %s_INCLUDE \"%s.h\"'%(x_define_name, x.inherit.cname))
+        #h.code()
         h.code('#define %s_PARENT %s'%(x_define_name, x.inherit.cname))
     h.code()
         
@@ -289,11 +308,11 @@ const char FIX_LINK_INDEX_ERROR[] = "Object index was not found in object map.  
 const char FIX_LINK_CAST_ERROR[] = "Link could not be cast to required type during file read. This NIF file may be invalid or improperly supported.";
 
 template <class T>
-Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<uint> & link_stack, unsigned version ) {
+Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, unsigned int version ) {
 	if (link_stack.empty()) {
 		throw runtime_error(FIX_LINK_POP_ERROR);
 	}
-	unsigned index = link_stack.front();
+	unsigned int index = link_stack.front();
 	link_stack.pop_front();
 
 	//Check if link is NULL
@@ -301,7 +320,7 @@ Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<uint> & link_sta
 		return NULL;
 	}
 
-	map<unsigned,NiObjectRef>::const_iterator it = objects.find(index);
+	map<unsigned int,NiObjectRef>::const_iterator it = objects.find(index);
 	if ( it == objects.end() ) {
 		throw runtime_error(FIX_LINK_INDEX_ERROR);
 	}
