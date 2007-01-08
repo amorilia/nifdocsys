@@ -279,10 +279,10 @@ class CFile(file):
         if isinstance(block, Block) or block.name in ["Footer", "Header"]:
             if action == ACTION_READ:
                 if block.has_links or block.has_crossrefs:
-                    self.code("uint block_num;")
+                    self.code("unsigned int block_num;")
             if action == ACTION_OUT:
                 self.code("stringstream out;")
-                self.code("uint array_output_count = 0;")
+                self.code("unsigned int array_output_count = 0;")
             if action == ACTION_GETREFS:
                 self.code("list<Ref<NiObject> > refs;")
 
@@ -314,16 +314,16 @@ class CFile(file):
                           assert(y.is_declared) # bug check
                       elif y.arr1_ref:
                           assert(not y.is_declared) # bug check
-                          self.code('%s%s = %s(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr1_ref[0]))
+                          self.code('%s%s = (%s)(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr1_ref[0]))
                       elif y.arr2_ref:
                           assert(not y.is_declared) # bug check
                           if not y.arr1.lhs:
-                              self.code('%s%s = %s(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr2_ref[0]))
+                              self.code('%s%s = (%s)(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr2_ref[0]))
                           else:
                               # index of dynamically sized array
                               self.code('%s%s.resize(%s%s.size());'%(localprefix, y.cname, prefix, y.carr2_ref[0]))
-                              self.code('for (uint i%i = 0; i%i < %s%s.size(); i%i++)'%(self.indent, self.indent, localprefix, y.cname, self.indent))
-                              self.code('\t%s%s[i%i] = %s(%s%s[i%i].size());'%(localprefix, y.cname, self.indent, y.ctype, prefix, y.carr2_ref[0], self.indent))
+                              self.code('for (unsigned int i%i = 0; i%i < %s%s.size(); i%i++)'%(self.indent, self.indent, localprefix, y.cname, self.indent))
+                              self.code('\t%s%s[i%i] = (%s)(%s%s[i%i].size());'%(localprefix, y.cname, self.indent, y.ctype, prefix, y.carr2_ref[0], self.indent))
                       elif y.func:
                           assert(not y.is_declared) # bug check
                           self.code('%s%s = %s%s();'%(localprefix, y.cname, prefix, y.func))
@@ -337,18 +337,18 @@ class CFile(file):
                     if not y.arr1 or not y.arr1.lhs: # Simple Scalar
                       cref = block.find_member(y.arr1_ref[0], True) 
                       # if not cref.is_duplicate and not cref.next_dup and (not cref.cond.lhs or cref.cond.lhs == y.name):
-                        # self.code('assert(%s%s == %s(%s%s.size()));'%(prefix, y.cname, y.ctype, prefix, cref.cname))
-                      self.code('%s%s = %s(%s%s.size());'%(prefix, y.cname, y.ctype, prefix, cref.cname))
+                        # self.code('assert(%s%s == (%s)(%s%s.size()));'%(prefix, y.cname, y.ctype, prefix, cref.cname))
+                      self.code('%s%s = (%s)(%s%s.size());'%(prefix, y.cname, y.ctype, prefix, cref.cname))
                   elif y.arr2_ref: # 1-dimensional dynamic array
                     cref = block.find_member(y.arr2_ref[0], True) 
                     if not y.arr1 or not y.arr1.lhs: # Second dimension
                       # if not cref.is_duplicate and not cref.next_dup (not cref.cond.lhs or cref.cond.lhs == y.name):
-                       # self.code('assert(%s%s == %s((%s%s.size() > 0) ? %s%s[0].size() : 0));'%(prefix, y.cname, y.ctype, prefix, cref.cname, prefix, cref.cname))
-                      self.code('%s%s = %s((%s%s.size() > 0) ? %s%s[0].size() : 0);'%(prefix, y.cname, y.ctype, prefix, cref.cname, prefix, cref.cname))
+                       # self.code('assert(%s%s == (%s)((%s%s.size() > 0) ? %s%s[0].size() : 0));'%(prefix, y.cname, y.ctype, prefix, cref.cname, prefix, cref.cname))
+                      self.code('%s%s = (%s)((%s%s.size() > 0) ? %s%s[0].size() : 0);'%(prefix, y.cname, y.ctype, prefix, cref.cname, prefix, cref.cname))
                     else:
                         # index of dynamically sized array
-                        self.code('for (uint i%i = 0; i%i < %s%s.size(); i%i++)'%(self.indent, self.indent, prefix, cref.cname, self.indent))
-                        self.code('\t%s%s[i%i] = %s(%s%s[i%i].size());'%(prefix, y.cname, self.indent, y.ctype, prefix, cref.cname, self.indent))
+                        self.code('for (unsigned int i%i = 0; i%i < %s%s.size(); i%i++)'%(self.indent, self.indent, prefix, cref.cname, self.indent))
+                        self.code('\t%s%s[i%i] = (%s)(%s%s[i%i].size());'%(prefix, y.cname, self.indent, y.ctype, prefix, cref.cname, self.indent))
                   # else: #has duplicates needs to be selective based on version
                     # self.code('assert(!"%s");'%(y.name))
             block.members.reverse() # undo reverse
@@ -494,10 +494,10 @@ class CFile(file):
                       self.code(memcode)
                       
                     self.code(\
-                        "for (uint i%i = 0; i%i < %s%s.size(); i%i++) {"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
+                        "for (unsigned int i%i = 0; i%i < %s%s.size(); i%i++) {"%(self.indent, self.indent, y_prefix, y.cname, self.indent))
                 else:
                     self.code(\
-                        "for (uint i%i = 0; i%i < %s; i%i++) {"\
+                        "for (unsigned int i%i = 0; i%i < %s; i%i++) {"\
                         %(self.indent, self.indent, y.arr1.code(y_arr1_prefix), self.indent))
                 if action == ACTION_OUT:
                         self.code('if ( !verbose && ( array_output_count > MAXARRAYDUMP ) ) {')
@@ -513,17 +513,17 @@ class CFile(file):
                             if action == ACTION_READ:
                                 self.code("%s%s[i%i].resize(%s);"%(y_prefix, y.cname, self.indent-1, y.arr2.code(y_arr2_prefix)))
                             self.code(\
-                                "for (uint i%i = 0; i%i < %s%s[i%i].size(); i%i++) {"\
+                                "for (unsigned int i%i = 0; i%i < %s%s[i%i].size(); i%i++) {"\
                                 %(self.indent, self.indent, y_prefix, y.cname, self.indent-1, self.indent))
                         else:
                             self.code(\
-                                "for (uint i%i = 0; i%i < %s; i%i++) {"\
+                                "for (unsigned int i%i = 0; i%i < %s; i%i++) {"\
                                 %(self.indent, self.indent, y.arr2.code(y_arr2_prefix), self.indent))
                     else:
                         if action == ACTION_READ:
                             self.code("%s%s[i%i].resize(%s[i%i]);"%(y_prefix, y.cname, self.indent-1, y.arr2.code(y_arr2_prefix), self.indent-1))
                         self.code(\
-                            "for (uint i%i = 0; i%i < %s[i%i]; i%i++) {"\
+                            "for (unsigned int i%i = 0; i%i < %s[i%i]; i%i++) {"\
                             %(self.indent, self.indent, y.arr2.code(y_arr2_prefix), self.indent-1, self.indent))
                     z = "%s%s[i%i][i%i]"%(y_prefix, y.cname, self.indent-2, self.indent-1)
     
@@ -935,7 +935,7 @@ class Member:
         
         # Format default value so that it can be used in a C++ initializer list
         if not self.default and (not self.arr1.lhs and not self.arr2.lhs):
-            if self.type in ["uint", "ushort", "byte", "int", "short", "char"]:
+            if self.type in ["unsigned int", "unsigned short", "byte", "int", "short", "char"]:
                 self.default = "0"
             elif self.type == "bool":
                 self.default = "false"
@@ -1150,6 +1150,8 @@ class Enum(Basic):
       Basic.__init__(self, element)
       
       self.storage = element.getAttribute('storage')
+      #find the Niflib type of the storage
+      self.storage = basic_types[self.storage].niflibtype
       self.description = element.firstChild.nodeValue.strip()
              
       self.niflibtype = self.cname
