@@ -1,3 +1,5 @@
+# TODO: split in multiple files
+
 """
 This module generates C++ code for Niflib from the NIF file format specification XML.
 
@@ -1367,7 +1369,7 @@ class Block(Compound):
 # import elements into our code generating classes
 #
 
-doc = parse("nif.xml")
+doc = parse("nifxml/nif.xml")
 
 for element in doc.getElementsByTagName('version'):
     x = Version(element)
