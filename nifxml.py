@@ -1369,7 +1369,7 @@ class Block(Compound):
 # import elements into our code generating classes
 #
 
-doc = parse("nifxml/nif.xml")
+doc = parse("nif.xml")
 
 for element in doc.getElementsByTagName('version'):
     x = Version(element)
