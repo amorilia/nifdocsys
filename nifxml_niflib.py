@@ -115,7 +115,7 @@ for n in compound_names:
     h.code()
     # header
     h.comment(x.description)
-    hdr = "struct NIFLIB_API %s"%x.cname
+    hdr = "struct %s"%x.cname
     if x.template: hdr = "template <class T >\n%s"%hdr
     hdr += " {"
     h.code(hdr)
@@ -123,13 +123,13 @@ for n in compound_names:
     #constructor/destructor/assignment
     if not x.template:
         h.code( '/*! Default Constructor */' )
-        h.code( "%s();"%x.cname )
+        h.code( "NIFLIB_API %s();"%x.cname )
         h.code( '/*! Copy Constructor */' )
-        h.code( '%s( const %s & src );'%(x.cname, x.cname) )
+        h.code( 'NIFLIB_API %s( const %s & src );'%(x.cname, x.cname) )
         h.code( '/*! Copy Operator */' )
-        h.code( '%s & operator=( const %s & src );'%(x.cname, x.cname) )
+        h.code( 'NIFLIB_API %s & operator=( const %s & src );'%(x.cname, x.cname) )
         h.code( '/*! Default Destructor */' )
-        h.code( "~%s();"%x.cname )
+        h.code( "NIFLIB_API ~%s();"%x.cname )
 
     # declaration
     h.declare(x)
