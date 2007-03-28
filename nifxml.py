@@ -1369,7 +1369,14 @@ class Block(Compound):
 # import elements into our code generating classes
 #
 
-doc = parse("nif.xml")
+# import via "import nifxml" from .
+if os.path.exists("nif.xml"):
+    doc = parse("nif.xml")
+# import via "import docsys" from ..
+elif os.path.exists("docsys/nif.xml"):
+    doc = parse("docsys/nif.xml")
+else:
+    raise ImportError("nif.xml not found")
 
 for element in doc.getElementsByTagName('version'):
     x = Version(element)
