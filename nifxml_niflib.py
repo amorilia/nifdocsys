@@ -136,14 +136,14 @@ for n in compound_names:
 
     # header and footer functions
     if n  == "Header":
-        h.code( 'void Read( istream& in );' )
-        h.code( 'void Write( ostream& out ) const;' )
-        h.code( 'string asString( bool verbose = false ) const;' )
+        h.code( 'NIFLIB_HIDDEN void Read( istream& in );' )
+        h.code( 'NIFLIB_HIDDEN void Write( ostream& out ) const;' )
+        h.code( 'NIFLIB_HIDDEN string asString( bool verbose = false ) const;' )
     
     if n == "Footer":
-        h.code( 'void Read( istream& in, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version );' )
-        h.code( 'void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, unsigned int version, unsigned int user_version ) const;' )
-        h.code( 'string asString( bool verbose = false ) const;' )
+        h.code( 'NIFLIB_HIDDEN void Read( istream& in, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version );' )
+        h.code( 'NIFLIB_HIDDEN void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, unsigned int version, unsigned int user_version ) const;' )
+        h.code( 'NIFLIB_HIDDEN string asString( bool verbose = false ) const;' )
 
     # done
     h.code("};")
