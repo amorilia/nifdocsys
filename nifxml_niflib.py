@@ -124,12 +124,16 @@ for n in compound_names:
     if not x.template:
         h.code( '/*! Default Constructor */' )
         h.code( "NIFLIB_API %s();"%x.cname )
-        h.code( '/*! Copy Constructor */' )
-        h.code( 'NIFLIB_API %s( const %s & src );'%(x.cname, x.cname) )
-        h.code( '/*! Copy Operator */' )
-        h.code( 'NIFLIB_API %s & operator=( const %s & src );'%(x.cname, x.cname) )
         h.code( '/*! Default Destructor */' )
         h.code( "NIFLIB_API ~%s();"%x.cname )
+        h.code( '/*! Copy Constructor */' )
+        h.code( 'NIFLIB_API %s( const %s & src );'%(x.cname, x.cname) )
+        h.code( "//This operator give SWIG problems" )
+        h.code( "#ifndef SWIG" )
+        h.code( '/*! Copy Operator */' )
+        h.code( 'NIFLIB_API %s & operator=( const %s & src );'%(x.cname, x.cname) )
+        h.code( '#endif' )
+
 
     # declaration
     h.declare(x)
