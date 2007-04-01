@@ -3,7 +3,7 @@
 	ProjectType="Visual C++"
 	Version="8.00"
 	Name="py_{name}"
-	ProjectGUID="{70566542-9DF2-4BEA-A015-DF5ACA64129E}"
+	ProjectGUID="{guid}"
 	RootNamespace="py_{name}"
 	Keyword="Win32Proj"
 	>

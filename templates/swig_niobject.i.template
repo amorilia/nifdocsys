@@ -1,6 +1,14 @@
 /* Copyright (c) 2007, NIF File Format Library and Tools
 All rights reserved.  Please see niflib.i for licence. */
 
+//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//
+
+/*
+To change this file, alter the 
+niftools/docsys/templates/swig_niobject.i.template template file,
+and then run the niftools/docsys/nifxml_swig.py Python script.
+*/
+
 %module {name}
 %include "obj_common.i"
 {import_ancestors}
