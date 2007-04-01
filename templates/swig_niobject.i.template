@@ -1,0 +1,32 @@
+/* Copyright (c) 2007, NIF File Format Library and Tools
+All rights reserved.  Please see niflib.i for licence. */
+
+%module {name}
+%include "obj_common.i"
+{import_ancestors}
+%import "obj/{name}.h"
+
+//%extend_smart_pointer(Niflib::Ref<Niflib::{name}>);
+%template({name}Ref) Niflib::Ref<Niflib::{name}>;
+
+// create a new {name} object
+%{
+Niflib::{name}Ref New{name}() {
+  return Niflib::{name}Ref(new Niflib::{name});
+}
+%}
+// now wrap it
+Niflib::{name}Ref New{name}();
+
+// create a function to make type constant availiable
+%{
+const Niflib::Type & {name}_TypeConst() {
+  return Niflib::{name}::TypeConst();
+}
+%}
+// now wrap it
+const Niflib::Type & {name}_TypeConst();
+
+// template functions to cast another type of NiObject to a {name}Ref
+%template(CastTo{name}) Niflib::DynamicCast<Niflib::{name}>;
+
