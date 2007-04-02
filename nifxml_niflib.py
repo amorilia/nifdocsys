@@ -49,7 +49,7 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# ***** END LICENCE BLOCK *****
+# ***** END LICENSE BLOCK *****
 # --------------------------------------------------------------------------
 
 from nifxml import *
@@ -101,7 +101,11 @@ for n in compound_names:
 
     h = CFile(ROOT_DIR + '/include/gen/' + x.cname + '.h', 'w')  
     h.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-    h.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+    h.code( 'All rights reserved.  Please see niflib.h for license. */' )
+    h.code()
+    h.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+    h.code()
+    h.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
     h.code()
     h.code( '#ifndef _' + x.cname.upper() + '_H_' )
     h.code( '#define _' + x.cname.upper() + '_H_' )
@@ -159,7 +163,11 @@ for n in compound_names:
     if not x.template:
         cpp = CFile(ROOT_DIR + '/src/gen/' + x.cname + '.cpp', 'w')
         cpp.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-        cpp.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+        cpp.code( 'All rights reserved.  Please see niflib.h for license. */' )
+        cpp.code()
+        cpp.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+        cpp.code()
+        cpp.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
         cpp.code()
         cpp.code( x.code_include_cpp( True, "../../include/gen/", "../../include/obj/" ) )
         cpp.code( "using namespace Niflib;" )
@@ -232,7 +240,11 @@ h = CFile(ROOT_DIR + "/include/gen/obj_defines.h", "w")
 # file header
 
 h.write("""/* Copyright (c) 2006, NIF File Format Library and Tools
-All rights reserved.  Please see niflib.h for licence. */
+All rights reserved.  Please see niflib.h for license. */
+
+//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//
+
+//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.
 
 #ifndef _OBJ_DEFINES_H_
 #define _OBJ_DEFINES_H_
@@ -293,7 +305,11 @@ h.close()
 if GENIMPL:
   m = CFile(ROOT_DIR + "/src/gen/obj_impl.cpp", "w")
   m.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-  m.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+  m.code( 'All rights reserved.  Please see niflib.h for license. */' )
+  m.code()
+  m.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+  m.code()
+  m.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
   m.code()
   # m.code('#include <assert.h>')
   m.code('#include "../../include/obj/NiObject.h"')
@@ -376,7 +392,11 @@ Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & 
 
 f = CFile(ROOT_DIR + "/src/gen/obj_factories.cpp", "w")
 f.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-f.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+f.code( 'All rights reserved.  Please see niflib.h for license. */' )
+f.code()
+f.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+f.code()
+f.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
 f.code()
 f.code('#include "../../include/obj/NiObject.h"')
 f.code('using namespace Niflib;')
@@ -610,9 +630,13 @@ swig.close()
 # Write out Public Enumeration header Enumerations
 out = CFile(ROOT_DIR + '/include/gen/enums.h', 'w')
 out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+out.code( 'All rights reserved.  Please see niflib.h for license. */' )
 out.code('#ifndef _NIF_ENUMS_H_')
 out.code('#define _NIF_ENUMS_H_')
+out.code()
+out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+out.code()
+out.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
 out.code()
 out.code( '#include <iostream>' )
 out.code( 'using namespace std;' )
@@ -639,7 +663,12 @@ out.close()
 # Write out Internal Enumeration header (NifStream functions)
 out = CFile(ROOT_DIR + '/include/gen/enums_intl.h', 'w')
 out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+out.code( 'All rights reserved.  Please see niflib.h for license. */' )
+out.code()
+out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+out.code()
+out.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
+out.code()
 out.code('#ifndef _NIF_ENUMS_INTL_H_')
 out.code('#define _NIF_ENUMS_INTL_H_')
 out.code()
@@ -670,7 +699,11 @@ out.close()
 #Write out Enumeration Implementation
 out = CFile(ROOT_DIR + '/src/gen/enums.cpp', 'w')
 out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+out.code( 'All rights reserved.  Please see niflib.h for license. */' )
+out.code()
+out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+out.code()
+out.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
 out.code()
 out.code('#include <string>')
 out.code('#include <iostream>')
@@ -725,7 +758,7 @@ if BOOTSTRAP:
     
     out = CFile(ROOT_DIR + '/include/obj/' + x.cname + '.h', 'w')
     out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-    out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+    out.code( 'All rights reserved.  Please see niflib.h for license. */' )
     out.code()
     out.code( '#ifndef _' + x.cname.upper() + '_H_' )
     out.code( '#define _' + x.cname.upper() + '_H_' )
@@ -795,7 +828,7 @@ if BOOTSTRAP:
 
     out = CFile(ROOT_DIR + '/src/obj/' + x.cname + '.cpp', 'w')
     out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-    out.code( 'All rights reserved.  Please see niflib.h for licence. */' )
+    out.code( 'All rights reserved.  Please see niflib.h for license. */' )
     out.code()
     out.code( x.code_include_cpp( True, "../../include/gen/", "../../include/obj/" ) )
     out.code( "using namespace Niflib;" );
