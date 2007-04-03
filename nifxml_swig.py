@@ -43,13 +43,14 @@ for n in block_names:
     #MSVC projects need a unique GUID as well
     temp.set_var( 'guid', guid.generate() )
 
-    #Create a list of ancestors to import
-    ancestors = ""
+   #Find ancestor to import
+    ancestor = ""
     c = x
-    while c.inherit != None:
-        ancestors = "%import \"obj/" + c.inherit.cname + ".h\";\n" + ancestors
-        c = c.inherit
-    temp.set_var( "import_ancestors", ancestors )
+    if c.inherit != None:
+        ancestor = "%import \"" + c.inherit.cname + ".i\";"
+    else:
+        ancestor = "%import \"pyniflib.i\""
+    temp.set_var( "import_ancestor", ancestor )
 
     #Write project and interface files
     f = file( os.path.join( ROOT_DIR, x.name + '.vcproj'), 'w' )
