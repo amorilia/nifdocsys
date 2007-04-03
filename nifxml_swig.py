@@ -2,6 +2,7 @@ from nifxml import *
 from distutils.dir_util import mkpath
 import os
 import guid
+import sys
 
 #Allow user to specify path where files will be generated with -p argument
 #By default, they will be generated in ../contrib/niflib/pywrap/swig
@@ -25,10 +26,11 @@ temp.set_var( 'guid', guid.generate() )
 bat_list = temp.parse( os.path.join('templates', 'swig.bat.template' ) )
 solution_list = temp.parse( os.path.join('templates', 'pywrap.sln.proj.template') )
 
-#Write pyniflib project
-f = file( os.path.join( ROOT_DIR, 'pyniflib.vcproj'), 'w' )
-f.write( temp.parse( os.path.join('templates', 'swig.vcproj.template' ) ) )
-f.close()
+if sys.platform == 'win32':
+    #Write pyniflib project
+    f = file( os.path.join( ROOT_DIR, 'pyniflib.vcproj'), 'w' )
+    f.write( temp.parse( os.path.join('templates', 'swig.vcproj.template' ) ) )
+    f.close()
 
 #variable to report number of files generated
 files_generated = 1
@@ -53,10 +55,11 @@ for n in block_names:
     temp.set_var( "import_ancestor", ancestor )
 
     #Write project and interface files
-    f = file( os.path.join( ROOT_DIR, x.name + '.vcproj'), 'w' )
-    f.write( temp.parse( os.path.join('templates', 'swig.vcproj.template') ) )
-    f.close()
-    files_generated += 1
+    if sys.platform == 'win32':
+        f = file( os.path.join( ROOT_DIR, x.name + '.vcproj'), 'w' )
+        f.write( temp.parse( os.path.join('templates', 'swig.vcproj.template') ) )
+        f.close()
+        files_generated += 1
 
     f = file( os.path.join( ROOT_DIR, x.name + '.i'), 'w' )
     f.write( temp.parse( os.path.join('templates', 'swig_niobject.i.template') ) )
@@ -72,18 +75,19 @@ for n in block_names:
 #add "pause" to the end of bat file to keep window open
 bat_list += "pause"
 
-#Write bat file
-f = file( os.path.join( ROOT_DIR, 'run_swig.bat'), 'w' )
-f.write( bat_list )
-f.close()
-files_generated += 1
+if sys.platform == 'win32':
+    #Write bat file
+    f = file( os.path.join( ROOT_DIR, 'run_swig.bat'), 'w' )
+    f.write( bat_list )
+    f.close()
+    files_generated += 1
 
-#Write solution file
-f = file( os.path.join( ROOT_DIR, 'pywrap.sln'), 'w' )
-temp.set_var( 'projects', solution_list )
-result = temp.parse(os.path.join('templates', 'pywrap.sln.template') )
-f.write( result )
-f.close()
-files_generated += 1
+    #Write solution file
+    f = file( os.path.join( ROOT_DIR, 'pywrap.sln'), 'w' )
+    temp.set_var( 'projects', solution_list )
+    result = temp.parse(os.path.join('templates', 'pywrap.sln.template') )
+    f.write( result )
+    f.close()
+    files_generated += 1
 
 print "nifxml_swig.py:  %d files successfully generated in %s"%(files_generated, ROOT_DIR)
