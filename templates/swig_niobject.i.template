@@ -14,7 +14,9 @@ and then run the niftools/docsys/nifxml_swig.py Python script.
 
 %module {name}
 {import_ancestor}
-%include "obj/{name}.h"
+%import "obj/{name}.h"
+
+// wrap smart pointer {name}Ref
 
 //%extend_smart_pointer(Niflib::Ref<Niflib::{name}>);
 %template({name}Ref) Niflib::Ref<Niflib::{name}>;
