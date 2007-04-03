@@ -6,6 +6,10 @@ Global
 		Debug|Win32 = Debug|Win32
 		Release|Win32 = Release|Win32
 	EndGlobalSection
+	
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+{config}
+	EndGlobalSection
 
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -143,7 +143,8 @@ def generate(ip=None):
 
     # put them all together
     g = ''.join(parts)
-    return '{' + g[4:12] + '-' + g[13:17] + '-' + g[18:22] + '-' + g[23:27] + '-' + g[28:41] + '}'
+    temp = '{' + g[4:12] + '-' + g[13:17] + '-' + g[18:22] + '-' + g[23:27] + '-' + g[28:41] + '}'
+    return temp.upper()
     
   finally:
     lock.release()
