@@ -25,7 +25,7 @@ temp.set_var("name", "pyniflib")
 temp.set_var( 'guid', guid.generate() )
 bat_list = temp.parse( os.path.join('templates', 'swig.bat.template' ) )
 solution_list = temp.parse( os.path.join('templates', 'pywrap.sln.proj.template') )
-config_list = temp.parse( os.path.join('templates', 'pywrap.sln.config.template') )
+config_list = temp.parse( os.path.join('templates', 'pywrap.sln.template') )
 
 if sys.platform == 'win32':
     #Write pyniflib project
@@ -75,7 +75,7 @@ for n in block_names:
 
     #append project config to the solution file.  This is not strictly necessary as MSVC will create
     #on the first load, but it will make the solution open faster.
-    config_list += config_list = temp.parse( os.path.join('templates', 'pywrap.sln.config.template') )
+    config_list += temp.parse( os.path.join('templates', 'pywrap.sln.template') )
 
 #add "pause" to the end of bat file to keep window open
 bat_list += "pause"
