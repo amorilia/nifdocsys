@@ -1,0 +1,4 @@
+		{guid}.Debug|Win32.ActiveCfg = Debug|Win32
+		{guid}.Debug|Win32.Build.0 = Debug|Win32
+		{guid}.Release|Win32.ActiveCfg = Release|Win32
+		{guid}.Release|Win32.Build.0 = Release|Win32
