@@ -292,13 +292,13 @@ class CFile(file):
         if isinstance(block, Block):
             if block.inherit:
                 if action == ACTION_READ:
-                    self.code("%s::Read( %s, link_stack, version, user_version );"%(block.inherit.cname, stream))
+                    self.code("%s::Read( %s, link_stack, info );"%(block.inherit.cname, stream))
                 elif action == ACTION_WRITE:
-                    self.code("%s::Write( %s, link_map, version, user_version );"%(block.inherit.cname, stream))
+                    self.code("%s::Write( %s, link_map, info );"%(block.inherit.cname, stream))
                 elif action == ACTION_OUT:
                     self.code("%s << %s::asString();"%(stream, block.inherit.cname))
                 elif action == ACTION_FIXLINKS:
-                    self.code("%s::FixLinks( objects, link_stack, version, user_version );"%block.inherit.cname)
+                    self.code("%s::FixLinks( objects, link_stack, info );"%block.inherit.cname)
                 elif action == ACTION_GETREFS:
                     self.code("refs = %s::GetRefs();"%block.inherit.cname)
 
@@ -443,18 +443,18 @@ class CFile(file):
                     # start new version block
                     if not y.userver:
                         if y.ver1 and not y.ver2:
-                            self.code("if ( version >= 0x%08X ) {"%y.ver1)
+                            self.code("if ( info.version >= 0x%08X ) {"%y.ver1)
                         elif not y.ver1 and y.ver2:
-                            self.code("if ( version <= 0x%08X ) {"%y.ver2)
+                            self.code("if ( info.version <= 0x%08X ) {"%y.ver2)
                         elif y.ver1 and y.ver2:
-                            self.code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) ) {"%(y.ver1, y.ver2))
+                            self.code("if ( ( info.version >= 0x%08X ) && ( info.version <= 0x%08X ) ) {"%(y.ver1, y.ver2))
                     else:
                         if y.ver1 and not y.ver2:
-                            self.code("if ( ( version >= 0x%08X ) && ( user_version == %s ) ) {"%(y.ver1, y.userver))
+                            self.code("if ( ( info.version >= 0x%08X ) && ( info.userVersion == %s ) ) {"%(y.ver1, y.userver))
                         elif not y.ver1 and y.ver2:
-                            self.code("if ( ( version <= 0x%08X ) && ( user_version == %s ) ) {"%(y.ver2, userver))
+                            self.code("if ( ( info.version <= 0x%08X ) && ( info.userVersion == %s ) ) {"%(y.ver2, userver))
                         elif y.ver1 and y.ver2:
-                            self.code("if ( ( version >= 0x%08X ) && ( version <= 0x%08X ) && ( user_version == %s ) ) {"%(y.ver1, y.ver2, y.userver))
+                            self.code("if ( ( info.version >= 0x%08X ) && ( info.version <= 0x%08X ) && ( info.userVersion == %s ) ) {"%(y.ver1, y.ver2, y.userver))
                     # start new condition block
                     if lastcond != y_cond and y_cond:
                         self.code("if ( %s ) {"%y_cond)
@@ -536,24 +536,24 @@ class CFile(file):
                         # not a ref
                         if action in [ACTION_READ, ACTION_WRITE]:
                             if not y.arg:
-                                self.code("NifStream( %s, %s, version );"%(z, stream))
+                                self.code("NifStream( %s, %s, info );"%(z, stream))
                             else:
-                                self.code("NifStream( %s, %s, version, %s%s );"%(z, stream, y_prefix, y.carg))
+                                self.code("NifStream( %s, %s, info, %s%s );"%(z, stream, y_prefix, y.carg))
                     else:
                         # a ref
                         if action == ACTION_READ:
-                            self.code("NifStream( block_num, %s, version );"%stream)
+                            self.code("NifStream( block_num, %s, info );"%stream)
                             if y.is_declared:
                                 self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
                             self.code("if ( %s != NULL )"%z)
-                            self.code("\tNifStream( link_map.find( StaticCast<NiObject>(%s) )->second, %s, version );"%(z, stream))
+                            self.code("\tNifStream( link_map.find( StaticCast<NiObject>(%s) )->second, %s, info );"%(z, stream))
                             self.code("else")
-                            self.code("\tNifStream( 0xffffffff, %s, version );"%stream)
+                            self.code("\tNifStream( 0xffffffff, %s, info );"%stream)
                         elif action == ACTION_FIXLINKS:
                             if y.is_declared:
                                 
-                                self.code("%s = FixLink<%s>( objects, link_stack, version );"%(z,y.ctemplate))
+                                self.code("%s = FixLink<%s>( objects, link_stack, info );"%(z,y.ctemplate))
                                 
                         elif action == ACTION_GETREFS and subblock.is_link:
                             if y.is_declared and not y.is_duplicate:

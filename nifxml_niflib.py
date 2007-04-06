@@ -144,13 +144,13 @@ for n in compound_names:
 
     # header and footer functions
     if n  == "Header":
-        h.code( 'NIFLIB_HIDDEN void Read( istream& in );' )
-        h.code( 'NIFLIB_HIDDEN void Write( ostream& out ) const;' )
+        h.code( 'NIFLIB_HIDDEN NifInfo Read( istream& in );' )
+        h.code( 'NIFLIB_HIDDEN void Write( ostream& out, const NifInfo & info = NifInfo() ) const;' )
         h.code( 'NIFLIB_HIDDEN string asString( bool verbose = false ) const;' )
     
     if n == "Footer":
-        h.code( 'NIFLIB_HIDDEN void Read( istream& in, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version );' )
-        h.code( 'NIFLIB_HIDDEN void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, unsigned int version, unsigned int user_version ) const;' )
+        h.code( 'NIFLIB_HIDDEN void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
+        h.code( 'NIFLIB_HIDDEN void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
         h.code( 'NIFLIB_HIDDEN string asString( bool verbose = false ) const;' )
 
     # done
@@ -202,11 +202,32 @@ for n in compound_names:
 
         # header and footer functions
         if n  == "Header":
-            cpp.code( 'void ' + x.cname + '::Read( istream& in ) {' )
+            cpp.code( 'NifInfo ' + x.cname + '::Read( istream& in ) {' )
+            cpp.code( '//Declare NifInfo structure' )
+            cpp.code( 'NifInfo info;' )
+            cpp.code()
             cpp.stream(x, ACTION_READ)
+            cpp.code()
+            cpp.code( '//Copy info.version to local version var.' )
+            cpp.code( 'version = info.version;' )
+            cpp.code()
+            cpp.code( '//Fill out and return NifInfo structure.' )
+            cpp.code( 'info.userVersion = userVersion;' )
+            cpp.code( 'if ( endianType == 0) {' )
+            cpp.code( 'info.endian = BIG_ENDIAN;' )
+            cpp.code( '} else {' )
+            cpp.code( 'info.endian = LITTLE_ENDIAN;' )
+            cpp.code( '}' )
+            cpp.code( 'info.endian = EndianType(endianType);' )
+            cpp.code( 'info.creator = creator.str;' )
+            cpp.code( 'info.exportInfo1 = exportInfo1.str;' )
+            cpp.code( 'info.exportInfo2 = exportInfo2.str;' )
+            cpp.code()
+            cpp.code( 'return info;' )
+            cpp.code()
             cpp.code( '}' )
             cpp.code()
-            cpp.code( 'void ' + x.cname + '::Write( ostream& out ) const {' )
+            cpp.code( 'void ' + x.cname + '::Write( ostream& out, const NifInfo & info ) const {' )
             cpp.stream(x, ACTION_WRITE)
             cpp.code( '}' )
             cpp.code()
@@ -216,11 +237,11 @@ for n in compound_names:
         
         if n == "Footer":
             cpp.code()
-            cpp.code( 'void ' + x.cname + '::Read( istream& in, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version ) {' )
+            cpp.code( 'void ' + x.cname + '::Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info ) {' )
             cpp.stream(x, ACTION_READ)
             cpp.code( '}' )
             cpp.code()
-            cpp.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, unsigned int version, unsigned int user_version ) const {' )
+            cpp.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {' )
             cpp.stream(x, ACTION_WRITE)
             cpp.code( '}' )
             cpp.code()
@@ -328,7 +349,7 @@ const char FIX_LINK_INDEX_ERROR[] = "Object index was not found in object map.  
 const char FIX_LINK_CAST_ERROR[] = "Link could not be cast to required type during file read. This NIF file may be invalid or improperly supported.";
 
 template <class T>
-Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, unsigned int version ) {
+Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {
 	if (link_stack.empty()) {
 		throw runtime_error(FIX_LINK_POP_ERROR);
 	}
@@ -359,12 +380,12 @@ Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & 
       x = block_types[n]
       x_define_name = define_name(x.cname)
           
-      m.code("void %s::InternalRead( istream& in, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version ) {"%x.cname)
+      m.code("void %s::InternalRead( istream& in, list<unsigned int> & link_stack, const NifInfo & info ) {"%x.cname)
       m.stream(x, ACTION_READ)
       m.code("}")
       m.code()
       
-      m.code("void %s::InternalWrite( ostream& out, const map<NiObjectRef,unsigned int> & link_map, unsigned int version, unsigned int user_version ) const {"%x.cname)
+      m.code("void %s::InternalWrite( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {"%x.cname)
       m.stream(x, ACTION_WRITE)
       m.code("}")
       m.code()
@@ -374,7 +395,7 @@ Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & 
       m.code("}")
       m.code()
 
-      m.code("void %s::InternalFixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version ) {"%x.cname)
+      m.code("void %s::InternalFixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {"%x.cname)
       m.stream(x, ACTION_FIXLINKS)
       m.code("}")
       m.code()
@@ -482,8 +503,8 @@ for n in enum_types:
         out.code()
         out.code( '//---' + x.cname + '---//')
         out.code()
-    out.code('void NifStream( %s & val, istream& in, unsigned int version = 0 );'%x.cname)
-    out.code('void NifStream( %s const & val, ostream& out, unsigned int version = 0  );'%x.cname)
+    out.code('void NifStream( %s & val, istream& in, const NifInfo & info = NifInfo() );'%x.cname)
+    out.code('void NifStream( %s const & val, ostream& out, const NifInfo & info = NifInfo() );'%x.cname)
     out.code()
 
 out.write('}\n')
@@ -519,14 +540,14 @@ for n in enum_types:
     out.code()
     out.code('//--' + x.cname + '--//')
     out.code()
-    out.code('void NifStream( %s & val, istream& in, unsigned int version ) {'%(x.cname))
+    out.code('void NifStream( %s & val, istream& in, const NifInfo & info ) {'%(x.cname))
     out.code('%s temp;'%(x.storage))
-    out.code('NifStream( temp, in, version );')
+    out.code('NifStream( temp, in, info );')
     out.code('val = %s(temp);'%(x.cname))
     out.code('}')
     out.code()
-    out.code('void NifStream( %s const & val, ostream& out, unsigned int version ) {'%(x.cname))
-    out.code('NifStream( (%s)(val), out, version );'%(x.storage))
+    out.code('void NifStream( %s const & val, ostream& out, const NifInfo & info ) {'%(x.cname))
+    out.code('NifStream( (%s)(val), out, info );'%(x.storage))
     out.code('}')
     out.code()
     out.code('ostream & operator<<( ostream & out, %s const & val ) { '%(x.cname))
@@ -580,10 +601,10 @@ if BOOTSTRAP:
     out.code( 'private:' )
     out.code( 'static const Type TYPE;' )
     out.code( 'public:' )  
-    out.code( 'virtual void Read( istream& in, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version );' )
-    out.code( 'virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, unsigned int version, unsigned int user_version ) const;' )
+    out.code( 'virtual void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
+    out.code( 'virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
     out.code( 'virtual string asString( bool verbose = false ) const;\n' )
-    out.code( 'virtual void FixLinks( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version );' )
+    out.code( 'virtual void FixLinks( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
     out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
     out.code( 'virtual const Type & GetType() const;' )
     out.code()
@@ -611,10 +632,10 @@ if BOOTSTRAP:
             
     out.code( x_define_name + '_MEMBERS' )
     out.code( 'private:' )
-    out.code( 'void InternalRead( istream& in, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version );' )
-    out.code( 'void InternalWrite( ostream& out, const map<NiObjectRef,unsigned int> & link_map, unsigned int version, unsigned int user_version ) const;' )
+    out.code( 'void InternalRead( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
+    out.code( 'void InternalWrite( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
     out.code( 'string InternalAsString( bool verbose ) const;' )
-    out.code( 'void InternalFixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version );' )
+    out.code( 'void InternalFixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
     out.code( 'list<NiObjectRef> InternalGetRefs() const;' )
     out.code( '};' )
     out.code()
@@ -636,20 +657,20 @@ if BOOTSTRAP:
     out.code()
     out.code( x.cname + '::' + '~' + x.cname + '() {}' )
     out.code() 
-    out.code( 'void ' + x.cname + '::Read( istream& in, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version ) {' )
-    out.code( 'InternalRead( in, link_stack, version, user_version );' )
+    out.code( 'void ' + x.cname + '::Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info ) {' )
+    out.code( 'InternalRead( in, link_stack, info );' )
     out.code( '}' )
     out.code()
-    out.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, unsigned int version, unsigned int user_version ) const {' )
-    out.code( 'InternalWrite( out, link_map, version, user_version );' )
+    out.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {' )
+    out.code( 'InternalWrite( out, link_map, info );' )
     out.code( '}' )
     out.code()
     out.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
     out.code( 'return InternalAsString( verbose );' )
     out.code( '}' )
     out.code()
-    out.code( 'void ' + x.cname + '::FixLinks( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, unsigned int version, unsigned int user_version ) {' );
-    out.code( 'InternalFixLinks( objects, link_stack, version, user_version );' )
+    out.code( 'void ' + x.cname + '::FixLinks( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {' );
+    out.code( 'InternalFixLinks( objects, link_stack, info );' )
     out.code( '}' )
     out.code()
     out.code( 'list<NiObjectRef> %s::GetRefs() const {'%x.cname )
