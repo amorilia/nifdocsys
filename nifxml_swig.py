@@ -6,7 +6,7 @@ import sys
 
 #Allow user to specify path where files will be generated with -p argument
 #By default, they will be generated in ../contrib/niflib/pywrap/swig
-ROOT_DIR = os.path.join('..', 'contrib', 'niflib', 'pywrap', 'swig' )
+ROOT_DIR = os.path.join('..', 'pyniflib' )
 
 prev = ""
 for i in sys.argv:
@@ -88,7 +88,7 @@ if sys.platform == 'win32':
     files_generated += 1
 
     #Write solution file
-    f = file( os.path.join( ROOT_DIR, 'pywrap.sln'), 'w' )
+    f = file( os.path.join( ROOT_DIR, 'pyniflib.sln'), 'w' )
     temp.set_var( 'projects', solution_list )
     temp.set_var( 'config', config_list )
     result = temp.parse(os.path.join('templates', 'pywrap.sln.template') )
