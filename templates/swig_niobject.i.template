@@ -39,7 +39,7 @@ def new_get(self, name):
 		if self.__call__():
 			return getattr(self.__call__(), name)
 		else:
-			throw(AttributeError)
+			raise AttributeError
 		
 {name}Ref.__getattr__ = new_get 
 %}
