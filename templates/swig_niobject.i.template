@@ -9,11 +9,21 @@ niftools/docsys/templates/swig_niobject.i.template template file,
 and then run the niftools/docsys/nifxml_swig.py Python script.
 */
 
+%module {name}
+
 %include "common.i"
 
+//Import symbols from these files but don't wrap them in this module since they're part of pyniflib
+%import "Key.h"
+%import "Ref.h"
+%import "Type.h"
+%import "niflib.h"
+%import "nif_versions.h"
+%import "nif_math.h"
 
-%module {name}
-{import_ancestor}
+//Import Ancestors
+{import_ancestors}
+//Import this object
 %import "obj/{name}.h"
 
 // wrap smart pointer {name}Ref
@@ -32,12 +42,12 @@ Niflib::{name}Ref New{name}();
 
 // create a function to make type constant availiable
 %{
-const Niflib::Type & {name}TypeConst() {
+const Niflib::Type & {name}_TypeConst() {
   return Niflib::{name}::TypeConst();
 }
 %}
 // now wrap it
-const Niflib::Type & {name}TypeConst();
+const Niflib::Type & {name}_TypeConst();
 
 // template functions to cast another type of NiObject to a {name}Ref
 %template(CastTo{name}) Niflib::DynamicCast<Niflib::{name}>;

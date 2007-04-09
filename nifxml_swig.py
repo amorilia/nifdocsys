@@ -22,6 +22,7 @@ temp = Template()
 
 #Start bat file list and solution file list with pyniflib
 temp.set_var("name", "pyniflib")
+temp.set_var('prefix', '')
 temp.set_var( 'guid', guid.generate() )
 bat_list = temp.parse( os.path.join('templates', 'swig.bat.template' ) )
 solution_list = temp.parse( os.path.join('templates', 'pywrap.sln.proj.template') )
@@ -29,12 +30,14 @@ config_list = temp.parse( os.path.join('templates', 'pywrap.sln.config.template'
 
 if sys.platform == 'win32':
     #Write pyniflib project
-    f = file( os.path.join( ROOT_DIR, 'pyniflib.vcproj'), 'w' )
+    f = file( os.path.join( ROOT_DIR, 'vcproj', 'pyniflib.vcproj'), 'w' )
     f.write( temp.parse( os.path.join('templates', 'swig.vcproj.template' ) ) )
     f.close()
 
 #variable to report number of files generated
 files_generated = 1
+
+temp.set_var('prefix', 'obj/')
 
 #Cycle through all NiObjects
 for n in block_names:
@@ -46,23 +49,38 @@ for n in block_names:
     #MSVC projects need a unique GUID as well
     temp.set_var( 'guid', guid.generate() )
 
-   #Find ancestor to import
-    ancestor = ""
+    #Create a list of ancestors to import
+    ancestors = ""
     c = x
-    if c.inherit != None:
-        ancestor = "%import \"" + c.inherit.cname + ".i\";"
-    else:
-        ancestor = "%import \"pyniflib.i\""
-    temp.set_var( "import_ancestor", ancestor )
+    while c.inherit != None:
+        ancestors = "%import \"obj/" + c.inherit.cname + ".h\";\n" + ancestors
+        c = c.inherit
+
+    #Create a list of structures that need their header file imported
+    used_structs = []
+    for y in x.members:
+        file_name = None
+        if y.type != x.name:
+            if y.type in compound_names:
+                if not compound_types[y.type].niflibtype:
+                    file_name = "gen/%s.h"%(y.ctype)
+        if file_name and file_name not in used_structs:
+            used_structs.append( file_name )
+    if used_structs:
+        ancestors += "\n//Include Structures\n"
+    for file_name in used_structs:
+        ancestors += '%import "' + file_name + '"\n'
+
+    temp.set_var( "import_ancestors", ancestors )
 
     #Write project and interface files
     if sys.platform == 'win32':
-        f = file( os.path.join( ROOT_DIR, x.name + '.vcproj'), 'w' )
+        f = file( os.path.join( ROOT_DIR, 'vcproj', x.name + '.vcproj'), 'w' )
         f.write( temp.parse( os.path.join('templates', 'swig.vcproj.template') ) )
         f.close()
         files_generated += 1
 
-    f = file( os.path.join( ROOT_DIR, x.name + '.i'), 'w' )
+    f = file( os.path.join( ROOT_DIR, 'obj', x.name + '.i'), 'w' )
     f.write( temp.parse( os.path.join('templates', 'swig_niobject.i.template') ) )
     f.close()
     files_generated += 1
