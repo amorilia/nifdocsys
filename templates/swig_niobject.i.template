@@ -23,15 +23,28 @@ and then run the niftools/docsys/nifxml_swig.py Python script.
 
 //Import Ancestors
 {import_ancestors}
-//Import this object
-%import "obj/{name}.h"
+
+//Include this object
+%include "obj/{name}.h"
 
 // wrap smart pointer {name}Ref
-
-//%extend_smart_pointer(Niflib::Ref<Niflib::{name}>);
 %template({name}Ref) Niflib::Ref<Niflib::{name}>;
 
-// create a new {name} object
+//Replace standard __getattr__ call so that the dot operator redirects to the stored {name}.
+%pythoncode %{
+def new_get(self, name):
+	try:
+		return _swig_getattr(self, {name}Ref, name)
+	except AttributeError:
+		if self.__call__():
+			return getattr(self.__call__(), name)
+		else:
+			throw(AttributeError)
+		
+{name}Ref.__getattr__ = new_get 
+%}
+
+// Function to create a new {name} object
 %{
 Niflib::{name}Ref New{name}() {
   return Niflib::{name}Ref(new Niflib::{name});
@@ -40,15 +53,6 @@ Niflib::{name}Ref New{name}() {
 // now wrap it
 Niflib::{name}Ref New{name}();
 
-// create a function to make type constant availiable
-%{
-const Niflib::Type & {name}_TypeConst() {
-  return Niflib::{name}::TypeConst();
-}
-%}
-// now wrap it
-const Niflib::Type & {name}_TypeConst();
-
-// template functions to cast another type of NiObject to a {name}Ref
+// template function to cast another type of NiObject to a {name}Ref
 %template(CastTo{name}) Niflib::DynamicCast<Niflib::{name}>;
 

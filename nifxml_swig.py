@@ -51,10 +51,8 @@ for n in block_names:
 
     #Create a list of ancestors to import
     ancestors = ""
-    c = x
-    while c.inherit != None:
-        ancestors = "%import \"obj/" + c.inherit.cname + ".h\";\n" + ancestors
-        c = c.inherit
+    if x.inherit:
+        ancestors = "%import \"obj/" + x.inherit.cname + ".i\";\n" + ancestors
 
     #Create a list of structures that need their header file imported
     used_structs = []

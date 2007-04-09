@@ -62,7 +62,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="niflib_dll.lib"
-				OutputFile="bin/_{name}.pyd"
+				OutputFile="../bin/_{name}.pyd"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/py_{name}.pdb"
@@ -138,7 +138,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="niflib_dll.lib"
-				OutputFile="bin/_{name}.pyd"
+				OutputFile="../bin/_{name}.pyd"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="1"
