@@ -404,41 +404,6 @@ Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & 
 
   m.close();
 
-# Factories
-
-f = CFile(ROOT_DIR + "/src/gen/obj_factories.cpp", "w")
-f.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-f.code( 'All rights reserved.  Please see niflib.h for license. */' )
-f.code()
-f.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
-f.code()
-f.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
-f.code()
-f.code('#include "../../include/obj/NiObject.h"')
-f.code('using namespace Niflib;')
-f.code('using namespace std;')
-f.write('namespace Niflib {\n')
-f.code('typedef NiObject*(*blk_factory_func)();')
-f.code('extern map<string, blk_factory_func> global_block_map;')
-f.write('}\n')
-f.code()
-for n in block_names:
-    x = block_types[n]
-    if not x.is_ancestor:
-        f.code('#include "../../include/obj/%s.h"'%x.cname)
-        f.code('NiObject * Create%s() { return new %s; }'%(x.cname,x.cname))
-f.code()
-f.write('namespace Niflib {\n')
-f.code('//This function registers the factory functions with global_block_map which is used by CreateNiObject')
-f.code('void RegisterBlockFactories() {')
-for n in block_names:
-    x = block_types[n]
-    if not x.is_ancestor:
-        f.code('global_block_map["%s"] = Create%s;'%(x.cname, x.cname))
-f.code('}')
-
-f.write('}\n')
-
 # Write out Public Enumeration header Enumerations
 out = CFile(ROOT_DIR + '/include/gen/enums.h', 'w')
 out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
@@ -575,33 +540,27 @@ if BOOTSTRAP:
     out.code( '#ifndef _' + x.cname.upper() + '_H_' )
     out.code( '#define _' + x.cname.upper() + '_H_' )
     out.code()
-#    out.code( '#include "../Ref.h"')
     out.code( x.code_include_h() )
     out.write( "namespace Niflib {\n" )
     out.code( x.code_fwd_decl() )
-    out.code()
-    out.code( '#include "../gen/obj_defines.h"' )
-    out.code()
     out.code( 'class ' + x.cname + ';' )
     out.code( 'typedef Ref<' + x.cname + '> ' + x.cname + 'Ref;' )
     out.code()
     out.comment( x.cname + " - " + x.description )
     out.code()
-    out.code( 'class NIFLIB_API ' + x.cname + ' : public ' + x_define_name + '_PARENT {' )
+    out.code( 'class ' + x.cname + ' : public ' + x_define_name + '_PARENT {' )
     out.code( 'public:' )
-    out.code( x.cname + '();' )
-    out.code( '~' + x.cname + '();' )
+    out.code( 'NIFLIB_API ' + x.cname + '();' )
+    out.code( 'NIFLIB_API ~' + x.cname + '();' )
     out.code( '//Run-Time Type Information' )
-    out.code( 'static const Type & TypeConst() { return TYPE; }' )
-    out.code( 'private:' )
-    out.code( 'static const Type TYPE;' )
-    out.code( 'public:' )  
-    out.code( 'virtual void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
-    out.code( 'virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
-    out.code( 'virtual string asString( bool verbose = false ) const;\n' )
-    out.code( 'virtual void FixLinks( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
-    out.code( 'virtual list<NiObjectRef> GetRefs() const;' )
-    out.code( 'virtual const Type & GetType() const;' )
+    out.code( 'NIFLIB_API static const Type TYPE;' )
+    out.code( 'NIFLIB_API static NiObject * Create();' )
+    out.code( 'NIFLIB_API virtual const Type & GetType() const;' )
+    out.code( 'NIFLIB_HIDDEN virtual void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
+    out.code( 'NIFLIB_HIDDEN virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
+    out.code( 'NIFLIB_API virtual string asString( bool verbose = false ) const;' )
+    out.code( 'NIFLIB_HIDDEN virtual void FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
+    out.code( 'NIFLIB_HIDDEN virtual list<NiObjectRef> GetRefs() const;' )
     out.code()
   
     # Declare Helper Methods
@@ -646,7 +605,7 @@ if BOOTSTRAP:
     out.code( "using namespace Niflib;" );
     out.code()
     out.code( '//Definition of TYPE constant' )
-    out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TypeConst() );' )
+    out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
     out.code()
     out.code( x.cname + '::' + x.cname + '() ' + x_define_name + '_CONSTRUCT {}' )
     out.code()
@@ -664,7 +623,7 @@ if BOOTSTRAP:
     out.code( 'return InternalAsString( verbose );' )
     out.code( '}' )
     out.code()
-    out.code( 'void ' + x.cname + '::FixLinks( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {' );
+    out.code( 'void ' + x.cname + '::FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {' );
     out.code( 'InternalFixLinks( objects, link_stack, info );' )
     out.code( '}' )
     out.code()
@@ -674,7 +633,31 @@ if BOOTSTRAP:
     out.code()
     out.code( 'const Type & %s::GetType() const {'%x.cname )
     out.code( 'return TYPE;' )
-    out.code( '};' )
+    out.code( '}' )
+    out.code()
+    out.code( 'namespace Niflib {' )
+    out.code( 'typedef NiObject*(*obj_factory_func)();' )
+    out.code( 'extern map<string, obj_factory_func> global_object_map;' )
+    out.code()
+    out.code( '//Initialization function' )
+    out.code( 'static bool Initialization();' )
+    out.code()
+    out.code( '//A static bool to force the initialization to happen pre-main' )
+    out.code( 'static bool obj_initialized = Initialization();' )
+    out.code()
+    out.code( 'static bool Initialization() {' )
+    out.code( '//Add the function to the global object map' )
+    out.code( 'global_object_map["' + x.cname + '"] = ' + x.cname + '::Create;' )
+    out.code()
+    out.code( '//Do this stuff just to make sure the compiler doesn\'t optimize this function and the static bool away.' )
+    out.code( 'obj_initialized = true;' )
+    out.code( 'return obj_initialized;' )
+    out.code( '}' )
+    out.code( '}' )
+    out.code()
+    out.code( 'NiObject * ' + x.cname + '::Create() {' )
+    out.code( 'return new ' + x.cname + ';' )
+    out.code( '}' )
     out.code()
     
     # Implement Public Getter/Setter Methods
@@ -692,15 +675,15 @@ if BOOTSTRAP:
             out.code( "}" )
             out.code()
     
-    for y in x.members:
-      if y.func:
-        if not y.template:
-            out.code( '%s %s::%s() const { return %s(); }'%(y.ctype, x.cname, y.func, y.ctype) )
-        else:
-          if y.ctype != "*":
-            out.code( '%s<%s > %s::%s() const { return %s<%s >(); }'%(y.ctype, y.ctemplate, x.cname, y.func, y.ctype, y.ctemplate) )
+      for y in x.members:
+        if y.func:
+          if not y.template:
+              out.code( '%s %s::%s() const { return %s(); }'%(y.ctype, x.cname, y.func, y.ctype) )
           else:
-            out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
+            if y.ctype != "*":
+              out.code( '%s<%s > %s::%s() const { return %s<%s >(); }'%(y.ctype, y.ctemplate, x.cname, y.func, y.ctype, y.ctemplate) )
+            else:
+              out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
     out.close()
     
 

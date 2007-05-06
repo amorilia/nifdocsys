@@ -1273,7 +1273,7 @@ class Compound(Basic):
                 if not y.ctemplate in used_blocks:
                     used_blocks.append( y.ctemplate )
         if used_blocks:
-            result += '\n// Forward define of referenced blocks\n'
+            result += '\n// Forward define of referenced NIF objects\n'
         for fwd_class in used_blocks:
             result += 'class %s;\n'%fwd_class
         
