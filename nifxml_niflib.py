@@ -132,11 +132,9 @@ for n in compound_names:
         h.code( "NIFLIB_API ~%s();"%x.cname )
         h.code( '/*! Copy Constructor */' )
         h.code( 'NIFLIB_API %s( const %s & src );'%(x.cname, x.cname) )
-        h.code( "//This operator give SWIG problems" )
-        h.code( "#ifndef SWIG" )
         h.code( '/*! Copy Operator */' )
         h.code( 'NIFLIB_API %s & operator=( const %s & src );'%(x.cname, x.cname) )
-        h.code( '#endif' )
+
 
 
     # declaration
@@ -268,7 +266,6 @@ All rights reserved.  Please see niflib.h for license. */
 #define MAXARRAYDUMP 20
 
 """)
-h.code('#ifndef SWIG')
 h.backslash_mode = True
 for n in block_names:
     x = block_types[n]
@@ -287,7 +284,6 @@ for n in block_names:
     x_define_name = define_name(x.cname)
     h.code('#define %s_MEMBERS'%x_define_name)
 
-h.code('#endif')
 h.code()
 
 for n in block_names:
