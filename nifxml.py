@@ -705,12 +705,24 @@ def version2number(s):
     if len(l) > 4:
         assert(False)
         return int(s)
+    
+    if len(l) == 2:
+        version = 0
+        version += int(l[0]) << (3 * 8)
+        if len(l[1]) >= 1:
+            version += int(l[1][0]) << (2 * 8)
+        if len(l[1]) >= 2:
+            version += int(l[1][1]) << (1 * 8)
+        if len(l[1]) >= 3:
+            version += int(l[1][2:]) << 8
+        return version
     else:
         version = 0
         for i in range( 0, len(l) ):
             version += int(l[i]) << ((3-i) * 8)
             #return (int(l[0]) << 24) + (int(l[1]) << 16) + (int(l[2]) << 8) + int(l[3])
         return version
+    
 
 def userversion2number(s):
     """

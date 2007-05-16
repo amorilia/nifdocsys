@@ -277,13 +277,6 @@ for n in block_names:
     h.code()
 h.backslash_mode = False
 
-
-h.code('#else')
-for n in block_names:
-    x = block_types[n]
-    x_define_name = define_name(x.cname)
-    h.code('#define %s_MEMBERS'%x_define_name)
-
 h.code()
 
 for n in block_names:
@@ -348,18 +341,32 @@ Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & 
 	link_stack.pop_front();
 
 	//Check if link is NULL
-	if ( index == 0xFFFFFFFF) {
+	if ( info.version > VER_3_3_0_13) {
+	    if ( index == 0xFFFFFFFF) {
+		    return NULL;
+	    }
+	} else {
+	    if ( index == 0 ) {
 		return NULL;
+	    }
 	}
 
 	map<unsigned int,NiObjectRef>::const_iterator it = objects.find(index);
 	if ( it == objects.end() ) {
-		throw runtime_error(FIX_LINK_INDEX_ERROR);
+		if ( info.version > VER_3_3_0_13 ) {
+			throw runtime_error(FIX_LINK_INDEX_ERROR);
+		} else {
+			return NULL;
+		}
 	}
 		
 	Ref<T> object = DynamicCast<T>(it->second);
 	if ( object == NULL ) {
-		throw runtime_error(FIX_LINK_CAST_ERROR);
+		stringstream ss;
+		ss << FIX_LINK_CAST_ERROR << endl;
+		ss << "Type of object with index " << index << " was:  " << it->second->GetType().GetTypeName() << endl;
+		ss << "Required type was:  " << T::TYPE.GetTypeName() << endl;
+		throw runtime_error( ss.str().c_str() );
 	}
 
 	return object;
