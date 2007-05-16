@@ -1,1 +1,0 @@
-swig -c++ -python -I"..\niflib\include" -outdir lib -o src\py_{name}.cpp {prefix}{name}.i
