@@ -61,7 +61,7 @@ import hashlib
 # global data
 #
 
-ROOT_DIR = "../../niflib"
+ROOT_DIR = "../niflib"
 BOOTSTRAP = False
 GENIMPL = True
 GENACCESSORS = False
