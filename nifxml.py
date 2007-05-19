@@ -1358,6 +1358,18 @@ class Block(Compound):
         result = ""
         if self.inherit:
             result += '#include "%s.h"\n'%self.inherit.cname
+        else:
+            result += """#include "../Type.h"
+#include "../Ref.h"
+#include "../nif_basic_types.h"
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
+#include <string>
+#include <list>
+#include <map>
+#include <vector>"""
         result += Compound.code_include_h(self)
         return result
     

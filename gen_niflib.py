@@ -55,12 +55,13 @@
 from nifxml import *
 from distutils.dir_util import mkpath
 import os
+import hashlib
 
 #
 # global data
 #
 
-ROOT_DIR = "."
+ROOT_DIR = "../../niflib"
 BOOTSTRAP = False
 GENIMPL = True
 GENACCESSORS = False
@@ -81,7 +82,131 @@ for i in sys.argv:
 # Fix known manual update attributes. For now hard code here.
 block_types["NiKeyframeData"].find_member("Num Rotation Keys").is_manual_update = True
 #block_types["NiTriStripsData"].find_member("Num Triangles").is_manual_update = True
+
+#
+# Function to extract custom code from existing file
+#
+def ExtractCustomCode( file_name ):
+    custom_lines = {}
+    custom_lines['MISC'] = []
+    custom_lines['FILE HEAD'] = []
+    custom_lines['FILE FOOT'] = []
+    custom_lines['PRE-READ'] = []
+    custom_lines['POST-READ'] = []
+    custom_lines['PRE-WRITE'] = []
+    custom_lines['POST-WRITE'] = []
+    custom_lines['PRE-STRING'] = []
+    custom_lines['POST-STRING'] = []
+    custom_lines['PRE-FIXLINKS'] = []
+    custom_lines['POST-FIXLINKS'] = []
+    custom_lines['CONSTRUCTOR'] = []
+    custom_lines['DESTRUCTOR'] = []
     
+    if os.path.isfile( file_name ) == False:
+        custom_lines['MISC'].append( "\n" )
+        custom_lines['FILE HEAD'].append( "\n" )
+        custom_lines['FILE FOOT'].append( "\n" )
+        custom_lines['PRE-READ'].append( "\n" )
+        custom_lines['POST-READ'].append( "\n" )
+        custom_lines['PRE-WRITE'].append( "\n" )
+        custom_lines['POST-WRITE'].append( "\n" )
+        custom_lines['PRE-STRING'].append( "\n" )
+        custom_lines['POST-STRING'].append( "\n" )
+        custom_lines['PRE-FIXLINKS'].append( "\n" )
+        custom_lines['POST-FIXLINKS'].append( "\n" )
+        custom_lines['CONSTRUCTOR'].append( "\n" )
+        custom_lines['DESTRUCTOR'].append( "\n" )
+        return custom_lines
+    
+    f = file( file_name, 'r' )
+    lines = f.readlines()
+    f.close()
+   
+    custom_flag = False
+    custom_name = ""
+    
+    for l in lines:
+        if custom_flag == True:
+            if l.find( '//--END CUSTOM CODE--//' ) != -1:
+                custom_flag = False
+            else:
+                if not custom_lines[custom_name]:
+                    custom_lines[custom_name] = []
+                
+                custom_lines[custom_name].append(l)
+        if l.find( '//--BEGIN MISC CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'MISC'
+        elif l.find( '//--BEGIN FILE HEAD CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'FILE HEAD'
+        elif l.find( '//--BEGIN FILE FOOT CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'FILE FOOT'
+        elif l.find( '//--BEGIN PRE-READ CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'PRE-READ'
+        elif l.find( '//--BEGIN POST-READ CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'POST-READ'
+        elif l.find( '//--BEGIN PRE-WRITE CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'PRE-WRITE'
+        elif l.find( '//--BEGIN POST-WRITE CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'POST-WRITE'
+        elif l.find( '//--BEGIN PRE-STRING CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'PRE-STRING'
+        elif l.find( '//--BEGIN POST-STRING CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'POST-STRING'
+        elif l.find( '//--BEGIN PRE-FIXLINKS CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'PRE-FIXLINKS'
+        elif l.find( '//--BEGIN POST-FIXLINKS CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'POST-FIXLINKS'
+        elif l.find( '//--BEGIN CONSTRUCTOR CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'CONSTRUCTOR'
+        elif l.find( '//--BEGIN DESTRUCTOR CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'DESTRUCTOR'
+        elif l.find( '//--BEGIN INCLUDE CUSTOM CODE--//' ) != -1:
+            custom_flag = True
+            custom_name = 'INCLUDE'
+    
+    return custom_lines
+
+#
+# Function to compare two files
+#
+
+def OverwriteIfChanged( original_file, candidate_file ):
+    files_differ = False
+
+    if os.path.isfile( original_file ):
+        f1 = file( original_file, 'r' )
+        f2 = file( candidate_file, 'r' )
+
+        s1 = f1.read()
+        s2 = f2.read()
+
+        f1.close()
+        f2.close()
+        
+        if s1 != s2:
+            files_differ = True
+            #remove original file
+            os.unlink( original_file )
+    else:
+        files_differ = True
+
+    if files_differ:
+        #Files differ, so overwrite original with candidate
+        os.rename( candidate_file, original_file )
+   
 #
 # generate compound code
 #
@@ -305,108 +430,6 @@ h.code("#endif")
 
 h.close()
 
-# Internal Implementations
-
-if GENIMPL:
-  m = CFile(ROOT_DIR + "/src/gen/obj_impl.cpp", "w")
-  m.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-  m.code( 'All rights reserved.  Please see niflib.h for license. */' )
-  m.code()
-  m.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
-  m.code()
-  m.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
-  m.code()
-  # m.code('#include <assert.h>')
-  m.code('#include "../../include/obj/NiObject.h"')
-  m.code('using namespace Niflib;')
-  m.code('using namespace std;')
-  m.code()
-  for n in block_names:
-      x = block_types[n]
-      if not x.is_ancestor:
-          m.code('#include "../../include/obj/%s.h"'%x.cname)
-  m.backslash_mode = False
-
-  m.write( """
-const char FIX_LINK_POP_ERROR[] = "Trying to pop a link from empty stack. This is probably a bug.";
-const char FIX_LINK_INDEX_ERROR[] = "Object index was not found in object map.  This NIF file may be invalid or imporperly supported.";
-const char FIX_LINK_CAST_ERROR[] = "Link could not be cast to required type during file read. This NIF file may be invalid or improperly supported.";
-
-template <class T>
-Ref<T> FixLink( const map<unsigned,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {
-	if (link_stack.empty()) {
-		throw runtime_error(FIX_LINK_POP_ERROR);
-	}
-	unsigned int index = link_stack.front();
-	link_stack.pop_front();
-
-	//Check if link is NULL
-	if ( info.version > VER_3_3_0_13) {
-	    if ( index == 0xFFFFFFFF) {
-		    return NULL;
-	    }
-	} else {
-	    if ( index == 0 ) {
-		return NULL;
-	    }
-	}
-
-	map<unsigned int,NiObjectRef>::const_iterator it = objects.find(index);
-	if ( it == objects.end() ) {
-		if ( info.version > VER_3_3_0_13 ) {
-			throw runtime_error(FIX_LINK_INDEX_ERROR);
-		} else {
-			return NULL;
-		}
-	}
-		
-	Ref<T> object = DynamicCast<T>(it->second);
-	if ( object == NULL ) {
-		stringstream ss;
-		ss << FIX_LINK_CAST_ERROR << endl;
-		ss << "Type of object with index " << index << " was:  " << it->second->GetType().GetTypeName() << endl;
-		ss << "Required type was:  " << T::TYPE.GetTypeName() << endl;
-		throw runtime_error( ss.str().c_str() );
-	}
-
-	return object;
-}
-
-""" )
-
-  for n in block_names:
-      x = block_types[n]
-      x_define_name = define_name(x.cname)
-          
-      m.code("void %s::InternalRead( istream& in, list<unsigned int> & link_stack, const NifInfo & info ) {"%x.cname)
-      m.stream(x, ACTION_READ)
-      m.code("}")
-      m.code()
-      
-      m.code("void %s::InternalWrite( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {"%x.cname)
-      m.stream(x, ACTION_WRITE)
-      m.code("}")
-      m.code()
-      
-      m.code("std::string %s::InternalAsString( bool verbose ) const {"%x.cname)
-      m.stream(x, ACTION_OUT)
-      m.code("}")
-      m.code()
-
-      m.code("void %s::InternalFixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {"%x.cname)
-      m.stream(x, ACTION_FIXLINKS)
-      m.code("}")
-      m.code()
-
-      m.code("std::list<NiObjectRef> %s::InternalGetRefs() const {"%x.cname)
-      m.stream(x, ACTION_GETREFS)
-      m.code("}")
-      m.code()
-
-  m.backslash_mode = False
-
-  m.close();
-
 # Write out Public Enumeration header Enumerations
 out = CFile(ROOT_DIR + '/include/gen/enums.h', 'w')
 out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
@@ -526,46 +549,90 @@ out.write('}\n')
 out.close()
 
 #
-# all non-generated bootstrap code
+# NiObject Files
 #
-
-if BOOTSTRAP:
-
-  # Templates
-  for n in block_names:
+for n in block_names:
     x = block_types[n]
     x_define_name = define_name(x.cname)
-    
-    out = CFile(ROOT_DIR + '/include/obj/' + x.cname + '.h', 'w')
+
+    #
+    # NiObject Header File
+    #
+
+    #Get existing custom code
+    file_name = ROOT_DIR + '/include/obj/' + x.cname + '.h'
+    custom_lines = ExtractCustomCode( file_name );
+
+    #output new file
+    out = CFile(file_name, 'w')
     out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     out.code( 'All rights reserved.  Please see niflib.h for license. */' )
     out.code()
+    out.code( '//-----------------------------------NOTICE----------------------------------//' )
+    out.code( '// Some of this file is automatically filled in by a Python script.  Only    //' )
+    out.code( '// add custom code in the designated areas or it will be overwritten during  //' )
+    out.code( '// the next update.                                                          //' )
+    out.code( '//-----------------------------------NOTICE----------------------------------//' )
+    out.code()   
     out.code( '#ifndef _' + x.cname.upper() + '_H_' )
     out.code( '#define _' + x.cname.upper() + '_H_' )
     out.code()
+    out.code( '//--BEGIN FILE HEAD CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['FILE HEAD']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code()
     out.code( x.code_include_h() )
     out.write( "namespace Niflib {\n" )
+    if not x.inherit:
+        out.code( 'using namespace std;' )
     out.code( x.code_fwd_decl() )
     out.code( 'class ' + x.cname + ';' )
     out.code( 'typedef Ref<' + x.cname + '> ' + x.cname + 'Ref;' )
     out.code()
     out.comment( x.cname + " - " + x.description )
     out.code()
-    out.code( 'class ' + x.cname + ' : public ' + x_define_name + '_PARENT {' )
+    if x.inherit:
+        out.code( 'class ' + x.cname + ' : public ' + x.inherit.cname + ' {' )
+    else:
+        out.code( 'class ' + x.cname + ' {' )
     out.code( 'public:' )
+    out.code( '/*! Constructor */' )
     out.code( 'NIFLIB_API ' + x.cname + '();' )
-    out.code( 'NIFLIB_API ~' + x.cname + '();' )
-    out.code( '//Run-Time Type Information' )
-    out.code( 'NIFLIB_API static const Type TYPE;' )
-    out.code( 'NIFLIB_API static NiObject * Create();' )
-    out.code( 'NIFLIB_API virtual const Type & GetType() const;' )
-    out.code( 'NIFLIB_HIDDEN virtual void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
-    out.code( 'NIFLIB_HIDDEN virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
-    out.code( 'NIFLIB_API virtual string asString( bool verbose = false ) const;' )
-    out.code( 'NIFLIB_HIDDEN virtual void FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
-    out.code( 'NIFLIB_HIDDEN virtual list<NiObjectRef> GetRefs() const;' )
     out.code()
-  
+    out.code( '/*! Destructor */' )
+    out.code( 'NIFLIB_API ~' + x.cname + '();' )
+    out.code()
+    out.code( '/*!' )
+    out.code( ' * A constant value which uniquly identifies objects of this type.' )
+    out.code( ' */' )
+    out.code( 'NIFLIB_API static const Type TYPE;' )
+    out.code()
+    out.code( '/*!' )
+    out.code( ' * A factory function used during file reading to create an instance of this type of object.' )
+    out.code( ' * \\return A pointer to a newly allocated instance of this type of object.' )
+    out.code( ' */' )
+    out.code( 'NIFLIB_API static NiObject * Create();' )
+    out.code()
+    out.code( '/*!' )
+    out.code( ' * Summarizes the information contained in this object in English.' )
+    out.code( ' * \\param[in] verbose Determines whether or not detailed information about large areas of data will be printed out.' )
+    out.code( ' * \\return A string containing a summary of the information within the object in English.  This is the function that Niflyze calls to generate its analysis, so the output is the same.' )
+    out.code( ' */' )
+    out.code( 'NIFLIB_API virtual string asString( bool verbose = false ) const;' )
+    out.code()
+    out.code( '/*!' )
+    out.code( ' * Used to determine the type of a particular instance of this object.' )
+    out.code( ' * \\return The type constant for the actual type of the object.' )
+    out.code( ' */' )
+    out.code( 'NIFLIB_API virtual const Type & GetType() const;' )
+
+    out.code()
+    out.code( '//--BEGIN MISC CUSTOM CODE--//' )
+
     # Declare Helper Methods
     if GENACCESSORS:
       for y in x.members:
@@ -576,7 +643,7 @@ if BOOTSTRAP:
             out.code( y.setter_declare("", ";") )
             out.code()
         
-    out.code( 'protected:' )
+
     for y in x.members:
       if y.func:
         if not y.template:
@@ -586,54 +653,104 @@ if BOOTSTRAP:
             out.code( '%s<%s > %s::%s() const;'%(y.ctype, y.ctemplate, x.cname, y.func) )
           else:
             out.code( '%s * %s::%s() const;'%(y.ctemplate, x.cname, y.func ) )
-            
-    out.code( x_define_name + '_MEMBERS' )
-    out.code( 'private:' )
-    out.code( 'void InternalRead( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
-    out.code( 'void InternalWrite( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
-    out.code( 'string InternalAsString( bool verbose ) const;' )
-    out.code( 'void InternalFixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
-    out.code( 'list<NiObjectRef> InternalGetRefs() const;' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['MISC']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    if x.members:
+        out.code( 'protected:' )
+    out.declare(x)
+    out.code( 'public:' )
+    out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
+    out.code( 'NIFLIB_HIDDEN virtual void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
+    out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
+    out.code( 'NIFLIB_HIDDEN virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
+    out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
+    out.code( 'NIFLIB_HIDDEN virtual void FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
+    out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
+    out.code( 'NIFLIB_HIDDEN virtual list<NiObjectRef> GetRefs() const;' )
     out.code( '};' )
     out.code()
-    out.write( "}\n" )
+    out.code( '//--BEGIN FILE FOOT CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['FILE FOOT']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code()
+    out.write( "} //End Niflib namespace\n" )
     out.code( '#endif' )
     out.close()
 
-    out = CFile(ROOT_DIR + '/src/obj/' + x.cname + '.cpp', 'w')
+    ##Check if the temp file is identical to the target file
+    #OverwriteIfChanged( file_name, 'temp' )
+
+    #
+    # NiObject Implementation File
+    #
+
+    #Get existing custom code
+    file_name = ROOT_DIR + '/src/obj/' + x.cname + '.cpp'
+    custom_lines = ExtractCustomCode( file_name );
+        
+    out = CFile( file_name, 'w')
     out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     out.code( 'All rights reserved.  Please see niflib.h for license. */' )
     out.code()
+    out.code( '//-----------------------------------NOTICE----------------------------------//' )
+    out.code( '// Some of this file is automatically filled in by a Python script.  Only    //' )
+    out.code( '// add custom code in the designated areas or it will be overwritten during  //' )
+    out.code( '// the next update.                                                          //' )
+    out.code( '//-----------------------------------NOTICE----------------------------------//' )
+    out.code()
+    out.code( '//--BEGIN FILE HEAD CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['FILE HEAD']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code()
+    out.code( '#include "../../include/FixLink.h"' )
+    out.code( '#include "../../include/NIF_IO.h"' )
     out.code( x.code_include_cpp( True, "../../include/gen/", "../../include/obj/" ) )
     out.code( "using namespace Niflib;" );
     out.code()
     out.code( '//Definition of TYPE constant' )
-    out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x_define_name + '_PARENT::TYPE );' )
+    if x.inherit:
+        out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x.inherit.cname + '::TYPE );' )
+    else:
+        out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", NULL );' )
     out.code()
-    out.code( x.cname + '::' + x.cname + '() ' + x_define_name + '_CONSTRUCT {}' )
+    x_code_construct = x.code_construct()
+    if x_code_construct:
+        out.code( x.cname + '::' + x.cname + '()' + x_code_construct + ' {' )
+    else:
+        out.code( x.cname + '::' + x.cname + '() {' )
+    out.code ( '//--BEGIN CONSTRUCTOR CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['CONSTRUCTOR']:
+        out.write(l);
+        
+    out.code ( '//--END CUSTOM CODE--//')
+    out.code ( '}' )
+    
     out.code()
-    out.code( x.cname + '::' + '~' + x.cname + '() {}' )
+    out.code( x.cname + '::' + '~' + x.cname + '() {' )
+    out.code ( '//--BEGIN DESTRUCTOR CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['DESTRUCTOR']:
+        out.write(l);
+        
+    out.code ( '//--END CUSTOM CODE--//')
+    out.code ( '}' )
     out.code() 
-    out.code( 'void ' + x.cname + '::Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info ) {' )
-    out.code( 'InternalRead( in, link_stack, info );' )
-    out.code( '}' )
-    out.code()
-    out.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {' )
-    out.code( 'InternalWrite( out, link_map, info );' )
-    out.code( '}' )
-    out.code()
-    out.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
-    out.code( 'return InternalAsString( verbose );' )
-    out.code( '}' )
-    out.code()
-    out.code( 'void ' + x.cname + '::FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {' );
-    out.code( 'InternalFixLinks( objects, link_stack, info );' )
-    out.code( '}' )
-    out.code()
-    out.code( 'list<NiObjectRef> %s::GetRefs() const {'%x.cname )
-    out.code( 'return InternalGetRefs();' )
-    out.code( '}' )
-    out.code()
+    
     out.code( 'const Type & %s::GetType() const {'%x.cname )
     out.code( 'return TYPE;' )
     out.code( '}' )
@@ -662,7 +779,106 @@ if BOOTSTRAP:
     out.code( 'return new ' + x.cname + ';' )
     out.code( '}' )
     out.code()
+
+    out.code("void %s::Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info ) {"%x.cname)
+    out.code( '//--BEGIN PRE-READ CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['PRE-READ']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code()
+    out.stream(x, ACTION_READ)
+    out.code()
+    out.code( '//--BEGIN POST-READ CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['POST-READ']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code("}")
+    out.code()
+      
+    out.code("void %s::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {"%x.cname)
+    out.code( '//--BEGIN PRE-WRITE CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['PRE-WRITE']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code()
+    out.stream(x, ACTION_WRITE)
+    out.code()
+    out.code( '//--BEGIN POST-WRITE CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['POST-WRITE']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code("}")
+    out.code()
+      
+    out.code("std::string %s::asString( bool verbose ) const {"%x.cname)
+    out.code( '//--BEGIN PRE-STRING CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['PRE-STRING']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code()
+    out.stream(x, ACTION_OUT)
+    out.code()
+    out.code( '//--BEGIN POST-STRING CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['POST-STRING']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code("}")
+    out.code()
+
+    out.code("void %s::FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {"%x.cname)
+
+    out.code( '//--BEGIN PRE-FIXLINKS CUSTOM CODE--//' )
     
+    #Preserve Custom code from before
+    for l in custom_lines['PRE-FIXLINKS']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code()
+    out.stream(x, ACTION_FIXLINKS)
+    out.code()
+    out.code( '//--BEGIN POST-FIXLINKS CUSTOM CODE--//' )
+    #Preserve Custom code from before
+    for l in custom_lines['POST-FIXLINKS']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+    out.code("}")
+    out.code()
+
+    out.code("std::list<NiObjectRef> %s::GetRefs() const {"%x.cname)
+    out.stream(x, ACTION_GETREFS)
+    out.code("}")
+    out.code()
+    out.code( '//--BEGIN MISC CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['MISC']:
+        out.write(l);
+        
+    out.code( '//--END CUSTOM CODE--//' )
+
+    ##Check if the temp file is identical to the target file
+    #OverwriteIfChanged( file_name, 'temp' )
+
     # Implement Public Getter/Setter Methods
     if GENACCESSORS:
       for y in x.members:
@@ -677,7 +893,7 @@ if BOOTSTRAP:
             out.code( "%s = value;"%y.cname )
             out.code( "}" )
             out.code()
-    
+
       for y in x.members:
         if y.func:
           if not y.template:
@@ -688,7 +904,6 @@ if BOOTSTRAP:
             else:
               out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
     out.close()
-    
 
 #Doxygen pre-define file
 doxy = CFile(os.path.join(ROOT_DIR, 'DoxygenPredefines.txt'), "w")
@@ -718,3 +933,4 @@ for n in block_names:
 
 doxy.code()
 doxy.close()
+            
