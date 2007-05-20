@@ -369,67 +369,6 @@ for n in compound_names:
 
         cpp.close()
 
-
-#
-# generate block code
-#
-
-h = CFile(ROOT_DIR + "/include/gen/obj_defines.h", "w")
-
-# file header
-
-h.write("""/* Copyright (c) 2006, NIF File Format Library and Tools
-All rights reserved.  Please see niflib.h for license. */
-
-//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//
-
-//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.
-
-#ifndef _OBJ_DEFINES_H_
-#define _OBJ_DEFINES_H_
-
-#define MAXARRAYDUMP 20
-
-""")
-h.backslash_mode = True
-for n in block_names:
-    x = block_types[n]
-    x_define_name = define_name(x.cname)
-
-    # declaration
-    h.code('#define %s_MEMBERS '%x_define_name)
-    h.declare(x)
-    h.code()
-h.backslash_mode = False
-
-h.code()
-
-for n in block_names:
-    x = block_types[n]
-    x_define_name = define_name(x.cname)
-    # parents
-    if not x.inherit:
-        #h.code('#define %s_INCLUDE'%(x_define_name) )
-        h.code('#define %s_PARENT'%(x_define_name) )
-    else:
-        #h.code('#define %s_INCLUDE \"%s.h\"'%(x_define_name, x.inherit.cname))
-        #h.code()
-        h.code('#define %s_PARENT %s'%(x_define_name, x.inherit.cname))
-    h.code()
-        
-    # declaration
-
-    # constructor
-    h.write("#define %s_CONSTRUCT "%x_define_name)
-    x_code_construct = x.code_construct()
-    if x_code_construct:
-        h.code(x_code_construct)
-    h.code()
-        
-h.code("#endif")
-
-h.close()
-
 # Write out Public Enumeration header Enumerations
 out = CFile(ROOT_DIR + '/include/gen/enums.h', 'w')
 out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
@@ -604,7 +543,7 @@ for n in block_names:
     out.code( 'NIFLIB_API ' + x.cname + '();' )
     out.code()
     out.code( '/*! Destructor */' )
-    out.code( 'NIFLIB_API ~' + x.cname + '();' )
+    out.code( 'NIFLIB_API virtual ~' + x.cname + '();' )
     out.code()
     out.code( '/*!' )
     out.code( ' * A constant value which uniquly identifies objects of this type.' )
@@ -904,33 +843,3 @@ for n in block_names:
             else:
               out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
     out.close()
-
-#Doxygen pre-define file
-doxy = CFile(os.path.join(ROOT_DIR, 'DoxygenPredefines.txt'), "w")
-doxy.backslash_mode = True
-
-i = 0
-for n in block_names:
-    x = block_types[n]
-    x_define_name = define_name(x.cname)
-
-    if i == 0:
-        doxy.write( "PREDEFINED             = " )
-    else:
-        doxy.write( "                         " )
-
-    if i == len(block_names) - 1:
-        doxy.backslash_mode = False
-        
-    # parents
-    if not x.inherit:
-        par = ""
-    else:
-        par = x.inherit.cname
-    # declaration
-    doxy.code('%s_PARENT=%s'%(x_define_name, par))
-    i += 1
-
-doxy.code()
-doxy.close()
-            
