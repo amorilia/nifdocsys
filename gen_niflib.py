@@ -1,4 +1,4 @@
-# nifxml_niflib.py
+# gen_niflib.py
 #
 # This script generates C++ code for Niflib.
 #
@@ -230,7 +230,7 @@ for n in compound_names:
     h.code()
     h.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
     h.code()
-    h.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
+    h.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
     h.code()
     h.code( '#ifndef _' + x.cname.upper() + '_H_' )
     h.code( '#define _' + x.cname.upper() + '_H_' )
@@ -290,7 +290,7 @@ for n in compound_names:
         cpp.code()
         cpp.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
         cpp.code()
-        cpp.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
+        cpp.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
         cpp.code()
         cpp.code( x.code_include_cpp( True, "../../include/gen/", "../../include/obj/" ) )
         cpp.code( "using namespace Niflib;" )
@@ -378,7 +378,7 @@ out.code('#define _NIF_ENUMS_H_')
 out.code()
 out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
 out.code()
-out.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
+out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
 out.code()
 out.code( '#include <iostream>' )
 out.code( 'using namespace std;' )
@@ -409,7 +409,7 @@ out.code( 'All rights reserved.  Please see niflib.h for license. */' )
 out.code()
 out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
 out.code()
-out.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
+out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
 out.code()
 out.code('#ifndef _NIF_ENUMS_INTL_H_')
 out.code('#define _NIF_ENUMS_INTL_H_')
@@ -445,7 +445,7 @@ out.code( 'All rights reserved.  Please see niflib.h for license. */' )
 out.code()
 out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
 out.code()
-out.code( '//To change this file, alter the niftools/docsys/nifxml_niflib.py Python script.' )
+out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
 out.code()
 out.code('#include <string>')
 out.code('#include <iostream>')
@@ -486,6 +486,34 @@ for n in enum_types:
     
 out.write('}\n')
 out.close()
+
+#
+# NiObject Registration Function
+#
+out = CFile(ROOT_DIR + '/src/gen/register.cpp', 'w')
+out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+out.code( 'All rights reserved.  Please see niflib.h for license. */' )
+out.code()
+out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+out.code()
+out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
+out.code()
+out.code( '#include "../../include/ObjectRegistry.h"' )
+for n in block_names:
+    x = block_types[n]
+    out.code( '#include "../../include/obj/' + x.cname + '.h"' )
+out.code()
+out.code( 'namespace Niflib {' )
+out.code( 'void RegisterObjects() {' )
+out.code()
+for n in block_names:
+    x = block_types[n]
+    out.code( 'ObjectRegistry::RegisterObject( "' + x.cname + '", ' + x.cname + '::Create );' )
+out.code()
+out.code( '}' )
+out.code( '}' )
+out.close()
+    
 
 #
 # NiObject Files
@@ -690,29 +718,8 @@ for n in block_names:
     out.code ( '//--END CUSTOM CODE--//')
     out.code ( '}' )
     out.code() 
-    
     out.code( 'const Type & %s::GetType() const {'%x.cname )
     out.code( 'return TYPE;' )
-    out.code( '}' )
-    out.code()
-    out.code( 'namespace Niflib {' )
-    out.code( 'typedef NiObject*(*obj_factory_func)();' )
-    out.code( 'extern map<string, obj_factory_func> global_object_map;' )
-    out.code()
-    out.code( '//Initialization function' )
-    out.code( 'static bool Initialization();' )
-    out.code()
-    out.code( '//A static bool to force the initialization to happen pre-main' )
-    out.code( 'static bool obj_initialized = Initialization();' )
-    out.code()
-    out.code( 'static bool Initialization() {' )
-    out.code( '//Register this object type with Niflib' )
-    out.code( 'ObjectRegistry::RegisterObject( "' + x.cname + '", ' + x.cname + '::Create );' )
-    out.code()
-    out.code( '//Do this stuff just to make sure the compiler doesn\'t optimize this function and the static bool away.' )
-    out.code( 'obj_initialized = true;' )
-    out.code( 'return obj_initialized;' )
-    out.code( '}' )
     out.code( '}' )
     out.code()
     out.code( 'NiObject * ' + x.cname + '::Create() {' )
