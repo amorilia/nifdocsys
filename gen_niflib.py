@@ -654,6 +654,7 @@ for n in block_names:
     out.code( '//--END CUSTOM CODE--//' )
     out.code()
     out.code( '#include "../../include/FixLink.h"' )
+    out.code( '#include "../../include/ObjectRegistry.h"' )
     out.code( '#include "../../include/NIF_IO.h"' )
     out.code( x.code_include_cpp( True, "../../include/gen/", "../../include/obj/" ) )
     out.code( "using namespace Niflib;" );
@@ -705,8 +706,8 @@ for n in block_names:
     out.code( 'static bool obj_initialized = Initialization();' )
     out.code()
     out.code( 'static bool Initialization() {' )
-    out.code( '//Add the function to the global object map' )
-    out.code( 'global_object_map["' + x.cname + '"] = ' + x.cname + '::Create;' )
+    out.code( '//Register this object type with Niflib' )
+    out.code( 'ObjectRegistry::RegisterObject( "' + x.cname + '", ' + x.cname + '::Create );' )
     out.code()
     out.code( '//Do this stuff just to make sure the compiler doesn\'t optimize this function and the static bool away.' )
     out.code( 'obj_initialized = true;' )
