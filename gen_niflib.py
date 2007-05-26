@@ -560,7 +560,7 @@ for n in block_names:
     out.code( 'class ' + x.cname + ';' )
     out.code( 'typedef Ref<' + x.cname + '> ' + x.cname + 'Ref;' )
     out.code()
-    out.comment( x.cname + " - " + x.description )
+    out.comment( x.description )
     if x.inherit:
         out.code( 'class ' + x.cname + ' : public ' + x.inherit.cname + ' {' )
     else:
