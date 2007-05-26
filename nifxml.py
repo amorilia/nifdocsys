@@ -84,7 +84,7 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 from xml.dom.minidom import *
-from textwrap import wrap
+from textwrap import fill
 
 import sys
 import os
@@ -211,15 +211,38 @@ class CFile(file):
     
     
     # 
-    def comment(self, txt):
+    def comment(self, txt, doxygen = True):
         """
-        Wraps text in Doxygen-style C++ comments and outputs it to the file.  Handles multilined comments as well.
+        Wraps text in C++ comments and outputs it to the file.  Handles multilined comments as well.
         Result always ends with a newline
         @param txt: The text to enclose in a Doxygen comment
         @type txt: string
         """
-        if self.backslash_mode: return # skip comments when we are in backslash mode
-        self.code("/*!\n * " + "\n".join(wrap(txt)).replace("\n", "\n * ") + "\n */")
+
+        # skip comments when we are in backslash mode
+        if self.backslash_mode: return
+        
+        lines = txt.split( '\n' )
+
+        txt = ""
+        for l in lines:
+            txt = txt + fill(l, 80) + "\n"
+
+        txt = txt.strip()
+        
+        num_line_ends = txt.count( '\n' )
+        
+
+        if doxygen:
+            if num_line_ends > 0:
+                txt = txt.replace("\n", "\n * ")
+                self.code("/*!\n * " + txt + "\n */")  
+            else:
+                self.code("/*! " + txt + " */" )
+        else:
+            lines = txt.split('\n')
+            for l in lines:
+                self.code( "// " + l )
     
     def declare(self, block):
         """
@@ -607,7 +630,7 @@ class CFile(file):
     def getset_declare(self, block, prefix = ""): # prefix is used to tag local variables only
       for y in block.members:
         if not y.func:
-          if y.cname.find("Unk") == -1:
+          if y.cname.lower().find("unk") == -1:
             self.code( y.getter_declare("", ";") )
             self.code( y.setter_declare("", ";") )
             self.code()

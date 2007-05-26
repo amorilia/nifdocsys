@@ -596,30 +596,35 @@ for n in block_names:
     out.code( ' * \\return The type constant for the actual type of the object.' )
     out.code( ' */' )
     out.code( 'NIFLIB_API virtual const Type & GetType() const;' )
-
     out.code()
-    out.code( '//--BEGIN MISC CUSTOM CODE--//' )
 
-    # Declare Helper Methods
+    #
+    # Show example naive implementation if requested
+    #
+    
+    # Create a list of members eligable for functions
     if GENACCESSORS:
-      for y in x.members:
-        if not y.func:
-          if not y.arr1_ref and not y.arr2_ref and y.cname.lower().find("unk") == -1: #not y.cname.startswith("num") :
-            out.comment(y.description)
-            out.code( y.getter_declare("", ";") )
-            out.code( y.setter_declare("", ";") )
+        func_members = []
+        for y in x.members:
+            if not y.arr1_ref and not y.arr2_ref and y.cname.lower().find("unk") == -1:
+                func_members.append(y)
+    
+        if len(func_members) > 0:
+            out.code( '/***Begin Example Naive Implementation****' )
             out.code()
-        
-
-    for y in x.members:
-      if y.func:
-        if not y.template:
-            out.code( '%s %s() const;'%(y.ctype, y.func) )
+            for y in func_members:
+                out.comment( y.description + "\n\\return The current value.", False )
+                out.code( y.getter_declare("", ";") )
+                out.code()
+                out.comment( y.description + "\n\\param[in] value The new value.", False )
+                out.code(  y.setter_declare("", ";") )
+                out.code()
+            out.code( '****End Example Naive Implementation***/' )
         else:
-          if y.ctype != "*":
-            out.code( '%s<%s > %s::%s() const;'%(y.ctype, y.ctemplate, x.cname, y.func) )
-          else:
-            out.code( '%s * %s::%s() const;'%(y.ctemplate, x.cname, y.func ) )
+            out.code ( '//--This object has no eligable attributes.  No example implementation generated--//' )
+        out.code()
+    
+    out.code( '//--BEGIN MISC CUSTOM CODE--//' )
 
     #Preserve Custom code from before
     for l in custom_lines['MISC']:
@@ -815,6 +820,32 @@ for n in block_names:
     out.stream(x, ACTION_GETREFS)
     out.code("}")
     out.code()
+
+    # Output example implementation of public getter/setter Mmthods if requested
+    if GENACCESSORS:
+        func_members = []
+        for y in x.members:
+            if not y.arr1_ref and not y.arr2_ref and y.cname.lower().find("unk") == -1:
+                func_members.append(y)
+    
+        if len(func_members) > 0:
+            out.code( '/***Begin Example Naive Implementation****' )
+            out.code()
+            for y in func_members:
+                out.code( y.getter_declare(x.name + "::", " {") )
+                out.code( "return %s;"%y.cname )
+                out.code( "}" )
+                out.code()
+                
+                out.code( y.setter_declare(x.name + "::", " {") )
+                out.code( "%s = value;"%y.cname )
+                out.code( "}" )
+                out.code()
+            out.code( '****End Example Naive Implementation***/' )
+        else:
+            out.code ( '//--This object has no eligable attributes.  No example implementation generated--//' )
+        out.code()
+        
     out.code( '//--BEGIN MISC CUSTOM CODE--//' )
 
     #Preserve Custom code from before
@@ -826,28 +857,4 @@ for n in block_names:
     ##Check if the temp file is identical to the target file
     #OverwriteIfChanged( file_name, 'temp' )
 
-    # Implement Public Getter/Setter Methods
-    if GENACCESSORS:
-      for y in x.members:
-        if not y.func:
-          if not y.arr1_ref and not y.arr2_ref and y.cname.lower().find("unk") == -1: # and not y.cname.startswith("num") :
-            out.code( y.getter_declare(x.name + "::", " {") )
-            out.code( "return %s;"%y.cname )
-            out.code( "}" )
-            out.code()
-            
-            out.code( y.setter_declare(x.name + "::", " {") )
-            out.code( "%s = value;"%y.cname )
-            out.code( "}" )
-            out.code()
-
-      for y in x.members:
-        if y.func:
-          if not y.template:
-              out.code( '%s %s::%s() const { return %s(); }'%(y.ctype, x.cname, y.func, y.ctype) )
-          else:
-            if y.ctype != "*":
-              out.code( '%s<%s > %s::%s() const { return %s<%s >(); }'%(y.ctype, y.ctemplate, x.cname, y.func, y.ctype, y.ctemplate) )
-            else:
-              out.code( '%s * %s::%s() const { return NULL; }'%(y.ctemplate, x.cname, y.func ) )
     out.close()
