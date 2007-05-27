@@ -569,10 +569,15 @@ class CFile(file):
                             if y.is_declared:
                                 self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
-                            self.code("if ( %s != NULL )"%z)
-                            self.code("\tNifStream( link_map.find( StaticCast<NiObject>(%s) )->second, %s, info );"%(z, stream))
-                            self.code("else")
-                            self.code("\tNifStream( 0xffffffff, %s, info );"%stream)
+                            self.code("if ( info.version < VER_3_3_0_13 ) {")
+                            self.code("NifStream( (unsigned int)&(*%s), %s, info );"%(z, stream))
+                            self.code("} else {")  
+                            self.code("if ( %s != NULL ) {"%z)
+                            self.code("NifStream( link_map.find( StaticCast<NiObject>(%s) )->second, %s, info );"%(z, stream))
+                            self.code("} else {")
+                            self.code("NifStream( 0xFFFFFFFF, %s, info );"%stream)
+                            self.code("}")
+                            self.code("}")
                         elif action == ACTION_FIXLINKS:
                             if y.is_declared:
                                 
