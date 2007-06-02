@@ -1387,7 +1387,8 @@ class Block(Compound):
         if self.inherit:
             result += '#include "%s.h"\n'%self.inherit.cname
         else:
-            result += """#include "../Type.h"
+            result += """#include "../RefObject.h"
+#include "../Type.h"
 #include "../Ref.h"
 #include "../nif_basic_types.h"
 #include <iostream>

@@ -564,7 +564,7 @@ for n in block_names:
     if x.inherit:
         out.code( 'class ' + x.cname + ' : public ' + x.inherit.cname + ' {' )
     else:
-        out.code( 'class ' + x.cname + ' {' )
+        out.code( 'class ' + x.cname + ' : public RefObject {' )
     out.code( 'public:' )
     out.code( '/*! Constructor */' )
     out.code( 'NIFLIB_API ' + x.cname + '();' )
@@ -695,7 +695,7 @@ for n in block_names:
     if x.inherit:
         out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &' + x.inherit.cname + '::TYPE );' )
     else:
-        out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", NULL );' )
+        out.code ( 'const Type ' + x.cname + '::TYPE(\"' + x.cname + '\", &RefObject::TYPE );' )
     out.code()
     x_code_construct = x.code_construct()
     if x_code_construct:
