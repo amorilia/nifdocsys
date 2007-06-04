@@ -742,7 +742,7 @@ def version2number(s):
         if len(l[1]) >= 2:
             version += int(l[1][1]) << (1 * 8)
         if len(l[1]) >= 3:
-            version += int(l[1][2:]) << 8
+            version += int(l[1][2:])
         return version
     else:
         version = 0
