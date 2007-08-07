@@ -987,12 +987,14 @@ class Member:
                 self.default = "0.0"
             elif self.type == "HeaderString":
                 pass
+            elif self.type == "Char8String":
+                pass
             elif self.type == "StringOffset":
                 self.default = "-1";
             elif self.type in basic_names:
                 self.default = "0"
         if self.default:
-            if self.type == "string":
+            if self.type == "string" or self.type == "IndexString":
                 self.default = "\"" + self.default + "\""
             elif self.type == "float":
                 self.default += "f"
