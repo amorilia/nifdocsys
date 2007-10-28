@@ -410,8 +410,11 @@ class CFile(file):
                         y_arr1_lmember = z
                     if not y_arr2_lmember and y.arr2.lhs == z.name:
                         y_arr2_lmember = z
-                    if not y_cond_lmember and y.cond.lhs == z.name:
-                        y_cond_lmember = z
+                    if not y_cond_lmember:
+                       if y.cond.lhs == z.name:
+                          y_cond_lmember = z
+                       elif y.cond.op == '&&' and y.cond.lhs.lhs == z.name:
+                          y_cond_lmember = z
                     if not y_arg and y.arg == z.name:
                         y_arg = z
                 if y_arr1_lmember:

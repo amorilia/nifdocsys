@@ -131,9 +131,9 @@ def ExtractCustomCode( file_name ):
                 custom_flag = False
             else:
                 if not custom_lines[custom_name]:
-                    custom_lines[custom_name] = []
-                
-                custom_lines[custom_name].append(l)
+                    custom_lines[custom_name] = [l]
+                else:
+                    custom_lines[custom_name].append(l)
         if l.find( '//--BEGIN MISC CUSTOM CODE--//' ) != -1:
             custom_flag = True
             custom_name = 'MISC'
