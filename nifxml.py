@@ -820,15 +820,17 @@ class Expr:
             print x
             raise str('"%s" is an invalid expression'%n)
 
-    def code(self, prefix):
-        """
-        This function formats the expression as a string?  
-        right hand side, and something called clhs.
-        @param prefix: An optional prefix used in some situations?
+    def code(self, prefix, brackets = True):
+        """Format an expression as a string.
+        @param prefix: An optional prefix.
         @type prefix: string
-        @return The expression formatted into a string?
+        @param brackets: If C{True}, then put expression between brackets.
+        @type prefix: string
+        @return The expression formatted into a string.
         @rtype: string
         """
+        lbracket = "(" if brackets else ""
+        rbracket = ")" if brackets else ""
         if not self.op:
             if not self.lhs: return None
             if self.lhs[0] >= '0' and self.lhs[0] <= '9':
@@ -838,11 +840,11 @@ class Expr:
         else:
             if self.op != '&&':
                 if self.lhs[0] >= '0' and self.lhs[0] <= '9':
-                    return '(%s %s %s)'%(self.lhs, self.op, self.rhs)
+                    return '%s%s %s %s%s'%(lbracket, self.lhs, self.op, self.rhs, rbracket)
                 else:
-                    return '(%s%s %s %s)'%(prefix, self.clhs, self.op, self.rhs)
+                    return '%s%s%s %s %s%s'%(lbracket, prefix, self.clhs, self.op, self.rhs, rbracket)
             else:
-                return '((%s) && (%s))'%(self.lhs.code(prefix), self.rhs.code(prefix))
+                return '%s%s && %s%s'%(lbracket, self.lhs.code(prefix, brackets = True), self.rhs.code(prefix, brackets = True), rbracket)
                 
 class Option:
     """
