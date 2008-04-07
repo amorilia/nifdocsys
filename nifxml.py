@@ -561,7 +561,19 @@ class CFile(file):
                     if (not subblock.is_link) and (not subblock.is_crossref):
                         # not a ref
                         if action in [ACTION_READ, ACTION_WRITE]:
-                            if not y.arg:
+                            # hack required for vector<bool>
+                            if y.type == "bool" and y.arr1.lhs:
+                                self.code("{");
+                                if action == ACTION_READ:
+                                    self.code("bool tmp;")
+                                    self.code("NifStream( tmp, %s, info );"%(stream))
+                                    self.code("%s = tmp;" % z)
+                                else: # ACTION_WRITE
+                                    self.code("bool tmp = %s;" % z)
+                                    self.code("NifStream( tmp, %s, info );"%(stream))
+                                self.code("};")
+                            # the usual thing
+                            elif not y.arg:
                                 self.code("NifStream( %s, %s, info );"%(z, stream))
                             else:
                                 self.code("NifStream( %s, %s, info, %s%s );"%(z, stream, y_prefix, y.carg))
