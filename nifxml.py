@@ -481,6 +481,8 @@ class CFile(file):
                             self.code("if ( ( info.version <= 0x%08X ) && ( info.userVersion == %s ) ) {"%(y.ver2, userver))
                         elif y.ver1 and y.ver2:
                             self.code("if ( ( info.version >= 0x%08X ) && ( info.version <= 0x%08X ) && ( info.userVersion == %s ) ) {"%(y.ver1, y.ver2, y.userver))
+                        elif not y.ver1 and not y.ver2:
+                            self.code("if ( info.userVersion == %s ) {" % (y.userver))
                     # start new condition block
                     if lastcond != y_cond and y_cond:
                         self.code("if ( %s ) {"%y_cond)
