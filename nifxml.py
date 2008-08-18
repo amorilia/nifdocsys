@@ -467,7 +467,7 @@ class CFile(file):
                         self.code("};")
                         lastcond = None
                     # start new version block
-                    if y.userver == None:
+                    if y.userver is None:
                         if y.ver1 and not y.ver2:
                             self.code("if ( info.version >= 0x%08X ) {"%y.ver1)
                         elif not y.ver1 and y.ver2:
@@ -634,7 +634,7 @@ class CFile(file):
             lastcond = y_cond
 
         if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
-            if lastver1 or lastver2 or lastuserver:
+            if lastver1 or lastver2 or not(lastuserver is None):
                 self.code("};")
         if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS, ACTION_OUT]:
             if lastcond:
