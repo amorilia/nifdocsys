@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # gen_niflib.py
 #
 # This script generates C++ code for Niflib.
