@@ -67,6 +67,8 @@ ROOT_DIR = "../niflib"
 BOOTSTRAP = False
 GENIMPL = True
 GENACCESSORS = False
+GENBLOCKS = []
+GENALLFILES = True
 
 prev = ""
 for i in sys.argv:
@@ -78,6 +80,10 @@ for i in sys.argv:
         GENIMPL = False
     elif i == "-a":
         GENACCESSORS = True
+    elif prev == "-n":
+        GENBLOCKS.append(i)
+        GENALLFILES = False
+        
     prev = i
 
     
@@ -225,7 +231,10 @@ for n in compound_names:
     # skip natively implemented types
     if x.niflibtype: continue
     if n[:3] == 'ns ': continue
-
+    
+    if not GENALLFILES and not x.cname in GENBLOCKS:
+            continue
+        
     h = CFile(ROOT_DIR + '/include/gen/' + x.cname + '.h', 'w')  
     h.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     h.code( 'All rights reserved.  Please see niflib.h for license. */' )
@@ -371,150 +380,151 @@ for n in compound_names:
 
         cpp.close()
 
-# Write out Public Enumeration header Enumerations
-out = CFile(ROOT_DIR + '/include/gen/enums.h', 'w')
-out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-out.code( 'All rights reserved.  Please see niflib.h for license. */' )
-out.code('#ifndef _NIF_ENUMS_H_')
-out.code('#define _NIF_ENUMS_H_')
-out.code()
-out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
-out.code()
-out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
-out.code()
-out.code( '#include <iostream>' )
-out.code( 'using namespace std;' )
-out.code()
-out.write('namespace Niflib {\n')
-out.code()
-for n in enum_types:
-  x = enum_types[n]
-  if x.options:
-    if x.description:
-      out.comment(x.description)
-    out.code('enum %s {'%(x.cname))
-    for o in x.options:
-      out.code('%s = %s, /*!< %s */'%(o.name, o.value, o.description))
-    out.code('};')
+    # Write out Public Enumeration header Enumerations
+if GENALLFILES:
+    out = CFile(ROOT_DIR + '/include/gen/enums.h', 'w')
+    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    out.code( 'All rights reserved.  Please see niflib.h for license. */' )
+    out.code('#ifndef _NIF_ENUMS_H_')
+    out.code('#define _NIF_ENUMS_H_')
     out.code()
-    out.code('ostream & operator<<( ostream & out, %s const & val );'%x.cname)
+    out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
     out.code()
-
-out.write('}\n')
-out.code('#endif')
-out.close()
-
-# Write out Internal Enumeration header (NifStream functions)
-out = CFile(ROOT_DIR + '/include/gen/enums_intl.h', 'w')
-out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-out.code( 'All rights reserved.  Please see niflib.h for license. */' )
-out.code()
-out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
-out.code()
-out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
-out.code()
-out.code('#ifndef _NIF_ENUMS_INTL_H_')
-out.code('#define _NIF_ENUMS_INTL_H_')
-out.code()
-out.code( '#include <iostream>' )
-out.code( 'using namespace std;' )
-out.code()
-out.code('#include "../nif_basic_types.h"')
-out.code()
-out.write('namespace Niflib {\n')
-out.code()
-for n in enum_types:
-  x = enum_types[n]
-  if x.options:
-    if x.description:
+    out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
+    out.code()
+    out.code( '#include <iostream>' )
+    out.code( 'using namespace std;' )
+    out.code()
+    out.write('namespace Niflib {\n')
+    out.code()
+    for n in enum_types:
+      x = enum_types[n]
+      if x.options:
+        if x.description:
+          out.comment(x.description)
+        out.code('enum %s {'%(x.cname))
+        for o in x.options:
+          out.code('%s = %s, /*!< %s */'%(o.name, o.value, o.description))
+        out.code('};')
         out.code()
-        out.code( '//---' + x.cname + '---//')
+        out.code('ostream & operator<<( ostream & out, %s const & val );'%x.cname)
         out.code()
-    out.code('void NifStream( %s & val, istream& in, const NifInfo & info = NifInfo() );'%x.cname)
-    out.code('void NifStream( %s const & val, ostream& out, const NifInfo & info = NifInfo() );'%x.cname)
+
+    out.write('}\n')
+    out.code('#endif')
+    out.close()
+
+    # Write out Internal Enumeration header (NifStream functions)
+if GENALLFILES:
+    out = CFile(ROOT_DIR + '/include/gen/enums_intl.h', 'w')
+    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    out.code( 'All rights reserved.  Please see niflib.h for license. */' )
+    out.code()
+    out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+    out.code()
+    out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
+    out.code()
+    out.code('#ifndef _NIF_ENUMS_INTL_H_')
+    out.code('#define _NIF_ENUMS_INTL_H_')
+    out.code()
+    out.code( '#include <iostream>' )
+    out.code( 'using namespace std;' )
+    out.code()
+    out.code('#include "../nif_basic_types.h"')
+    out.code()
+    out.write('namespace Niflib {\n')
+    out.code()
+    for n in enum_types:
+      x = enum_types[n]
+      if x.options:
+        if x.description:
+            out.code()
+            out.code( '//---' + x.cname + '---//')
+            out.code()
+        out.code('void NifStream( %s & val, istream& in, const NifInfo & info = NifInfo() );'%x.cname)
+        out.code('void NifStream( %s const & val, ostream& out, const NifInfo & info = NifInfo() );'%x.cname)
+        out.code()
+
+    out.write('}\n')
+    out.code('#endif')
+    out.close()
+
+    #Write out Enumeration Implementation
+if GENALLFILES:
+    out = CFile(ROOT_DIR + '/src/gen/enums.cpp', 'w')
+    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    out.code( 'All rights reserved.  Please see niflib.h for license. */' )
+    out.code()
+    out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+    out.code()
+    out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
+    out.code()
+    out.code('#include <string>')
+    out.code('#include <iostream>')
+    out.code('#include "../../include/NIF_IO.h"')
+    out.code('#include "../../include/gen/enums.h"')
+    out.code('#include "../../include/gen/enums_intl.h"')
+    out.code()
+    out.code('using namespace std;')
+    out.code()
+    out.write('namespace Niflib {\n')
     out.code()
 
-out.write('}\n')
-out.code('#endif')
-out.close()
-
-
-
-#Write out Enumeration Implementation
-out = CFile(ROOT_DIR + '/src/gen/enums.cpp', 'w')
-out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-out.code( 'All rights reserved.  Please see niflib.h for license. */' )
-out.code()
-out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
-out.code()
-out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
-out.code()
-out.code('#include <string>')
-out.code('#include <iostream>')
-out.code('#include "../../include/NIF_IO.h"')
-out.code('#include "../../include/gen/enums.h"')
-out.code('#include "../../include/gen/enums_intl.h"')
-out.code()
-out.code('using namespace std;')
-out.code()
-out.write('namespace Niflib {\n')
-out.code()
-
-out.code()
-for n in enum_types:
-  x = enum_types[n]
-  if x.options:
     out.code()
-    out.code('//--' + x.cname + '--//')
-    out.code()
-    out.code('void NifStream( %s & val, istream& in, const NifInfo & info ) {'%(x.cname))
-    out.code('%s temp;'%(x.storage))
-    out.code('NifStream( temp, in, info );')
-    out.code('val = %s(temp);'%(x.cname))
-    out.code('}')
-    out.code()
-    out.code('void NifStream( %s const & val, ostream& out, const NifInfo & info ) {'%(x.cname))
-    out.code('NifStream( (%s)(val), out, info );'%(x.storage))
-    out.code('}')
-    out.code()
-    out.code('ostream & operator<<( ostream & out, %s const & val ) { '%(x.cname))
-    out.code('switch ( val ) {')
-    for o in x.options:
-      out.code('case %s: return out << "%s";'%(o.name, o.name))
-    out.code('default: return out << "Invalid Value! - " << (unsigned int)(val);')
-    out.code('}')
-    out.code('}')
-    out.code()
-    
-out.write('}\n')
-out.close()
+    for n in enum_types:
+      x = enum_types[n]
+      if x.options:
+        out.code()
+        out.code('//--' + x.cname + '--//')
+        out.code()
+        out.code('void NifStream( %s & val, istream& in, const NifInfo & info ) {'%(x.cname))
+        out.code('%s temp;'%(x.storage))
+        out.code('NifStream( temp, in, info );')
+        out.code('val = %s(temp);'%(x.cname))
+        out.code('}')
+        out.code()
+        out.code('void NifStream( %s const & val, ostream& out, const NifInfo & info ) {'%(x.cname))
+        out.code('NifStream( (%s)(val), out, info );'%(x.storage))
+        out.code('}')
+        out.code()
+        out.code('ostream & operator<<( ostream & out, %s const & val ) { '%(x.cname))
+        out.code('switch ( val ) {')
+        for o in x.options:
+          out.code('case %s: return out << "%s";'%(o.name, o.name))
+        out.code('default: return out << "Invalid Value! - " << (unsigned int)(val);')
+        out.code('}')
+        out.code('}')
+        out.code()
+        
+    out.write('}\n')
+    out.close()
 
-#
-# NiObject Registration Function
-#
-out = CFile(ROOT_DIR + '/src/gen/register.cpp', 'w')
-out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
-out.code( 'All rights reserved.  Please see niflib.h for license. */' )
-out.code()
-out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
-out.code()
-out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
-out.code()
-out.code( '#include "../../include/ObjectRegistry.h"' )
-for n in block_names:
-    x = block_types[n]
-    out.code( '#include "../../include/obj/' + x.cname + '.h"' )
-out.code()
-out.code( 'namespace Niflib {' )
-out.code( 'void RegisterObjects() {' )
-out.code()
-for n in block_names:
-    x = block_types[n]
-    out.code( 'ObjectRegistry::RegisterObject( "' + x.cname + '", ' + x.cname + '::Create );' )
-out.code()
-out.code( '}' )
-out.code( '}' )
-out.close()
+    #
+    # NiObject Registration Function
+    #
+    out = CFile(ROOT_DIR + '/src/gen/register.cpp', 'w')
+    out.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
+    out.code( 'All rights reserved.  Please see niflib.h for license. */' )
+    out.code()
+    out.code( '//---THIS FILE WAS AUTOMATICALLY GENERATED.  DO NOT EDIT---//' )
+    out.code()
+    out.code( '//To change this file, alter the niftools/docsys/gen_niflib.py Python script.' )
+    out.code()
+    out.code( '#include "../../include/ObjectRegistry.h"' )
+    for n in block_names:
+        x = block_types[n]
+        out.code( '#include "../../include/obj/' + x.cname + '.h"' )
+    out.code()
+    out.code( 'namespace Niflib {' )
+    out.code( 'void RegisterObjects() {' )
+    out.code()
+    for n in block_names:
+        x = block_types[n]
+        out.code( 'ObjectRegistry::RegisterObject( "' + x.cname + '", ' + x.cname + '::Create );' )
+    out.code()
+    out.code( '}' )
+    out.code( '}' )
+    out.close()
     
 
 #
@@ -524,6 +534,9 @@ for n in block_names:
     x = block_types[n]
     x_define_name = define_name(x.cname)
 
+    if not GENALLFILES and not x.cname in GENBLOCKS:
+        continue
+    print x.cname
     #
     # NiObject Header File
     #
