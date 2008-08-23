@@ -536,7 +536,7 @@ for n in block_names:
 
     if not GENALLFILES and not x.cname in GENBLOCKS:
         continue
-    print x.cname
+    
     #
     # NiObject Header File
     #
