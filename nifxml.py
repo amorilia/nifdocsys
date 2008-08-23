@@ -1013,14 +1013,18 @@ class Member:
             elif self.type in basic_names:
                 self.default = "0"
         if self.default:
-            if self.type == "string" or self.type == "IndexString":
+            if self.default[0] == '(' and self.default[-1] == ')':
+                self.default = self.default[1:-1]
+            if self.arr1.lhs: # handle static array types
+                if self.arr1.lhs.isdigit():
+                    sep = (',(%s)'%class_name(self.type))
+                    self.default = self.arr1.lhs + sep + sep.join(self.default.split(' ', int(self.arr1.lhs)))
+            elif self.type == "string" or self.type == "IndexString":
                 self.default = "\"" + self.default + "\""
             elif self.type == "float":
                 self.default += "f"
             elif self.type in ["Ref", "Ptr", "bool", "Vector3"]:
                 pass
-            elif self.default[0] == '(' and self.default[-1] == ')':
-                self.default = self.default[1:-1]
             else:
                 self.default = "(%s)%s"%(class_name(self.type), self.default)
         
