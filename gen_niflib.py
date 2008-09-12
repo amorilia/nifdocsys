@@ -15,6 +15,8 @@
 #
 # -a : generate accessors for data in classes
 #
+# -n <block>: generate only files which match the specified name
+#
 # --------------------------------------------------------------------------
 # ***** BEGIN LICENSE BLOCK *****
 #
