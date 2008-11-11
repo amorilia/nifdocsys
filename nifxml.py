@@ -88,6 +88,8 @@ from textwrap import fill
 
 import sys
 import os
+import re
+import types
 
 #
 # global data
@@ -293,6 +295,7 @@ class CFile(file):
         lastver2 = None
         lastuserver = None
         lastcond = None
+        lastvercond = None
         # stream name
         if action == ACTION_READ:
             stream = "in"
@@ -415,6 +418,8 @@ class CFile(file):
                           y_cond_lmember = z
                        elif y.cond.op == '&&' and y.cond.lhs.lhs == z.name:
                           y_cond_lmember = z
+                       elif y.cond.op == '||' and y.cond.lhs.lhs == z.name:
+                          y_cond_lmember = z
                     if not y_arg and y.arg == z.name:
                         y_arg = z
                 if y_arr1_lmember:
@@ -457,32 +462,39 @@ class CFile(file):
                 y_cond_prefix = arg_prefix
             # conditioning
             y_cond = y.cond.code(y_cond_prefix)
+            y_vercond = y.vercond.code('info.')
             if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
-                if lastver1 != y.ver1 or lastver2 != y.ver2 or lastuserver != y.userver:
+                if lastver1 != y.ver1 or lastver2 != y.ver2 or lastuserver != y.userver or lastvercond != y_vercond:
                     # we must switch to a new version block    
                     # close old version block
-                    if lastver1 or lastver2 or lastuserver: self.code("};")
+                    if lastver1 or lastver2 or lastuserver or lastvercond: self.code("};")
                     # close old condition block as well    
                     if lastcond:
                         self.code("};")
                         lastcond = None
                     # start new version block
-                    if y.userver is None:
-                        if y.ver1 and not y.ver2:
-                            self.code("if ( info.version >= 0x%08X ) {"%y.ver1)
-                        elif not y.ver1 and y.ver2:
-                            self.code("if ( info.version <= 0x%08X ) {"%y.ver2)
-                        elif y.ver1 and y.ver2:
-                            self.code("if ( ( info.version >= 0x%08X ) && ( info.version <= 0x%08X ) ) {"%(y.ver1, y.ver2))
-                    else:
-                        if y.ver1 and not y.ver2:
-                            self.code("if ( ( info.version >= 0x%08X ) && ( info.userVersion == %s ) ) {"%(y.ver1, y.userver))
-                        elif not y.ver1 and y.ver2:
-                            self.code("if ( ( info.version <= 0x%08X ) && ( info.userVersion == %s ) ) {"%(y.ver2, userver))
-                        elif y.ver1 and y.ver2:
-                            self.code("if ( ( info.version >= 0x%08X ) && ( info.version <= 0x%08X ) && ( info.userVersion == %s ) ) {"%(y.ver1, y.ver2, y.userver))
-                        elif not y.ver1 and not y.ver2:
-                            self.code("if ( info.userVersion == %s ) {" % (y.userver))
+                    
+                    concat = ''
+                    verexpr = ''
+                    if y.ver1:
+                        verexpr = "( info.version >= 0x%08X )"%y.ver1
+                        concat = " && "
+                    if y.ver2:
+                        verexpr = "%s%s( info.version <= 0x%08X )"%(verexpr, concat, y.ver2)
+                        concat = " && "
+                    if y.userver:
+                        verexpr = "%s%s( info.UserVersion == %s )"%(verexpr, concat, y.userver)
+                        concat = " && "
+                    if y_vercond:
+                        verexpr = "%s%s( %s )"%(verexpr, concat, y_vercond)
+                    if verexpr:
+                        # remove outer redundant parenthesis 
+                        bleft, bright = scanBrackets(verexpr)
+                        if bleft == 0 and bright == (len(verexpr) - 1):
+                            self.code("if %s {"%verexpr)
+                        else:
+                            self.code("if ( %s ) {"%verexpr)
+                    
                     # start new condition block
                     if lastcond != y_cond and y_cond:
                         self.code("if ( %s ) {"%y_cond)
@@ -632,6 +644,7 @@ class CFile(file):
             lastver2 = y.ver2
             lastuserver = y.userver
             lastcond = y_cond
+            lastvercond = y_vercond
 
         if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
             if lastver1 or lastver2 or not(lastuserver is None):
@@ -736,7 +749,7 @@ def member_name(n):
             n2 += '_'
             lower = True
     return n2
-
+    
 def version2number(s):
     """
     Translates a legible NIF version number to the packed-byte numeric representation. For example, "10.0.1.0" is translated to 0x0A000100.
@@ -782,7 +795,327 @@ def userversion2number(s):
     if not s: return None
     return int(s)
 
-class Expr:
+def scanBrackets(expr_str, fromIndex = 0):
+    """Looks for matching brackets.
+
+    >>> scanBrackets('abcde')
+    (-1, -1)
+    >>> scanBrackets('()')
+    (0, 1)
+    >>> scanBrackets('(abc(def))g')
+    (0, 9)
+    >>> s = '  (abc(dd efy 442))xxg'
+    >>> startpos, endpos = scanBrackets(s)
+    >>> print s[startpos+1:endpos]
+    abc(dd efy 442)
+    """
+    startpos = -1
+    endpos = -1
+    scandepth = 0
+    for scanpos in xrange(fromIndex, len(expr_str)):
+        scanchar = expr_str[scanpos]
+        if scanchar == "(":
+            if startpos == -1:
+                startpos = scanpos
+            scandepth += 1
+        elif scanchar == ")":
+            scandepth -= 1
+            if scandepth == 0:
+                endpos = scanpos
+                break
+    else:
+        if startpos != -1 or endpos != -1:
+            raise ValueError("expression syntax error (non-matching brackets?)")
+    return (startpos, endpos)
+    
+class Expression(object):
+    """This class represents an expression.
+
+    >>> class A(object):
+    ...     x = False
+    ...     y = True
+    >>> a = A()
+    >>> e = Expression('x || y')
+    >>> e.eval(a)
+    1
+    >>> Expression('99 & 15').eval(a)
+    3
+    >>> bool(Expression('(99&15)&&y').eval(a))
+    True
+    >>> a.hello_world = False
+    >>> def nameFilter(s):
+    ...     return 'hello_' + s.lower()
+    >>> bool(Expression('(99 &15) &&WoRlD', name_filter = nameFilter).eval(a))
+    False
+    >>> Expression('c && d').eval(a)
+    Traceback (most recent call last):
+        ...
+    AttributeError: 'A' object has no attribute 'c'
+    >>> bool(Expression('1 == 1').eval())
+    True
+    >>> bool(Expression('1 != 1').eval())
+    False
+    """
+    operators = [ '==', '!=', '>=', '<=', '&&', '||', '&', '|', '-', '+' ]
+    def __init__(self, expr_str, name_filter = None):
+        left, self._op, right = self._partition(expr_str)
+        self._left = self._parse(left, name_filter)
+        if right:
+            self._right = self._parse(right, name_filter)
+        else:
+            self._right = ''
+
+    def eval(self, data = None):
+        """Evaluate the expression to an integer."""
+
+        if isinstance(self._left, Expression):
+            left = self._left.eval(data)
+        elif isinstance(self._left, basestring):
+            left = getattr(data, self._left) if self._left != '""' else ""
+        else:
+            assert(isinstance(self._left, (int, long))) # debug
+            left = self._left
+
+        if not self._op:
+            return left
+
+        if isinstance(self._right, Expression):
+            right = self._right.eval(data)
+        elif isinstance(self._right, basestring):
+            right = getattr(data, self._right) if self._right != '""' else ""
+        else:
+            assert(isinstance(self._right, (int, long))) # debug
+            right = self._right
+
+        if self._op == '==':
+            return int(left == right)
+        elif self._op == '!=':
+            return int(left != right)
+        elif self._op == '>=':
+            return int(left >= right)
+        elif self._op == '<=':
+            return int(left <= right)
+        elif self._op == '&&':
+            return int(left and right)
+        elif self._op == '||':
+            return int(left or right)
+        elif self._op == '&':
+            return left & right
+        elif self._op == '|':
+            return left | right
+        elif self._op == '-':
+            return left - right
+        elif self._op == '+':
+            return left + right
+        elif self._op == '!':
+            return not right
+        else:
+            raise NotImplementedError("expression syntax error: operator '" + op + "' not implemented")
+
+    def __str__(self):
+        """Reconstruct the expression to a string."""
+
+        left = str(self._left)
+        if not self._op: return left
+        right = str(self._right)
+        return left + ' ' + self._op + ' ' + right
+
+    @classmethod
+    def _parse(cls, expr_str, name_filter = None):
+        """Returns an Expression, string, or int, depending on the
+        contents of <expr_str>."""
+        # brackets or operators => expression
+        if ("(" in expr_str) or (")" in expr_str):
+            return Expression(expr_str, name_filter)
+        for op in cls.operators:
+            if expr_str.find(op) != -1:
+                return Expression(expr_str, name_filter)
+                
+        mver = re.compile("[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")
+        iver = re.compile("[0-9]+")
+        # try to convert it to an integer
+        try:
+            if mver.match(expr_str):
+                return str(version2number(expr_str))
+            elif iver.match(expr_str):
+                return str(int(expr_str))
+            return name_filter(expr_str) if name_filter else expr_str
+        # failed, so return the string, passed through the name filter
+        except ValueError:
+            return name_filter(expr_str) if name_filter else expr_str
+
+    @classmethod
+    def _partition(cls, expr_str):
+        """Partitions expr_str. See examples below.
+
+        >>> Expression._partition('abc || efg')
+        ('abc', '||', 'efg')
+        >>> Expression._partition('abc||efg')
+        ('abc', '||', 'efg')
+        >>> Expression._partition('abcdefg')
+        ('abcdefg', '', '')
+        >>> Expression._partition(' abcdefg ')
+        ('abcdefg', '', '')
+        >>> Expression._partition(' (a | b) & c ')
+        ('a | b', '&', 'c')
+        >>> Expression._partition('(a | b)!=(b&c)')
+        ('a | b', '!=', 'b&c')
+        >>> Expression._partition('(a== b) &&(( b!=c)||d )')
+        ('a== b', '&&', '( b!=c)||d')
+        """
+        # check for unary operators 
+        if expr_str.strip().startswith('!'):
+            return '', '!', expr_str.lstrip(' !')
+        lenstr = len(expr_str)
+        # check if the left hand side starts with brackets
+        # and if so, find the position of the starting bracket and the ending
+        # bracket
+        left_startpos, left_endpos = cls._scanBrackets(expr_str)
+        if left_startpos >= 0:
+            # yes, it is a bracketted expression
+            # so remove brackets and whitespace,
+            # and let that be the left hand side
+            left_str = expr_str[left_startpos+1:left_endpos].strip()
+            
+            # the next token should be the operator
+            # find the position where the operator should start
+            op_startpos = left_endpos+1
+            while op_startpos < lenstr and expr_str[op_startpos] == " ":
+                op_startpos += 1
+            if op_startpos < lenstr:
+                # to avoid confusion between && and &, and || and |,
+                # let's first scan for operators of two characters
+                # and then for operators of one character
+                for op_endpos in xrange(op_startpos+1, op_startpos-1, -1):
+                    op_str = expr_str[op_startpos:op_endpos+1]
+                    if op_str in cls.operators:
+                        break
+                #else:
+                # raise ValueError("expression syntax error: expected operator at '%s'"%expr_str[op_startpos:])
+            return cls._partition(left_str)
+        else:
+            # it's not... so we need to scan for the first operator
+            for op_startpos, ch in enumerate(expr_str):
+                if ch == ' ': continue
+                if ch == '(' or ch == ')':
+                    raise ValueError("expression syntax error: expected operator before '%s'"%expr_str[op_startpos:])
+                # to avoid confusion between && and &, and || and |,
+                # let's first scan for operators of two characters
+                for op_endpos in xrange(op_startpos+1, op_startpos-1, -1):
+                    op_str = expr_str[op_startpos:op_endpos+1]
+                    if op_str in cls.operators:
+                        break
+                else:
+                    continue
+                break
+            else:
+                # no operator found, so we are done
+                left_str = expr_str.strip()
+                op_str = ''
+                right_str = ''
+                return left_str, op_str, right_str
+            # operator found! now get the left hand side
+            left_str = expr_str[:op_startpos].strip()
+
+        # now we have done the left hand side, and the operator
+        # all that is left is to process the right hand side
+        right_startpos, right_endpos = cls._scanBrackets(expr_str, op_endpos+1)
+        if right_startpos >= 0:
+            # yes, it is a bracketted expression
+            # so remove brackets and whitespace,
+            # and let that be the right hand side
+            right_str = expr_str[right_startpos+1:right_endpos].strip()
+            # check for trailing junk
+            if expr_str[right_endpos+1:] and not expr_str[right_endpos+1:] == ' ':
+                raise ValueError("expression syntax error: unexpected trailing characters '%s'"%expr_str[right_endpos+1:])
+        else:
+            # no, so just take the whole expression as right hand side
+            right_str = expr_str[op_endpos+1:].strip()
+            # check that it is a valid expression
+            if ("(" in right_str) or (")" in right_str):
+                raise ValueError("expression syntax error: unexpected brackets in '%s'"%right_str)
+        return left_str, op_str, right_str
+
+    @staticmethod
+    def _scanBrackets(expr_str, fromIndex = 0):
+        """Looks for matching brackets.
+
+        >>> Expression._scanBrackets('abcde')
+        (-1, -1)
+        >>> Expression._scanBrackets('()')
+        (0, 1)
+        >>> Expression._scanBrackets('(abc(def))g')
+        (0, 9)
+        >>> s = '  (abc(dd efy 442))xxg'
+        >>> startpos, endpos = Expression._scanBrackets(s)
+        >>> print s[startpos+1:endpos]
+        abc(dd efy 442)
+        """
+        startpos = -1
+        endpos = -1
+        scandepth = 0
+        for scanpos in xrange(fromIndex, len(expr_str)):
+            scanchar = expr_str[scanpos]
+            if scanchar == "(":
+                if startpos == -1:
+                    startpos = scanpos
+                scandepth += 1
+            elif scanchar == ")":
+                scandepth -= 1
+                if scandepth == 0:
+                    endpos = scanpos
+                    break
+        else:
+            if startpos != -1 or endpos != -1:
+                raise ValueError("expression syntax error (non-matching brackets?)")
+        return (startpos, endpos)
+        
+    def code(self, prefix, brackets = True, name_filter = None):
+        """Format an expression as a string.
+        @param prefix: An optional prefix.
+        @type prefix: string
+        @param brackets: If C{True}, then put expression between brackets.
+        @type prefix: string
+        @return The expression formatted into a string.
+        @rtype: string
+        """
+        lbracket = "(" if brackets else ""
+        rbracket = ")" if brackets else ""
+        m = re.compile("[a-zA-Z_?][a-zA-Z0-9_ ?]*")
+        if not self._op:
+            if not self.lhs: return None
+            if isinstance(self.lhs, types.IntType):
+                return self.lhs               
+            else:
+                return prefix + (name_filter(self.lhs) if name_filter else self.lhs)
+               
+        else:
+            lhs = self.lhs
+            rhs = self.rhs
+            if isinstance(lhs, Expression):
+                lhs = lhs.code(prefix, brackets = True)
+            elif not isinstance(lhs, types.IntType):
+                lhs = prefix + (name_filter(lhs) if name_filter else lhs)
+            if isinstance(rhs, Expression):
+                rhs = rhs.code(prefix, brackets = True)
+            elif not isinstance(rhs, types.IntType):
+                rhs = prefix + (name_filter(rhs) if name_filter else rhs)
+            return '%s%s %s %s%s'%(lbracket, lhs, self._op, rhs, rbracket)
+        
+    def __getattr__(self, name):
+        if (name == 'lhs'):
+            return getattr(self, '_left')
+        if (name == 'rhs'):
+            return getattr(self, '_right')
+        if (name == 'clhs'):
+            return member_name(getattr(self, '_left'))
+        if (name == 'crhs'):
+            return member_name(getattr(self, '_right'))
+        if (name == 'op'):
+            return getattr(self, '_op')
+        return Object.__getattribute__(self, name)
+        
+class Expr(Expression):
     """
     Represents a mathmatical expression?
     @ivar lhs: The left hand side of the expression?
@@ -794,46 +1127,16 @@ class Expr:
     @ivar rhs: The right hand side of the expression?
     @type rhs: string
     """
-    def __init__(self, n):
+    def __init__(self, n, name_filter = None):
         """
         This constructor takes the expression in the form of a string and tokenizes it into left-hand side, operator, right hand side, and something called clhs.
         @param n: The expression to tokenize.
         @type n: string
         """
-        if n == None:
-            self.lhs = None
-            self.clhs = None
-            self.op = None
-            self.rhs = None
-            return
+        # if not name_filter:
+            # name_filter = member_name
+        Expression.__init__(self, n, name_filter)
         
-        if n.find('&&') != -1:
-            self.lhs = Expr(n[n.find('(')+1:n.find(')')])
-            self.clhs = None
-            self.op = '&&'
-            self.rhs = Expr(n[n.rfind('(')+1:n.rfind(')')])
-            return
-            
-        x = None
-        for op in [ '>=', '<=', '<', '>', '==', '!=', '&' ]:
-            if n.find(op) != -1:
-                x = n.split(op)
-                break
-        if not x:
-            self.lhs = n.strip()
-            self.clhs = member_name(self.lhs)
-            self.op = None
-            self.rhs = None
-        elif len(x) == 2:
-            self.lhs = x[0].strip()
-            self.clhs = member_name(self.lhs)
-            self.op = op
-            self.rhs = x[1].strip()
-        else:
-            # bad syntax
-            print x
-            raise str('"%s" is an invalid expression'%n)
-
     def code(self, prefix, brackets = True):
         """Format an expression as a string.
         @param prefix: An optional prefix.
@@ -845,20 +1148,26 @@ class Expr:
         """
         lbracket = "(" if brackets else ""
         rbracket = ")" if brackets else ""
+        m = re.compile("[a-zA-Z_?][a-zA-Z0-9_ ?]*")
         if not self.op:
             if not self.lhs: return None
-            if self.lhs[0] >= '0' and self.lhs[0] <= '9':
-                return self.lhs
+            if isinstance(self.lhs, types.IntType):
+                return self.lhs               
             else:
-                return prefix + self.clhs
+                return prefix + member_name(self.lhs)
+               
         else:
-            if self.op != '&&':
-                if self.lhs[0] >= '0' and self.lhs[0] <= '9':
-                    return '%s%s %s %s%s'%(lbracket, self.lhs, self.op, self.rhs, rbracket)
-                else:
-                    return '%s%s%s %s %s%s'%(lbracket, prefix, self.clhs, self.op, self.rhs, rbracket)
-            else:
-                return '%s%s && %s%s'%(lbracket, self.lhs.code(prefix, brackets = True), self.rhs.code(prefix, brackets = True), rbracket)
+            lhs = self.lhs
+            rhs = self.rhs
+            if isinstance(lhs, Expression):
+                lhs = lhs.code(prefix, brackets = True, name_filter = member_name)
+            elif not lhs.isdigit():
+                lhs = prefix + member_name(lhs)
+            if isinstance(rhs, Expression):
+                rhs = rhs.code(prefix, brackets = True, name_filter = member_name)
+            elif not rhs.isdigit():
+                rhs = prefix + member_name(self.rhs)
+            return '%s%s %s %s%s'%(lbracket, lhs, self.op, rhs, rbracket)
                 
 class Option:
     """
@@ -915,6 +1224,8 @@ class Member:
     @type ver2: string
     @ivar userver: The user version where this member exists.  Comes from the "userver" attribute of the <add> tag.
     @type userver: string
+    @ivar vercond: The version condition of this member variable.  Comes from the "vercond" attribute of the <add> tag.
+    @type vercond: Eval    
     @ivar is_public: Whether this member will be declared public.  Comes from the "public" attribute of the <add> tag.
     @type is_public: string
     @ivar description: The description of this member variable.  Comes from the text between <add> and </add>.
@@ -983,6 +1294,7 @@ class Member:
         self.ver1      = version2number(element.getAttribute('ver1'))
         self.ver2      = version2number(element.getAttribute('ver2'))
         self.userver   = userversion2number(element.getAttribute('userver'))
+        self.vercond   = Expr(element.getAttribute('vercond'))
         self.is_public = (element.getAttribute('public') == "1")  
         self.next_dup  = None
         self.is_manual_update = False
@@ -1060,9 +1372,9 @@ class Member:
                 sis_arr2 = Expr(sis.getAttribute('arr2'))
                 sis_cond = Expr(sis.getAttribute('cond'))
                 if sis_arr1.lhs == self.name and (not sis_arr1.rhs or sis_arr1.rhs.isdigit()):
-                    self.arr1_ref.append(sis_name)
+                        self.arr1_ref.append(sis_name)
                 if sis_arr2.lhs == self.name and (not sis_arr2.rhs or sis_arr2.rhs.isdigit()):
-                    self.arr2_ref.append(sis_name)
+                        self.arr2_ref.append(sis_name)
                 if sis_cond.lhs == self.name:
                     self.cond_ref.append(sis_name)
             sis = sis.nextSibling
