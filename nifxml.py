@@ -647,7 +647,7 @@ class CFile(file):
             lastvercond = y_vercond
 
         if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS]:
-            if lastver1 or lastver2 or not(lastuserver is None):
+            if lastver1 or lastver2 or not(lastuserver is None) or lastvercond:
                 self.code("};")
         if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS, ACTION_OUT]:
             if lastcond:
