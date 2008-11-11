@@ -483,7 +483,7 @@ class CFile(file):
                         verexpr = "%s%s( info.version <= 0x%08X )"%(verexpr, concat, y.ver2)
                         concat = " && "
                     if y.userver:
-                        verexpr = "%s%s( info.UserVersion == %s )"%(verexpr, concat, y.userver)
+                        verexpr = "%s%s( info.userVersion == %s )"%(verexpr, concat, y.userver)
                         concat = " && "
                     if y_vercond:
                         verexpr = "%s%s( %s )"%(verexpr, concat, y_vercond)
@@ -856,8 +856,9 @@ class Expression(object):
     >>> bool(Expression('1 != 1').eval())
     False
     """
-    operators = [ '==', '!=', '>=', '<=', '&&', '||', '&', '|', '-', '+' ]
+    operators = [ '==', '!=', '>=', '<=', '&&', '||', '&', '|', '-', '+', '>', '<' ]
     def __init__(self, expr_str, name_filter = None):
+        self._code = expr_str
         left, self._op, right = self._partition(expr_str)
         self._left = self._parse(left, name_filter)
         if right:
@@ -908,7 +909,7 @@ class Expression(object):
         elif self._op == '+':
             return left + right
         elif self._op == '!':
-            return not right
+            return not left
         else:
             raise NotImplementedError("expression syntax error: operator '" + op + "' not implemented")
 
@@ -936,7 +937,7 @@ class Expression(object):
         # try to convert it to an integer
         try:
             if mver.match(expr_str):
-                return str(version2number(expr_str))
+                return "0x%08X"%(version2number(expr_str))
             elif iver.match(expr_str):
                 return str(int(expr_str))
             return name_filter(expr_str) if name_filter else expr_str
@@ -965,7 +966,7 @@ class Expression(object):
         """
         # check for unary operators 
         if expr_str.strip().startswith('!'):
-            return '', '!', expr_str.lstrip(' !')
+            return expr_str.lstrip(' !'), '!', None
         lenstr = len(expr_str)
         # check if the left hand side starts with brackets
         # and if so, find the position of the starting bracket and the ending
@@ -990,9 +991,10 @@ class Expression(object):
                     op_str = expr_str[op_startpos:op_endpos+1]
                     if op_str in cls.operators:
                         break
-                #else:
-                # raise ValueError("expression syntax error: expected operator at '%s'"%expr_str[op_startpos:])
-            return cls._partition(left_str)
+                else:
+                    raise ValueError("expression syntax error: expected operator at '%s'"%expr_str[op_startpos:])
+            else:
+                return cls._partition(left_str)
         else:
             # it's not... so we need to scan for the first operator
             for op_startpos, ch in enumerate(expr_str):
@@ -1016,25 +1018,8 @@ class Expression(object):
                 return left_str, op_str, right_str
             # operator found! now get the left hand side
             left_str = expr_str[:op_startpos].strip()
-
-        # now we have done the left hand side, and the operator
-        # all that is left is to process the right hand side
-        right_startpos, right_endpos = cls._scanBrackets(expr_str, op_endpos+1)
-        if right_startpos >= 0:
-            # yes, it is a bracketted expression
-            # so remove brackets and whitespace,
-            # and let that be the right hand side
-            right_str = expr_str[right_startpos+1:right_endpos].strip()
-            # check for trailing junk
-            if expr_str[right_endpos+1:] and not expr_str[right_endpos+1:] == ' ':
-                raise ValueError("expression syntax error: unexpected trailing characters '%s'"%expr_str[right_endpos+1:])
-        else:
-            # no, so just take the whole expression as right hand side
-            right_str = expr_str[op_endpos+1:].strip()
-            # check that it is a valid expression
-            if ("(" in right_str) or (")" in right_str):
-                raise ValueError("expression syntax error: unexpected brackets in '%s'"%right_str)
-        return left_str, op_str, right_str
+            
+        return left_str, op_str, expr_str[op_endpos+1:].strip()
 
     @staticmethod
     def _scanBrackets(expr_str, fromIndex = 0):
@@ -1070,7 +1055,7 @@ class Expression(object):
                 raise ValueError("expression syntax error (non-matching brackets?)")
         return (startpos, endpos)
         
-    def code(self, prefix, brackets = True, name_filter = None):
+    def code(self, prefix = '', brackets = True, name_filter = None):
         """Format an expression as a string.
         @param prefix: An optional prefix.
         @type prefix: string
@@ -1081,24 +1066,29 @@ class Expression(object):
         """
         lbracket = "(" if brackets else ""
         rbracket = ")" if brackets else ""
-        m = re.compile("[a-zA-Z_?][a-zA-Z0-9_ ?]*")
         if not self._op:
-            if not self.lhs: return None
+            if not self.lhs: return ''
             if isinstance(self.lhs, types.IntType):
                 return self.lhs               
             else:
                 return prefix + (name_filter(self.lhs) if name_filter else self.lhs)
-               
+        elif self._op == '!':
+            lhs = self.lhs
+            if isinstance(lhs, Expression):
+                lhs = lhs.code(prefix, True, name_filter)
+            elif lhs and not lhs.isdigit() and not lhs.startswith('0x'):
+                lhs = prefix + (name_filter(lhs) if name_filter else lhs)
+            return '%s%s%s%s'%(lbracket, self._op, lhs, rbracket)
         else:
             lhs = self.lhs
             rhs = self.rhs
             if isinstance(lhs, Expression):
-                lhs = lhs.code(prefix, brackets = True)
-            elif not isinstance(lhs, types.IntType):
+                lhs = lhs.code(prefix, True, name_filter)
+            elif lhs and not lhs.isdigit() and not lhs.startswith('0x'):
                 lhs = prefix + (name_filter(lhs) if name_filter else lhs)
             if isinstance(rhs, Expression):
-                rhs = rhs.code(prefix, brackets = True)
-            elif not isinstance(rhs, types.IntType):
+                rhs = rhs.code(prefix, True, name_filter)
+            elif rhs and not rhs.isdigit() and not rhs.startswith('0x'):
                 rhs = prefix + (name_filter(rhs) if name_filter else rhs)
             return '%s%s %s %s%s'%(lbracket, lhs, self._op, rhs, rbracket)
         
@@ -1107,10 +1097,6 @@ class Expression(object):
             return getattr(self, '_left')
         if (name == 'rhs'):
             return getattr(self, '_right')
-        if (name == 'clhs'):
-            return member_name(getattr(self, '_left'))
-        if (name == 'crhs'):
-            return member_name(getattr(self, '_right'))
         if (name == 'op'):
             return getattr(self, '_op')
         return Object.__getattribute__(self, name)
@@ -1133,42 +1119,13 @@ class Expr(Expression):
         @param n: The expression to tokenize.
         @type n: string
         """
-        # if not name_filter:
-            # name_filter = member_name
         Expression.__init__(self, n, name_filter)
         
-    def code(self, prefix, brackets = True):
-        """Format an expression as a string.
-        @param prefix: An optional prefix.
-        @type prefix: string
-        @param brackets: If C{True}, then put expression between brackets.
-        @type prefix: string
-        @return The expression formatted into a string.
-        @rtype: string
-        """
-        lbracket = "(" if brackets else ""
-        rbracket = ")" if brackets else ""
-        m = re.compile("[a-zA-Z_?][a-zA-Z0-9_ ?]*")
-        if not self.op:
-            if not self.lhs: return None
-            if isinstance(self.lhs, types.IntType):
-                return self.lhs               
-            else:
-                return prefix + member_name(self.lhs)
-               
-        else:
-            lhs = self.lhs
-            rhs = self.rhs
-            if isinstance(lhs, Expression):
-                lhs = lhs.code(prefix, brackets = True, name_filter = member_name)
-            elif not lhs.isdigit():
-                lhs = prefix + member_name(lhs)
-            if isinstance(rhs, Expression):
-                rhs = rhs.code(prefix, brackets = True, name_filter = member_name)
-            elif not rhs.isdigit():
-                rhs = prefix + member_name(self.rhs)
-            return '%s%s %s %s%s'%(lbracket, lhs, self.op, rhs, rbracket)
-                
+    def code(self, prefix = '', brackets = True, name_filter = None):
+        if not name_filter:
+            name_filter = member_name
+        return Expression.code(self, prefix, brackets, name_filter)
+                        
 class Option:
     """
     This class represents an option in an option list.
@@ -1370,7 +1327,7 @@ class Member:
                 sis_name = sis.getAttribute('name')
                 sis_arr1 = Expr(sis.getAttribute('arr1'))
                 sis_arr2 = Expr(sis.getAttribute('arr2'))
-                sis_cond = Expr(sis.getAttribute('cond'))
+                sis_cond = Expr(sis.getAttribute('cond'))               
                 if sis_arr1.lhs == self.name and (not sis_arr1.rhs or sis_arr1.rhs.isdigit()):
                         self.arr1_ref.append(sis_name)
                 if sis_arr2.lhs == self.name and (not sis_arr2.rhs or sis_arr2.rhs.isdigit()):
