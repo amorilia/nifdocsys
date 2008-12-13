@@ -99,6 +99,7 @@ native_types = {}
 native_types['TEMPLATE'] = 'T'
 basic_types = {}
 enum_types = {}
+flag_types = {}
 compound_types = {}
 block_types = {}
 version_types = {}
@@ -106,6 +107,7 @@ version_types = {}
 basic_names = []
 compound_names = []
 enum_names = []
+flag_names = []
 block_names = []
 version_names = []
 
@@ -389,8 +391,11 @@ class CFile(file):
                 subblock = basic_types[y.type]
             elif y.type in compound_types:
                 subblock = compound_types[y.type]
-            else:
+            elif y.type in enum_types:
                 subblock = enum_types[y.type]
+            elif y.type in flag_types:
+                subblock = flag_types[y.type]
+                
             # check for links
             if action in [ACTION_FIXLINKS, ACTION_GETREFS]:
                 if not subblock.has_links and not subblock.has_crossrefs:
@@ -1498,6 +1503,13 @@ class Enum(Basic):
           x = Option(option)
           self.options.append(x)
 
+class Flag(Enum):
+  def __init__(self, element):
+      Enum.__init__(self, element)
+      for option in self.options:
+        option.bit = option.value
+        option.value = 1 << int(option.value)
+          
 class Compound(Basic):
     # create a compound type from the XML <compound /> attributes
     def __init__(self, element):
@@ -1753,6 +1765,12 @@ for element in doc.getElementsByTagName('enum'):
     assert not enum_types.has_key(x.name)
     enum_types[x.name] = x
     enum_names.append(x.name)
+
+for element in doc.getElementsByTagName('bitflags'):
+    x = Flag(element)
+    assert not flag_types.has_key(x.name)
+    flag_types[x.name] = x
+    flag_names.append(x.name)
     
 for element in doc.getElementsByTagName("compound"):
     x = Compound(element)

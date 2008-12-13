@@ -60,6 +60,7 @@ from nifxml import *
 from distutils.dir_util import mkpath
 import os
 import hashlib
+import itertools
 
 #
 # global data
@@ -399,8 +400,7 @@ if GENALLFILES:
     out.code()
     out.write('namespace Niflib {\n')
     out.code()
-    for n in enum_types:
-      x = enum_types[n]
+    for n, x in itertools.chain(enum_types.iteritems(), flag_types.iteritems()):
       if x.options:
         if x.description:
           out.comment(x.description)
@@ -436,8 +436,7 @@ if GENALLFILES:
     out.code()
     out.write('namespace Niflib {\n')
     out.code()
-    for n in enum_types:
-      x = enum_types[n]
+    for n, x in itertools.chain(enum_types.iteritems(), flag_types.iteritems()):
       if x.options:
         if x.description:
             out.code()
@@ -473,8 +472,7 @@ if GENALLFILES:
     out.code()
 
     out.code()
-    for n in enum_types:
-      x = enum_types[n]
+    for n, x in itertools.chain(enum_types.iteritems(), flag_types.iteritems()):
       if x.options:
         out.code()
         out.code('//--' + x.cname + '--//')
