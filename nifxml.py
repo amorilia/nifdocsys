@@ -142,7 +142,7 @@ class Template:
 
         #Loop through all variables, replacing them in the template text
         for i in self.vars:
-            txt = txt.replace( "{" + i + "}", self.vars[i] )
+            txt = txt.replace( "{" + i + "}", str(self.vars[i]) )
 
         #return result
         return txt
