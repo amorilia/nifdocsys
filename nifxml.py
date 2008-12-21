@@ -487,7 +487,7 @@ class CFile(file):
                     if y.ver2:
                         verexpr = "%s%s( info.version <= 0x%08X )"%(verexpr, concat, y.ver2)
                         concat = " && "
-                    if y.userver:
+                    if y.userver != None:
                         verexpr = "%s%s( info.userVersion == %s )"%(verexpr, concat, y.userver)
                         concat = " && "
                     if y_vercond:
