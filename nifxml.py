@@ -1286,6 +1286,8 @@ class Member:
                 self.default = "-1";
             elif self.type in basic_names:
                 self.default = "0"
+            elif self.type in flag_names or self.type in enum_names:
+                self.default = "0"
         if self.default:
             if self.default[0] == '(' and self.default[-1] == ')':
                 self.default = self.default[1:-1]
@@ -1299,6 +1301,8 @@ class Member:
                 self.default += "f"
             elif self.type in ["Ref", "Ptr", "bool", "Vector3"]:
                 pass
+            elif self.default.find(',') != -1:
+                pass 
             else:
                 self.default = "(%s)%s"%(class_name(self.type), self.default)
         
