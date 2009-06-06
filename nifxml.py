@@ -604,7 +604,7 @@ class CFile(file):
                                 self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
                             self.code("if ( info.version < VER_3_3_0_13 ) {")
-                            self.code("NifStream( (unsigned int)&(*%s), %s, info );"%(z, stream))
+                            self.code("WritePtr32( &(*%s), %s );"%(z, stream))
                             self.code("} else {")  
                             self.code("if ( %s != NULL ) {"%z)
                             self.code("NifStream( link_map.find( StaticCast<NiObject>(%s) )->second, %s, info );"%(z, stream))
