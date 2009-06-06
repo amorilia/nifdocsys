@@ -312,7 +312,11 @@ class CFile(file):
                     self.code("unsigned int block_num;")
             if action == ACTION_OUT:
                 self.code("stringstream out;")
-                self.code("unsigned int array_output_count = 0;")
+                # declare array_output_count, only if it will actually be used
+                for y in block.members:
+                    if y.arr1.lhs or (y.ctype in ["BoundingVolume", "ByteArray", "KeyGroup"]):
+                        self.code("unsigned int array_output_count = 0;")
+                        break
             if action == ACTION_GETREFS:
                 self.code("list<Ref<NiObject> > refs;")
 
