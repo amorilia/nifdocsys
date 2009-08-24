@@ -1472,8 +1472,10 @@ class Basic:
         assert(self.name) # debug
         self.cname = class_name(self.name)
         self.niflibtype = element.getAttribute('niflibtype')
-        assert element.firstChild.nodeType == Node.TEXT_NODE
-        self.description = element.firstChild.nodeValue.strip()
+        if element.firstChild and element.firstChild.nodeType == Node.TEXT_NODE:
+            self.description = element.firstChild.nodeValue.strip()
+        else:
+            self.description = "Unknown."
 
         self.count = element.getAttribute('count')
 
