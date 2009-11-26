@@ -1756,6 +1756,9 @@ if os.path.exists("nif.xml"):
 # import via "import docsys" from ..
 elif os.path.exists("docsys/nif.xml"):
     doc = parse("docsys/nif.xml")
+# new submodule system
+elif os.path.exists("nifxml/nif.xml"):
+    doc = parse("nifxml/nif.xml")
 else:
     raise ImportError("nif.xml not found")
 
