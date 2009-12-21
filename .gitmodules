@@ -1,6 +1,6 @@
 [submodule "nifxml"]
 	path = nifxml
-	url = git://github.com/amorilia/nifxml.git
+	url = git://niftools.git.sourceforge.net/gitroot/niftools/nifxml
 [submodule "kfmxml"]
 	path = kfmxml
-	url = git://github.com/amorilia/kfmxml.git
+	url = git://niftools.git.sourceforge.net/gitroot/niftools/kfmxml
