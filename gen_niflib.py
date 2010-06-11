@@ -406,7 +406,7 @@ if GENALLFILES:
           out.comment(x.description)
         out.code('enum %s {'%(x.cname))
         for o in x.options:
-          out.code('%s = %s, /*!< %s */'%(o.name, o.value, o.description))
+          out.code('%s = %s, /*!< %s */'%(o.cname, o.value, o.description))
         out.code('};')
         out.code()
         out.code('ostream & operator<<( ostream & out, %s const & val );'%x.cname)
@@ -490,7 +490,7 @@ if GENALLFILES:
         out.code('ostream & operator<<( ostream & out, %s const & val ) { '%(x.cname))
         out.code('switch ( val ) {')
         for o in x.options:
-          out.code('case %s: return out << "%s";'%(o.name, o.name))
+          out.code('case %s: return out << "%s";'%(o.cname, o.name))
         out.code('default: return out << "Invalid Value! - " << (unsigned int)(val);')
         out.code('}')
         out.code('}')

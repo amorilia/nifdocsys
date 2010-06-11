@@ -1144,6 +1144,8 @@ class Option:
     @type name: string
     @ivar description: The description of this option.  Comes from the text between <option> and </option>.
     @type description: string
+    @ivar cname: The name of this member for use in C++.
+    @type cname: string
     """
     def __init__(self, element):
         """
@@ -1161,6 +1163,7 @@ class Option:
             self.description = element.firstChild.nodeValue.strip()
         else:
             self.description = self.name
+        self.cname = self.name.upper().replace(" ", "_")
 
 class Member:
     """
