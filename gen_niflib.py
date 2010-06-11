@@ -66,7 +66,7 @@ import itertools
 # global data
 #
 
-ROOT_DIR = "../niflib"
+ROOT_DIR = ".."
 BOOTSTRAP = False
 GENIMPL = True
 GENACCESSORS = False
