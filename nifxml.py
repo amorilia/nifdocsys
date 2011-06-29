@@ -81,6 +81,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 @var ACTION_GETREFS: Constant for use with CFile::stream.  Causes it to generate Niflib's GetRefs function.
 @type ACTION_GETREFS: C{int}
+
+@var ACTION_GETPTRS: Constant for use with CFile::stream.  Causes it to generate Niflib's GetPtrs function.
+@type ACTION_GETPTRS: C{int}
 """
 
 from xml.dom.minidom import *
@@ -116,6 +119,7 @@ ACTION_WRITE = 1
 ACTION_OUT = 2
 ACTION_FIXLINKS = 3
 ACTION_GETREFS = 4
+ACTION_GETPTRS = 5
 
 #
 # HTML Template class
@@ -283,6 +287,7 @@ class CFile(file):
             ACTION_OUT - asString function
             ACTION_FIXLINKS - FixLinks function
             ACTION_GETREFS - GetRefs function
+            ACTION_GETPTRS - GetPtrs function
         @type action: ACTION_X constant
         @param localprefix: ?
         @type localprefix: string
@@ -319,6 +324,8 @@ class CFile(file):
                         break
             if action == ACTION_GETREFS:
                 self.code("list<Ref<NiObject> > refs;")
+            if action == ACTION_GETPTRS:
+                self.code("list<NiObject *> ptrs;")
 
         # stream the ancestor
         if isinstance(block, Block):
@@ -333,6 +340,8 @@ class CFile(file):
                     self.code("%s::FixLinks( objects, link_stack, info );"%block.inherit.cname)
                 elif action == ACTION_GETREFS:
                     self.code("refs = %s::GetRefs();"%block.inherit.cname)
+                elif action == ACTION_GETPTRS:
+                    self.code("ptrs = %s::GetPtrs();"%block.inherit.cname)
 
         # declare and calculate local variables (TODO: GET RID OF THIS; PREFERABLY NO LOCAL VARIABLES AT ALL)
         if action in [ACTION_READ, ACTION_WRITE, ACTION_OUT]:
@@ -401,7 +410,7 @@ class CFile(file):
                 subblock = flag_types[y.type]
                 
             # check for links
-            if action in [ACTION_FIXLINKS, ACTION_GETREFS]:
+            if action in [ACTION_FIXLINKS, ACTION_GETREFS, ACTION_GETPTRS]:
                 if not subblock.has_links and not subblock.has_crossrefs:
                     continue # contains no links, so skip this member!
             if action == ACTION_OUT:
@@ -580,7 +589,7 @@ class CFile(file):
     
             if native_types.has_key(y.type):
                 # these actions distinguish between refs and non-refs
-                if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS, ACTION_GETREFS]:
+                if action in [ACTION_READ, ACTION_WRITE, ACTION_FIXLINKS, ACTION_GETREFS, ACTION_GETPTRS]:
                     if (not subblock.is_link) and (not subblock.is_crossref):
                         # not a ref
                         if action in [ACTION_READ, ACTION_WRITE]:
@@ -624,6 +633,9 @@ class CFile(file):
                         elif action == ACTION_GETREFS and subblock.is_link:
                             if y.is_declared and not y.is_duplicate:
                                 self.code('if ( %s != NULL )\n\trefs.push_back(StaticCast<NiObject>(%s));'%(z,z))
+                        elif action == ACTION_GETPTRS and subblock.is_crossref:
+                            if y.is_declared and not y.is_duplicate:
+                                self.code('if ( %s != NULL )\n\tptrs.push_back((NiObject *)(%s));'%(z,z))
                 # the following actions don't distinguish between refs and non-refs
                 elif action == ACTION_OUT:
                     if not y.arr1.lhs:
@@ -668,6 +680,8 @@ class CFile(file):
                 self.code("return out.str();")
             if action == ACTION_GETREFS:
                 self.code("return refs;")
+            if action == ACTION_GETPTRS:
+                self.code("return ptrs;")
 
     # declaration
     # print "$t Get$n() const; \nvoid Set$n($t value);\n\n";

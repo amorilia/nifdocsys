@@ -657,6 +657,8 @@ for n in block_names:
     out.code( 'NIFLIB_HIDDEN virtual void FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
     out.code( 'NIFLIB_HIDDEN virtual list<NiObjectRef> GetRefs() const;' )
+    out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
+    out.code( 'NIFLIB_HIDDEN virtual list<NiObject *> GetPtrs() const;' )
     out.code( '};' )
     out.code()
     out.code( '//--BEGIN FILE FOOT CUSTOM CODE--//' )
@@ -832,6 +834,11 @@ for n in block_names:
 
     out.code("std::list<NiObjectRef> %s::GetRefs() const {"%x.cname)
     out.stream(x, ACTION_GETREFS)
+    out.code("}")
+    out.code()
+
+    out.code("std::list<NiObject *> %s::GetPtrs() const {"%x.cname)
+    out.stream(x, ACTION_GETPTRS)
     out.code("}")
     out.code()
 
