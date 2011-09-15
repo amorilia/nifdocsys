@@ -350,6 +350,8 @@ class CFile(file):
                 if not y.is_duplicate and not y.is_manual_update and action in [ACTION_WRITE, ACTION_OUT]:
                   if y.func:
                       self.code('%s%s = %s%s();'%(prefix, y.cname, prefix, y.func))
+                  elif y.is_calculated:
+                      self.code('%s%s = %s%sCalc();'%(prefix, y.cname, prefix, y.cname))
                   elif y.arr1_ref:
                     if not y.arr1 or not y.arr1.lhs: # Simple Scalar
                       cref = block.find_member(y.arr1_ref[0], True) 
