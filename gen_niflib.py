@@ -238,7 +238,11 @@ for n in compound_names:
     if not GENALLFILES and not x.cname in GENBLOCKS:
             continue
         
-    h = CFile(ROOT_DIR + '/include/gen/' + x.cname + '.h', 'w')  
+    #Get existing custom code
+    file_name = ROOT_DIR + '/include/gen/' + x.cname + '.h'
+    custom_lines = ExtractCustomCode( file_name );
+
+    h = CFile(file_name, 'w')  
     h.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     h.code( 'All rights reserved.  Please see niflib.h for license. */' )
     h.code()
@@ -290,6 +294,14 @@ for n in compound_names:
         h.code( 'NIFLIB_HIDDEN void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
         h.code( 'NIFLIB_HIDDEN string asString( bool verbose = false ) const;' )
 
+    h.code( '//--BEGIN MISC CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['MISC']:
+        h.write(l);
+        
+    h.code( '//--END CUSTOM CODE--//' )
+
     # done
     h.code("};")
     h.code()
@@ -298,7 +310,11 @@ for n in compound_names:
     h.close()
 
     if not x.template:
-        cpp = CFile(ROOT_DIR + '/src/gen/' + x.cname + '.cpp', 'w')
+        #Get existing custom code
+        file_name = ROOT_DIR + '/src/gen/' + x.cname + '.cpp'
+        custom_lines = ExtractCustomCode( file_name );
+
+        cpp = CFile(file_name, 'w')
         cpp.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
         cpp.code( 'All rights reserved.  Please see niflib.h for license. */' )
         cpp.code()
@@ -380,6 +396,15 @@ for n in compound_names:
             cpp.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
             cpp.stream(x, ACTION_OUT)
             cpp.code( '}' )
+
+        cpp.code()
+        cpp.code( '//--BEGIN MISC CUSTOM CODE--//' )
+
+        #Preserve Custom code from before
+        for l in custom_lines['MISC']:
+            cpp.write(l);
+        
+        cpp.code( '//--END CUSTOM CODE--//' )
 
         cpp.close()
 
