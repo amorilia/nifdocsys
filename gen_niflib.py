@@ -326,7 +326,7 @@ for n in compound_names:
         cpp.code('//Copy Operator')
         cpp.code( '%s & %s::operator=( const %s & src ) {'%(x.cname,x.cname,x.cname) )
         for m in x.members:
-            if m.is_declared and not m.is_duplicate:
+            if not m.is_duplicate:
                 cpp.code('this->%s = src.%s;'%(m.cname, m.cname) )
         cpp.code('return *this;')
         cpp.code('};')
