@@ -1234,6 +1234,7 @@ class Member:
         self.is_public = (element.getAttribute('public') == "1")  
         self.next_dup  = None
         self.is_manual_update = False
+        self.is_calculated = (element.getAttribute('calculated') == "1")
 
         #Get description from text between start and end tags
         if element.firstChild:
