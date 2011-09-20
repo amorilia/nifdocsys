@@ -333,7 +333,7 @@ class CFile(file):
                 if action == ACTION_READ:
                     self.code("%s::Read( %s, link_stack, info );"%(block.inherit.cname, stream))
                 elif action == ACTION_WRITE:
-                    self.code("%s::Write( %s, link_map, info );"%(block.inherit.cname, stream))
+                    self.code("%s::Write( %s, link_map, missing_link_stack, info );"%(block.inherit.cname, stream))
                 elif action == ACTION_OUT:
                     self.code("%s << %s::asString();"%(stream, block.inherit.cname))
                 elif action == ACTION_FIXLINKS:
@@ -577,11 +577,14 @@ class CFile(file):
                             self.code("map<NiObjectRef,unsigned int>::const_iterator it = link_map.find( StaticCast<NiObject>(%s) );" % z)
                             self.code("if (it != link_map.end()) {")
                             self.code("NifStream( it->second, %s, info );"%stream)
+                            self.code("missing_link_stack.push_back( NULL );")
                             self.code("} else {")
                             self.code("NifStream( 0xFFFFFFFF, %s, info );"%stream)
+                            self.code("missing_link_stack.push_back( %s );" %z)
                             self.code("}")
                             self.code("} else {")
                             self.code("NifStream( 0xFFFFFFFF, %s, info );"%stream)
+                            self.code("missing_link_stack.push_back( NULL );")
                             self.code("}")
                             self.code("}")
                         elif action == ACTION_FIXLINKS:

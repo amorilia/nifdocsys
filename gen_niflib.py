@@ -291,7 +291,7 @@ for n in compound_names:
     
     if n == "Footer":
         h.code( 'NIFLIB_HIDDEN void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
-        h.code( 'NIFLIB_HIDDEN void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
+        h.code( 'NIFLIB_HIDDEN void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, list<NiObject *> & missing_link_stack, const NifInfo & info ) const;' )
         h.code( 'NIFLIB_HIDDEN string asString( bool verbose = false ) const;' )
 
     h.code( '//--BEGIN MISC CUSTOM CODE--//' )
@@ -389,7 +389,7 @@ for n in compound_names:
             cpp.stream(x, ACTION_READ)
             cpp.code( '}' )
             cpp.code()
-            cpp.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {' )
+            cpp.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, list<NiObject *> & missing_link_stack, const NifInfo & info ) const {' )
             cpp.stream(x, ACTION_WRITE)
             cpp.code( '}' )
             cpp.code()
@@ -677,7 +677,7 @@ for n in block_names:
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
     out.code( 'NIFLIB_HIDDEN virtual void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
-    out.code( 'NIFLIB_HIDDEN virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
+    out.code( 'NIFLIB_HIDDEN virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, list<NiObject *> & missing_link_stack, const NifInfo & info ) const;' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
     out.code( 'NIFLIB_HIDDEN virtual void FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
@@ -794,7 +794,7 @@ for n in block_names:
     out.code("}")
     out.code()
       
-    out.code("void %s::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {"%x.cname)
+    out.code("void %s::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, list<NiObject *> & missing_link_stack, const NifInfo & info ) const {"%x.cname)
     out.code( '//--BEGIN PRE-WRITE CUSTOM CODE--//' )
 
     #Preserve Custom code from before
