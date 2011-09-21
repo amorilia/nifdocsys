@@ -337,7 +337,7 @@ class CFile(file):
                 elif action == ACTION_OUT:
                     self.code("%s << %s::asString();"%(stream, block.inherit.cname))
                 elif action == ACTION_FIXLINKS:
-                    self.code("%s::FixLinks( objects, link_stack, info );"%block.inherit.cname)
+                    self.code("%s::FixLinks( objects, link_stack, missing_link_stack, info );"%block.inherit.cname)
                 elif action == ACTION_GETREFS:
                     self.code("refs = %s::GetRefs();"%block.inherit.cname)
                 elif action == ACTION_GETPTRS:

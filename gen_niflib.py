@@ -679,7 +679,7 @@ for n in block_names:
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
     out.code( 'NIFLIB_HIDDEN virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, list<NiObject *> & missing_link_stack, const NifInfo & info ) const;' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
-    out.code( 'NIFLIB_HIDDEN virtual void FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
+    out.code( 'NIFLIB_HIDDEN virtual void FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, list<NiObjectRef> & missing_link_stack, const NifInfo & info );' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
     out.code( 'NIFLIB_HIDDEN virtual list<NiObjectRef> GetRefs() const;' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
@@ -836,7 +836,7 @@ for n in block_names:
     out.code("}")
     out.code()
 
-    out.code("void %s::FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {"%x.cname)
+    out.code("void %s::FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, list<NiObjectRef> & missing_link_stack, const NifInfo & info ) {"%x.cname)
 
     out.code( '//--BEGIN PRE-FIXLINKS CUSTOM CODE--//' )
     
