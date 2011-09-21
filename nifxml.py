@@ -588,7 +588,7 @@ class CFile(file):
                             self.code("}")
                             self.code("}")
                         elif action == ACTION_FIXLINKS:
-                            self.code("%s = FixLink<%s>( objects, link_stack, info );"%(z,y.ctemplate))
+                            self.code("%s = FixLink<%s>( objects, link_stack, missing_link_stack, info );"%(z,y.ctemplate))
                                 
                         elif action == ACTION_GETREFS and subblock.is_link:
                             if not y.is_duplicate:
