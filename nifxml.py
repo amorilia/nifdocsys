@@ -923,10 +923,10 @@ class Expression(object):
                 return "0x%08X"%(version2number(expr_str))
             elif iver.match(expr_str):
                 return str(int(expr_str))
-            return name_filter(expr_str) if name_filter else expr_str
-        # failed, so return the string, passed through the name filter
         except ValueError:
-            return name_filter(expr_str) if name_filter else expr_str
+            pass
+        # failed, so return the string, passed through the name filter
+        return name_filter(expr_str) if name_filter else expr_str
 
     @classmethod
     def _partition(cls, expr_str):
