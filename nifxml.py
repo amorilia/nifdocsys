@@ -410,9 +410,9 @@ class CFile(file):
                     if not y_cond_lmember:
                        if y.cond.lhs == z.name:
                           y_cond_lmember = z
-                       elif y.cond.op == '&&' and y.cond.lhs.lhs == z.name:
+                       elif y.cond.op == '&&' and y.cond.lhs == z.name:
                           y_cond_lmember = z
-                       elif y.cond.op == '||' and y.cond.lhs.lhs == z.name:
+                       elif y.cond.op == '||' and y.cond.lhs == z.name:
                           y_cond_lmember = z
                     if not y_arg and y.arg == z.name:
                         y_arg = z
