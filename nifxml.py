@@ -1137,7 +1137,7 @@ class Option:
             self.description = element.firstChild.nodeValue.strip()
         else:
             self.description = self.name
-        self.cname = self.name.upper().replace(" ", "_")
+        self.cname = self.name.upper().replace(" ", "_").replace("-", "_").replace("/", "_").replace("=", "_")
 
 class Member:
     """
