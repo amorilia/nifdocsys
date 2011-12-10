@@ -262,7 +262,7 @@ class CFile(file):
             #self.code('protected:')
             prot_mode = True
         for y in block.members:
-            if y.is_declared and not y.is_duplicate:
+            if not y.is_duplicate:
                 if isinstance(block, Block):
                     if y.is_public and prot_mode:
                         self.code('public:')
@@ -333,11 +333,11 @@ class CFile(file):
                 if action == ACTION_READ:
                     self.code("%s::Read( %s, link_stack, info );"%(block.inherit.cname, stream))
                 elif action == ACTION_WRITE:
-                    self.code("%s::Write( %s, link_map, info );"%(block.inherit.cname, stream))
+                    self.code("%s::Write( %s, link_map, missing_link_stack, info );"%(block.inherit.cname, stream))
                 elif action == ACTION_OUT:
                     self.code("%s << %s::asString();"%(stream, block.inherit.cname))
                 elif action == ACTION_FIXLINKS:
-                    self.code("%s::FixLinks( objects, link_stack, info );"%block.inherit.cname)
+                    self.code("%s::FixLinks( objects, link_stack, missing_link_stack, info );"%block.inherit.cname)
                 elif action == ACTION_GETREFS:
                     self.code("refs = %s::GetRefs();"%block.inherit.cname)
                 elif action == ACTION_GETPTRS:
@@ -347,35 +347,11 @@ class CFile(file):
         if action in [ACTION_READ, ACTION_WRITE, ACTION_OUT]:
             block.members.reverse() # calculated data depends on data further down the structure
             for y in block.members:
-                # read + write + out: declare
-                if not y.is_declared and not y.is_duplicate:
-                  # declare it
-                  self.code(y.code_declare(localprefix))
-                  # write + out: calculate
-                  if action in [ACTION_WRITE, ACTION_OUT]:
-                      if y.cond_ref:
-                          assert(y.is_declared) # bug check
-                      elif y.arr1_ref:
-                          assert(not y.is_declared) # bug check
-                          self.code('%s%s = (%s)(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr1_ref[0]))
-                      elif y.arr2_ref:
-                          assert(not y.is_declared) # bug check
-                          if not y.arr1.lhs:
-                              self.code('%s%s = (%s)(%s%s.size());'%(localprefix, y.cname, y.ctype, prefix, y.carr2_ref[0]))
-                          else:
-                              # index of dynamically sized array
-                              self.code('%s%s.resize(%s%s.size());'%(localprefix, y.cname, prefix, y.carr2_ref[0]))
-                              self.code('for (unsigned int i%i = 0; i%i < %s%s.size(); i%i++)'%(self.indent, self.indent, localprefix, y.cname, self.indent))
-                              self.code('\t%s%s[i%i] = (%s)(%s%s[i%i].size());'%(localprefix, y.cname, self.indent, y.ctype, prefix, y.carr2_ref[0], self.indent))
-                      elif y.func:
-                          assert(not y.is_declared) # bug check
-                          self.code('%s%s = %s%s();'%(localprefix, y.cname, prefix, y.func))
-                      else:
-                          assert(y.is_declared) # bug check
-                          
-                elif y.is_declared and not y.is_duplicate and not y.is_manual_update and action in [ACTION_WRITE, ACTION_OUT]:
+                if not y.is_duplicate and not y.is_manual_update and action in [ACTION_WRITE, ACTION_OUT]:
                   if y.func:
                       self.code('%s%s = %s%s();'%(prefix, y.cname, prefix, y.func))
+                  elif y.is_calculated:
+                      self.code('%s%s = %s%sCalc();'%(prefix, y.cname, prefix, y.cname))
                   elif y.arr1_ref:
                     if not y.arr1 or not y.arr1.lhs: # Simple Scalar
                       cref = block.find_member(y.arr1_ref[0], True) 
@@ -441,30 +417,15 @@ class CFile(file):
                     if not y_arg and y.arg == z.name:
                         y_arg = z
                 if y_arr1_lmember:
-                    if y_arr1_lmember.is_declared:
-                        y_arr1_prefix = prefix
-                    else:
-                        y_arr1_prefix = localprefix
+                    y_arr1_prefix = prefix
                 if y_arr2_lmember:
-                    if y_arr2_lmember.is_declared:
-                        y_arr2_prefix = prefix
-                    else:
-                        y_arr2_prefix = localprefix
+                    y_arr2_prefix = prefix
                 if y_cond_lmember:
-                    if y_cond_lmember.is_declared:
-                        y_cond_prefix = prefix
-                    else:
-                        y_cond_prefix = localprefix
+                    y_cond_prefix = prefix
                 if y_arg:
-                    if y_arg.is_declared:
-                        y_arg_prefix = prefix
-                    else:
-                        y_arg_prefix = localprefix
+                    y_arg_prefix = prefix
             # resolve this prefix
-            if y.is_declared:
-                y_prefix = prefix
-            else:
-                y_prefix = localprefix
+            y_prefix = prefix
             # resolve arguments
             if y.arr1 and y.arr1.lhs == 'ARG':
                 y.arr1.lhs = arg_member.name
@@ -545,12 +506,6 @@ class CFile(file):
                       #   definition from resized child
                       memcode = "%s%s.resize(%s);"%(y_prefix, y.cname, y.arr1.code(y_arr1_prefix))
                       mem = block.find_member(y.arr1.lhs, True) # find member in self or parents
-                      if mem and not mem.is_declared and not mem.is_duplicate and mem.arr1_ref:
-                          localmem = block.find_member(y.arr1.lhs, False) # find only in self for locals
-                          if not localmem:
-                            ref1 = block.find_first_ref(mem.name)
-                            if ref1 and ref1.name != y.name:
-                              memcode = "%s%s.resize(%s%s.size());"%(y_prefix, y.cname, prefix, member_name(ref1.name))
                       self.code(memcode)
                       
                     self.code(\
@@ -613,8 +568,7 @@ class CFile(file):
                         # a ref
                         if action == ACTION_READ:
                             self.code("NifStream( block_num, %s, info );"%stream)
-                            if y.is_declared:
-                                self.code("link_stack.push_back( block_num );")
+                            self.code("link_stack.push_back( block_num );")
                         elif action == ACTION_WRITE:
                             self.code("if ( info.version < VER_3_3_0_13 ) {")
                             self.code("WritePtr32( &(*%s), %s );"%(z, stream))
@@ -623,23 +577,24 @@ class CFile(file):
                             self.code("map<NiObjectRef,unsigned int>::const_iterator it = link_map.find( StaticCast<NiObject>(%s) );" % z)
                             self.code("if (it != link_map.end()) {")
                             self.code("NifStream( it->second, %s, info );"%stream)
+                            self.code("missing_link_stack.push_back( NULL );")
                             self.code("} else {")
                             self.code("NifStream( 0xFFFFFFFF, %s, info );"%stream)
+                            self.code("missing_link_stack.push_back( %s );" %z)
                             self.code("}")
                             self.code("} else {")
                             self.code("NifStream( 0xFFFFFFFF, %s, info );"%stream)
+                            self.code("missing_link_stack.push_back( NULL );")
                             self.code("}")
                             self.code("}")
                         elif action == ACTION_FIXLINKS:
-                            if y.is_declared:
-                                
-                                self.code("%s = FixLink<%s>( objects, link_stack, info );"%(z,y.ctemplate))
+                            self.code("%s = FixLink<%s>( objects, link_stack, missing_link_stack, info );"%(z,y.ctemplate))
                                 
                         elif action == ACTION_GETREFS and subblock.is_link:
-                            if y.is_declared and not y.is_duplicate:
+                            if not y.is_duplicate:
                                 self.code('if ( %s != NULL )\n\trefs.push_back(StaticCast<NiObject>(%s));'%(z,z))
                         elif action == ACTION_GETPTRS and subblock.is_crossref:
-                            if y.is_declared and not y.is_duplicate:
+                            if not y.is_duplicate:
                                 self.code('if ( %s != NULL )\n\tptrs.push_back((NiObject *)(%s));'%(z,z))
                 # the following actions don't distinguish between refs and non-refs
                 elif action == ACTION_OUT:
@@ -1232,8 +1187,6 @@ class Member:
     @type arr2_ref: string array?
     @ivar cond_ref: Names of the attributes it is a condition of (?)
     @type cond_ref: string array?
-    @ivar is_declared: True if it is declared in the class, if false, then field is calculated somehow
-    @type is_declared: bool
     @ivar cname: Unlike default, name isn't formatted for C++ so use this instead?
     @type cname: string
     @ivar ctype: Unlike default, type isn't formatted for C++ so use this instead?
@@ -1286,6 +1239,7 @@ class Member:
         self.is_public = (element.getAttribute('public') == "1")  
         self.next_dup  = None
         self.is_manual_update = False
+        self.is_calculated = (element.getAttribute('calculated') == "1")
 
         #Get description from text between start and end tags
         if element.firstChild:
@@ -1370,12 +1324,6 @@ class Member:
                 if sis_cond.lhs == self.name:
                     self.cond_ref.append(sis_name)
             sis = sis.nextSibling
-        # true if it is declared in the class, if false, this field is calculated somehow
-        # so don't declare variables that can be calculated; ("Num Vertices" is a dirty hack, it's used in derived classes as array size so we must declare it)
-        # if (self.arr1_ref or self.arr2_ref or self.func) and not self.cond_ref : # and self.name != "Num Vertices":
-          # self.is_declared = False
-        # else:
-        self.is_declared = True
 
         # C++ names
         self.cname     = member_name(self.name)
@@ -1390,7 +1338,7 @@ class Member:
     # don't construct anything that hasn't been declared
     # don't construct if it has no default
     def code_construct(self):
-        if self.is_declared and self.default and not self.is_duplicate:
+        if self.default and not self.is_duplicate:
             return "%s(%s)"%(self.cname, self.default)
 
     # declaration
@@ -1399,7 +1347,7 @@ class Member:
         suffix1 = ""
         suffix2 = ""
         keyword = ""
-        if self.is_declared and not self.is_duplicate: # is dimension for one or more arrays
+        if not self.is_duplicate: # is dimension for one or more arrays
           if self.arr1_ref:
             if not self.arr1 or not self.arr1.lhs: # Simple Scalar
               keyword = "mutable "

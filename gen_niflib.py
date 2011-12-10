@@ -238,7 +238,11 @@ for n in compound_names:
     if not GENALLFILES and not x.cname in GENBLOCKS:
             continue
         
-    h = CFile(ROOT_DIR + '/include/gen/' + x.cname + '.h', 'w')  
+    #Get existing custom code
+    file_name = ROOT_DIR + '/include/gen/' + x.cname + '.h'
+    custom_lines = ExtractCustomCode( file_name );
+
+    h = CFile(file_name, 'w')  
     h.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
     h.code( 'All rights reserved.  Please see niflib.h for license. */' )
     h.code()
@@ -287,8 +291,16 @@ for n in compound_names:
     
     if n == "Footer":
         h.code( 'NIFLIB_HIDDEN void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
-        h.code( 'NIFLIB_HIDDEN void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
+        h.code( 'NIFLIB_HIDDEN void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, list<NiObject *> & missing_link_stack, const NifInfo & info ) const;' )
         h.code( 'NIFLIB_HIDDEN string asString( bool verbose = false ) const;' )
+
+    h.code( '//--BEGIN MISC CUSTOM CODE--//' )
+
+    #Preserve Custom code from before
+    for l in custom_lines['MISC']:
+        h.write(l);
+        
+    h.code( '//--END CUSTOM CODE--//' )
 
     # done
     h.code("};")
@@ -298,7 +310,11 @@ for n in compound_names:
     h.close()
 
     if not x.template:
-        cpp = CFile(ROOT_DIR + '/src/gen/' + x.cname + '.cpp', 'w')
+        #Get existing custom code
+        file_name = ROOT_DIR + '/src/gen/' + x.cname + '.cpp'
+        custom_lines = ExtractCustomCode( file_name );
+
+        cpp = CFile(file_name, 'w')
         cpp.code( '/* Copyright (c) 2006, NIF File Format Library and Tools' )
         cpp.code( 'All rights reserved.  Please see niflib.h for license. */' )
         cpp.code()
@@ -326,7 +342,7 @@ for n in compound_names:
         cpp.code('//Copy Operator')
         cpp.code( '%s & %s::operator=( const %s & src ) {'%(x.cname,x.cname,x.cname) )
         for m in x.members:
-            if m.is_declared and not m.is_duplicate:
+            if not m.is_duplicate:
                 cpp.code('this->%s = src.%s;'%(m.cname, m.cname) )
         cpp.code('return *this;')
         cpp.code('};')
@@ -373,13 +389,22 @@ for n in compound_names:
             cpp.stream(x, ACTION_READ)
             cpp.code( '}' )
             cpp.code()
-            cpp.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {' )
+            cpp.code( 'void ' + x.cname + '::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, list<NiObject *> & missing_link_stack, const NifInfo & info ) const {' )
             cpp.stream(x, ACTION_WRITE)
             cpp.code( '}' )
             cpp.code()
             cpp.code( 'string ' + x.cname + '::asString( bool verbose ) const {' )
             cpp.stream(x, ACTION_OUT)
             cpp.code( '}' )
+
+        cpp.code()
+        cpp.code( '//--BEGIN MISC CUSTOM CODE--//' )
+
+        #Preserve Custom code from before
+        for l in custom_lines['MISC']:
+            cpp.write(l);
+        
+        cpp.code( '//--END CUSTOM CODE--//' )
 
         cpp.close()
 
@@ -652,9 +677,9 @@ for n in block_names:
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
     out.code( 'NIFLIB_HIDDEN virtual void Read( istream& in, list<unsigned int> & link_stack, const NifInfo & info );' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
-    out.code( 'NIFLIB_HIDDEN virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const;' )
+    out.code( 'NIFLIB_HIDDEN virtual void Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, list<NiObject *> & missing_link_stack, const NifInfo & info ) const;' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
-    out.code( 'NIFLIB_HIDDEN virtual void FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info );' )
+    out.code( 'NIFLIB_HIDDEN virtual void FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, list<NiObjectRef> & missing_link_stack, const NifInfo & info );' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
     out.code( 'NIFLIB_HIDDEN virtual list<NiObjectRef> GetRefs() const;' )
     out.code( '/*! NIFLIB_HIDDEN function.  For internal use only. */' )
@@ -769,7 +794,7 @@ for n in block_names:
     out.code("}")
     out.code()
       
-    out.code("void %s::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, const NifInfo & info ) const {"%x.cname)
+    out.code("void %s::Write( ostream& out, const map<NiObjectRef,unsigned int> & link_map, list<NiObject *> & missing_link_stack, const NifInfo & info ) const {"%x.cname)
     out.code( '//--BEGIN PRE-WRITE CUSTOM CODE--//' )
 
     #Preserve Custom code from before
@@ -811,7 +836,7 @@ for n in block_names:
     out.code("}")
     out.code()
 
-    out.code("void %s::FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, const NifInfo & info ) {"%x.cname)
+    out.code("void %s::FixLinks( const map<unsigned int,NiObjectRef> & objects, list<unsigned int> & link_stack, list<NiObjectRef> & missing_link_stack, const NifInfo & info ) {"%x.cname)
 
     out.code( '//--BEGIN PRE-FIXLINKS CUSTOM CODE--//' )
     
