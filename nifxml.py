@@ -1378,7 +1378,9 @@ class Member:
               keyword = "mutable "
           elif self.arr2_ref: # 1-dimensional dynamic array
               keyword = "mutable "
-                  
+          elif self.is_calculated:
+              keyword = "mutable "
+
         if self.ctemplate:
             if result != "*":
                 result += "<%s >"%self.ctemplate
