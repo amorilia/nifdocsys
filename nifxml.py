@@ -1104,6 +1104,10 @@ class Expression(object):
         if (name == 'op'):
             return getattr(self, '_op')
         return object.__getattribute__(self, name)
+
+    # ducktyping: pretend we're also a string with isdigit() method
+    def isdigit(self):
+        return False
         
 class Expr(Expression):
     """
