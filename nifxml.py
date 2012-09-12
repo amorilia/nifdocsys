@@ -1103,7 +1103,7 @@ class Expression(object):
             return getattr(self, '_right')
         if (name == 'op'):
             return getattr(self, '_op')
-        return Object.__getattribute__(self, name)
+        return object.__getattribute__(self, name)
         
 class Expr(Expression):
     """
