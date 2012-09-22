@@ -351,7 +351,10 @@ class CFile(file):
                   if y.func:
                       self.code('%s%s = %s%s();'%(prefix, y.cname, prefix, y.func))
                   elif y.is_calculated:
-                      self.code('%s%s = %s%sCalc(info);'%(prefix, y.cname, prefix, y.cname))
+                      if action in [ACTION_READ, ACTION_WRITE]:
+                          self.code('%s%s = %s%sCalc(info);'%(prefix, y.cname, prefix, y.cname))
+                      # ACTION_OUT is in asString(), which doesn't take version info
+                      # so let's simply not print the field in this case
                   elif y.arr1_ref:
                     if not y.arr1 or not y.arr1.lhs: # Simple Scalar
                       cref = block.find_member(y.arr1_ref[0], True) 
